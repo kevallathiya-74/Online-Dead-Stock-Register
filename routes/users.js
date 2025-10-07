@@ -1,20 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const userCtrl = require('../controllers/userController');
+const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
 
-// GET /api/users
-router.get('/', userCtrl.getUsers);
+// Protected: GET all users (Admin/Auditor only)
+router.get('/', authMiddleware, requireRole(['Admin', 'Auditor']), userCtrl.getUsers);
 
-// GET /api/users/:id
-router.get('/:id', userCtrl.getUserById);
+// Protected: GET single user
+router.get('/:id', authMiddleware, userCtrl.getUserById);
 
-// POST /api/users
-router.post('/', userCtrl.createUser);
+// Admin only: POST create user
+router.post('/', authMiddleware, requireRole(['Admin']), userCtrl.createUser);
 
-// PUT /api/users/:id
-router.put('/:id', userCtrl.updateUser);
+// Protected: PUT update user
+router.put('/:id', authMiddleware, userCtrl.updateUser);
 
-// DELETE /api/users/:id
-router.delete('/:id', userCtrl.deleteUser);
+// Admin only: DELETE user
+router.delete('/:id', authMiddleware, requireRole(['Admin']), userCtrl.deleteUser);
 
 module.exports = router;

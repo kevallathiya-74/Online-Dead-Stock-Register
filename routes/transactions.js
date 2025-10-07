@@ -1,14 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const txnCtrl = require('../controllers/transactionController');
+const { authMiddleware } = require('../middleware/authMiddleware');
 
-// GET /api/transactions
-router.get('/', txnCtrl.getTransactions);
+// Protected: GET all transactions
+router.get('/', authMiddleware, txnCtrl.getTransactions);
 
-// POST /api/transactions
-router.post('/', txnCtrl.createTransaction);
+// Protected: POST create transaction
+router.post('/', authMiddleware, txnCtrl.createTransaction);
 
-// GET /api/transactions/:id
-router.get('/:id', txnCtrl.getTransactionById);
+// Protected: GET single transaction
+router.get('/:id', authMiddleware, txnCtrl.getTransactionById);
 
 module.exports = router;

@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const maintCtrl = require('../controllers/maintenanceController');
+const { authMiddleware } = require('../middleware/authMiddleware');
 
-router.get('/', maintCtrl.getMaintenanceRecords);
-router.post('/', maintCtrl.createMaintenanceRecord);
-router.get('/:id', maintCtrl.getMaintenanceById);
+router.get('/', authMiddleware, maintCtrl.getMaintenanceRecords);
+router.post('/', authMiddleware, maintCtrl.createMaintenanceRecord);
+router.get('/:id', authMiddleware, maintCtrl.getMaintenanceById);
 
 module.exports = router;
