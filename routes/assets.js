@@ -1,25 +1,21 @@
-exports.updateAsset = async (req, res) => {
-    try {
-      // Fetch the asset first
-      const asset = await Asset.findById(req.params.id);
-      if (!asset) return res.status(404).json({ message: 'Asset not found' });
-  
-      // Check if the user is the assigned user or an Admin
-      if (
-        asset.assigned_user &&
-        asset.assigned_user.toString() !== req.user.id &&
-        req.user.role !== 'Admin'
-      ) {
-        return res.status(403).json({
-          message: 'Can only update your own assets or admin access required',
-        });
-      }
-  
-      // Proceed to update
-      const updated = await Asset.findByIdAndUpdate(req.params.id, req.body, { new: true });
-      res.json(updated);
-  
-    } catch (err) {
-      res.status(400).json({ message: err.message });
-    }
-  };
+const express = require('express');
+const router = express.Router();
+const assetCtrl = require('../controllers/assetController');
+const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
+
+// Protected: GET all assets
+router.get('/', authMiddleware, assetCtrl.getAssets);
+
+// Protected: GET single asset
+router.get('/:id', authMiddleware, assetCtrl.getAssetById);
+
+// Admin only: POST create asset
+router.post('/', authMiddleware, requireRole(['Admin']), assetCtrl.createAsset);
+
+// Protected: PUT update asset
+router.put('/:id', authMiddleware, assetCtrl.updateAsset);
+
+// Admin only: DELETE asset
+router.delete('/:id', authMiddleware, requireRole(['Admin']), assetCtrl.deleteAsset);
+
+module.exports = router;

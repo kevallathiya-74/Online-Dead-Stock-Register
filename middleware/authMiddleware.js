@@ -49,4 +49,4 @@ const authMiddleware = async (req, res, next) => {
     };
   };
   
-  module.exports = { authMiddleware, requireRole };
+  module.exports = { authMiddleware, requireRole }; 
