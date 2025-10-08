@@ -1,0 +1,17 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Install Core Dependencies",
+			"type": "shell",
+			"command": "cd client && npm install @mui/material @emotion/react @emotion/styled @mui/icons-material react-router-dom axios react-hook-form @hookform/resolvers yup react-query chart.js react-chartjs-2 @zxing/library react-qr-scanner date-fns react-dropzone react-toastify tailwindcss @reduxjs/toolkit react-redux",
+			"group": "build"
+		},
+		{
+			"label": "Install Core Dependencies",
+			"type": "shell",
+			"command": "cd client; npm install @mui/material @emotion/react @emotion/styled @mui/icons-material react-router-dom axios react-hook-form @hookform/resolvers yup react-query chart.js react-chartjs-2 @zxing/library react-qr-scanner date-fns react-dropzone react-toastify tailwindcss @reduxjs/toolkit react-redux",
+			"group": "build"
+		}
+	]
+}
