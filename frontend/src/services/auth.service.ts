@@ -1,6 +1,18 @@
 import { supabase } from '../config/supabase';
-import { AuthError, User } from '@supabase/supabase-js';
+import { AuthError, User, PostgrestError } from '@supabase/supabase-js';
 import { AuthUser, SignUpData, UserProfile } from '../types/auth.types';
+import { UserRole } from '../types';
+
+// Utility function to convert PostgrestError to AuthError
+const toAuthError = (error: PostgrestError | null): AuthError | null => {
+  if (!error) return null;
+  return {
+    name: 'AuthError',
+    message: error.message,
+    status: error.code,
+    __isAuthError: true
+  };
+};
 
 export interface AuthResponse {
   user: AuthUser | null;
@@ -9,7 +21,7 @@ export interface AuthResponse {
 }
 
 export const authService = {
-  async signUp({ email, password, full_name, department, role = 'user' }: SignUpData): Promise<AuthResponse> {
+  async signUp({ email, password, full_name, department, role = UserRole.EMPLOYEE }: SignUpData): Promise<AuthResponse> {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -39,7 +51,7 @@ export const authService = {
     return {
       user: data.user as AuthUser,
       profile: profile as UserProfile | null,
-      error: profileError
+      error: toAuthError(profileError)
     };
   },
 
@@ -97,7 +109,7 @@ export const authService = {
       });
     }
 
-    return { error };
+    return { error: toAuthError(error) };
   },
 
   async getCurrentUser(): Promise<AuthUser | null> {
@@ -124,7 +136,7 @@ export const authService = {
   // Initialize user profile table
   async createProfilesTable() {
     const { error } = await supabase.rpc('create_profiles_table');
-    return { error };
+    return { error: toAuthError(error) };
   }
 };
 

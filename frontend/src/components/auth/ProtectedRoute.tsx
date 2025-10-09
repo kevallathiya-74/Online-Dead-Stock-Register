@@ -3,10 +3,10 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Loading from '../common/Loading';
 
-type Role = 'admin' | 'user' | 'manager';
+import { UserRole } from '../../types';
 
 interface ProtectedRouteProps {
-  allowedRoles?: Role[];
+  allowedRoles?: UserRole[];
   redirectPath?: string;
 }
 
@@ -26,7 +26,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to={redirectPath} state={{ from: location }} replace />;
   }
 
-  const userRole = user.user_metadata?.role as Role;
+  const userRole = user.user_metadata?.role as UserRole;
 
   if (allowedRoles && (!userRole || !allowedRoles.includes(userRole))) {
     // Redirect to dashboard if user doesn't have required role
