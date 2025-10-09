@@ -10,10 +10,10 @@ interface ProtectedRouteProps {
   redirectPath?: string;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
+const ProtectedRoute = ({ 
   allowedRoles, 
   redirectPath = '/login' 
-}) => {
+}: ProtectedRouteProps) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -26,7 +26,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to={redirectPath} state={{ from: location }} replace />;
   }
 
-  const userRole = user.user_metadata?.role as UserRole;
+  const userRole = user.role;
 
   if (allowedRoles && (!userRole || !allowedRoles.includes(userRole))) {
     // Redirect to dashboard if user doesn't have required role

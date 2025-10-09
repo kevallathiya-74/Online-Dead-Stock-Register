@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import {
@@ -59,7 +59,7 @@ const departments = [
   'Administration',
 ];
 
-const Register: React.FC = () => {
+const Register = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -68,9 +68,17 @@ const Register: React.FC = () => {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<RegisterFormInputs>({
     resolver: yupResolver(schema),
+    defaultValues: {
+      username: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      department: '',
+    },
   });
 
   const onSubmit = async (data: RegisterFormInputs) => {
@@ -114,7 +122,7 @@ const Register: React.FC = () => {
             </Typography>
           </Box>
 
-          <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
             <TextField
               fullWidth
               label="Username"
@@ -181,25 +189,31 @@ const Register: React.FC = () => {
               }}
             />
 
-            <FormControl fullWidth margin="normal">
-              <InputLabel>Department</InputLabel>
-              <Select
-                label="Department"
-                {...register('department')}
-                error={!!errors.department}
-              >
-                {departments.map((dept) => (
-                  <MenuItem key={dept} value={dept}>
-                    {dept}
-                  </MenuItem>
-                ))}
-              </Select>
-              {errors.department && (
-                <Typography variant="caption" color="error">
-                  {errors.department.message}
-                </Typography>
+            <Controller
+              name="department"
+              control={control}
+              render={({ field }) => (
+                <FormControl fullWidth margin="normal">
+                  <InputLabel>Department</InputLabel>
+                  <Select
+                    {...field}
+                    label="Department"
+                    error={!!errors.department}
+                  >
+                    {departments.map((dept) => (
+                      <MenuItem key={dept} value={dept}>
+                        {dept}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {errors.department && (
+                    <Typography variant="caption" color="error">
+                      {errors.department.message}
+                    </Typography>
+                  )}
+                </FormControl>
               )}
-            </FormControl>
+            />
 
             <Button
               type="submit"
@@ -225,7 +239,7 @@ const Register: React.FC = () => {
                 </Link>
               </Typography>
             </Box>
-          </form>
+          </Box>
         </CardContent>
       </Card>
     </Box>

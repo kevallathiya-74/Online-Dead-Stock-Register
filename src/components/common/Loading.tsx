@@ -5,7 +5,7 @@ interface LoadingProps {
   message?: string;
 }
 
-const Loading: React.FC<LoadingProps> = ({ message = 'Loading...' }) => {
+const Loading = ({ message = 'Loading...' }: LoadingProps) => {
   return (
     <Box
       sx={{

@@ -28,7 +28,7 @@ const schema = yup.object({
   password: yup.string().required('Password is required'),
 }).required();
 
-const Login: React.FC = () => {
+const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
@@ -40,6 +40,10 @@ const Login: React.FC = () => {
     formState: { errors },
   } = useForm<LoginFormInputs>({
     resolver: yupResolver(schema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
   });
 
   const onSubmit = async (data: LoginFormInputs) => {
@@ -77,7 +81,7 @@ const Login: React.FC = () => {
             </Typography>
           </Box>
 
-          <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
             <TextField
               fullWidth
               label="Email"
@@ -146,7 +150,7 @@ const Login: React.FC = () => {
                 </Link>
               </Typography>
             </Box>
-          </form>
+          </Box>
         </CardContent>
       </Card>
     </Box>
