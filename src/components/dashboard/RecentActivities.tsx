@@ -70,7 +70,7 @@ const getActivityColor = (type: Activity['type']) => {
   }
 };
 
-const RecentActivities: React.FC<RecentActivitiesProps> = ({ activities }) => {
+const RecentActivities = ({ activities }: RecentActivitiesProps) => {
   return (
     <Card>
       <CardHeader

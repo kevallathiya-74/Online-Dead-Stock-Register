@@ -6,12 +6,13 @@ import {
   PointElement,
   LineElement,
   BarElement,
+  ArcElement,
   Title,
   Tooltip,
   Legend,
   ChartOptions,
 } from 'chart.js';
-import { Line, Bar } from 'react-chartjs-2';
+import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { Box, Card, CardContent, Typography } from '@mui/material';
 
 // Register ChartJS components
@@ -21,6 +22,7 @@ ChartJS.register(
   PointElement,
   LineElement,
   BarElement,
+  ArcElement,
   Title,
   Tooltip,
   Legend
@@ -28,42 +30,55 @@ ChartJS.register(
 
 interface ChartComponentProps {
   title: string;
-  type: 'line' | 'bar';
+  type: 'line' | 'bar' | 'doughnut';
   data: {
     labels: string[];
     datasets: Array<{
-      label: string;
+      label?: string;
       data: number[];
-      borderColor?: string;
-      backgroundColor?: string;
+      borderColor?: string | string[];
+      backgroundColor?: string | string[];
+      borderWidth?: number;
     }>;
   };
   height?: number;
 }
 
-const ChartComponent: React.FC<ChartComponentProps> = ({
+const ChartComponent = ({
   title,
   type,
   data,
   height = 300,
-}) => {
-  const options: ChartOptions<'line' | 'bar'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'bottom' as const,
+}: ChartComponentProps) => {
+  const getOptions = (): ChartOptions<any> => {
+    const baseOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom' as const,
+        },
+        title: {
+          display: false,
+        },
       },
-      title: {
-        display: false,
+    };
+
+    if (type === 'doughnut') {
+      return baseOptions;
+    }
+
+    return {
+      ...baseOptions,
+      scales: {
+        y: {
+          beginAtZero: true,
+        },
       },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-      },
-    },
+    };
   };
+
+  const options = getOptions();
 
   return (
     <Card>
@@ -74,8 +89,10 @@ const ChartComponent: React.FC<ChartComponentProps> = ({
         <Box sx={{ height }}>
           {type === 'line' ? (
             <Line options={options} data={data} />
-          ) : (
+          ) : type === 'bar' ? (
             <Bar options={options} data={data} />
+          ) : (
+            <Doughnut options={options} data={data} />
           )}
         </Box>
       </CardContent>

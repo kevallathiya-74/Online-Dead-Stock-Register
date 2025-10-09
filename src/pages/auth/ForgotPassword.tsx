@@ -24,7 +24,7 @@ const schema = yup.object({
   email: yup.string().email('Invalid email').required('Email is required'),
 }).required();
 
-const ForgotPassword: React.FC = () => {
+const ForgotPassword = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isEmailSent, setIsEmailSent] = useState(false);
 
@@ -74,7 +74,7 @@ const ForgotPassword: React.FC = () => {
           </Box>
 
           {!isEmailSent ? (
-            <form onSubmit={handleSubmit(onSubmit)} noValidate>
+            <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
               <TextField
                 fullWidth
                 label="Email"
@@ -95,7 +95,7 @@ const ForgotPassword: React.FC = () => {
               >
                 {isLoading ? 'Sending...' : 'Send Reset Link'}
               </Button>
-            </form>
+            </Box>
           ) : (
             <Box sx={{ textAlign: 'center', mt: 2 }}>
               <Typography variant="body1" paragraph>

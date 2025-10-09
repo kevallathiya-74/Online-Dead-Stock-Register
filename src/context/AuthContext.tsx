@@ -35,9 +35,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         const token = localStorage.getItem('auth_token');
         if (token) {
-          // Verify token and get user data
-          const userData = await authService.getCurrentUser();
-          setUser(userData);
+          // Check if it's a demo token
+          if (token.startsWith('demo-token-')) {
+            const demoUsers = JSON.parse(localStorage.getItem('demo_users') || '[]');
+            const userId = token.replace('demo-token-', '');
+            const demoUser = demoUsers.find((user: any) => user.id === userId);
+            
+            if (demoUser) {
+              const jwtUser: JWTUser = {
+                id: demoUser.id,
+                email: demoUser.email,
+                role: demoUser.role as UserRole,
+                full_name: demoUser.username,
+                department: demoUser.department,
+                created_at: demoUser.created_at,
+                updated_at: demoUser.created_at,
+              };
+              setUser(jwtUser);
+            } else {
+              // Demo user not found, clear token
+              localStorage.removeItem('auth_token');
+              setUser(null);
+            }
+          } else {
+            // Verify real token and get user data
+            const userData = await authService.getCurrentUser();
+            setUser(userData);
+          }
+        } else {
+          setUser(null);
         }
       } catch (error) {
         // Token invalid, remove it
@@ -54,6 +80,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
+      
+      // First try demo users from localStorage
+      const demoUsers = JSON.parse(localStorage.getItem('demo_users') || '[]');
+      const demoUser = demoUsers.find((user: any) => user.email === email);
+      
+      if (demoUser) {
+        // For demo purposes, accept any password for demo users
+        const jwtUser: JWTUser = {
+          id: demoUser.id,
+          email: demoUser.email,
+          role: demoUser.role as UserRole,
+          full_name: demoUser.username,
+          department: demoUser.department,
+          created_at: demoUser.created_at,
+          updated_at: demoUser.created_at,
+        };
+        
+        setUser(jwtUser);
+        localStorage.setItem('auth_token', 'demo-token-' + demoUser.id);
+        toast.success(`Logged in as ${demoUser.role}`);
+        return;
+      }
+      
+      // Fall back to real backend login
       const response = await authService.signIn(email, password);
       setUser(response.user);
       if (response.token) {

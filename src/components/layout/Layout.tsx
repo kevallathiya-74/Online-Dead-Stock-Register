@@ -1,5 +1,4 @@
 import React from 'react';
-import { styled } from '@mui/material/styles';
 import {
   AppBar,
   Box,
@@ -15,31 +14,12 @@ import Sidebar from './Sidebar';
 
 const drawerWidth = 240;
 
-const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
-  open?: boolean;
-}>(({ theme, open }) => ({
-  flexGrow: 1,
-  padding: theme.spacing(3),
-  transition: theme.transitions.create('margin', {
-    easing: theme.transitions.easing.sharp,
-    duration: theme.transitions.duration.leavingScreen,
-  }),
-  marginLeft: `-${drawerWidth}px`,
-  ...(open && {
-    transition: theme.transitions.create('margin', {
-      easing: theme.transitions.easing.easeOut,
-      duration: theme.transitions.duration.enteringScreen,
-    }),
-    marginLeft: 0,
-  }),
-}));
-
 interface LayoutProps {
   children: React.ReactNode;
   title: string;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, title }) => {
+const Layout = ({ children, title }: LayoutProps) => {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const isMobile = useMediaQuery((theme: Theme) => theme.breakpoints.down('md'));
 
@@ -94,10 +74,21 @@ const Layout: React.FC<LayoutProps> = ({ children, title }) => {
         </Drawer>
       </Box>
 
-      <Main open={!isMobile}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          transition: 'margin 0.3s ease',
+          marginLeft: isMobile ? 0 : `-${drawerWidth}px`,
+          ...((!isMobile) && {
+            marginLeft: 0,
+          }),
+        }}
+      >
         <Toolbar /> {/* This is for spacing below the AppBar */}
         {children}
-      </Main>
+      </Box>
     </Box>
   );
 };

@@ -21,13 +21,14 @@ import {
   Settings as SettingsIcon,
   Store as VendorIcon,
 } from '@mui/icons-material';
+import { SvgIconComponent } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
 
 interface MenuItem {
   title: string;
   path: string;
-  icon: React.ReactNode;
+  icon: SvgIconComponent;
   roles: UserRole[];
 }
 
@@ -35,60 +36,60 @@ const menuItems: MenuItem[] = [
   {
     title: 'Dashboard',
     path: '/dashboard',
-    icon: <DashboardIcon />,
+    icon: DashboardIcon,
     roles: [UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.AUDITOR, UserRole.EMPLOYEE],
   },
   {
     title: 'Assets',
     path: '/assets',
-    icon: <InventoryIcon />,
+    icon: InventoryIcon,
     roles: [UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.AUDITOR],
   },
   {
     title: 'Users',
     path: '/users',
-    icon: <PeopleIcon />,
+    icon: PeopleIcon,
     roles: [UserRole.ADMIN],
   },
   {
     title: 'Approvals',
     path: '/approvals',
-    icon: <AssignmentIcon />,
+    icon: AssignmentIcon,
     roles: [UserRole.ADMIN, UserRole.INVENTORY_MANAGER],
   },
   {
     title: 'Documents',
     path: '/documents',
-    icon: <DocumentIcon />,
+    icon: DocumentIcon,
     roles: [UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.AUDITOR],
   },
   {
     title: 'Maintenance',
     path: '/maintenance',
-    icon: <MaintenanceIcon />,
+    icon: MaintenanceIcon,
     roles: [UserRole.ADMIN, UserRole.INVENTORY_MANAGER],
   },
   {
     title: 'Vendors',
     path: '/vendors',
-    icon: <VendorIcon />,
+    icon: VendorIcon,
     roles: [UserRole.ADMIN, UserRole.INVENTORY_MANAGER],
   },
   {
     title: 'Reports',
     path: '/reports',
-    icon: <ReportsIcon />,
+    icon: ReportsIcon,
     roles: [UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.AUDITOR],
   },
   {
     title: 'Settings',
     path: '/settings',
-    icon: <SettingsIcon />,
+    icon: SettingsIcon,
     roles: [UserRole.ADMIN],
   },
 ];
 
-const Sidebar: React.FC = () => {
+const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -106,17 +107,22 @@ const Sidebar: React.FC = () => {
       </Box>
       <Divider />
       <List>
-        {filteredMenuItems.map((item) => (
-          <ListItem key={item.path} disablePadding>
-            <ListItemButton
-              selected={location.pathname === item.path}
-              onClick={() => navigate(item.path)}
-            >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.title} />
-            </ListItemButton>
-          </ListItem>
-        ))}
+        {filteredMenuItems.map((item) => {
+          const IconComponent = item.icon;
+          return (
+            <ListItem key={item.path} disablePadding>
+              <ListItemButton
+                selected={location.pathname === item.path}
+                onClick={() => navigate(item.path)}
+              >
+                <ListItemIcon>
+                  <IconComponent />
+                </ListItemIcon>
+                <ListItemText primary={item.title} />
+              </ListItemButton>
+            </ListItem>
+          );
+        })}
       </List>
     </Box>
   );

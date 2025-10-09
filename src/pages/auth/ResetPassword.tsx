@@ -39,7 +39,7 @@ const schema = yup.object({
     .required('Please confirm your password'),
 }).required();
 
-const ResetPassword: React.FC = () => {
+const ResetPassword = () => {
   const navigate = useNavigate();
   const { token } = useParams<{ token: string }>();
   const [showPassword, setShowPassword] = useState(false);
@@ -92,7 +92,7 @@ const ResetPassword: React.FC = () => {
             </Typography>
           </Box>
 
-          <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
             <TextField
               fullWidth
               label="New Password"
@@ -163,7 +163,7 @@ const ResetPassword: React.FC = () => {
                 </Link>
               </Typography>
             </Box>
-          </form>
+          </Box>
         </CardContent>
       </Card>
     </Box>

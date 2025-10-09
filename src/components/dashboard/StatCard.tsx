@@ -7,17 +7,21 @@ interface StatCardProps {
   subtitle?: string;
   progress?: number;
   progressColor?: 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
+  color?: 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
   icon?: React.ReactNode;
 }
 
-const StatCard: React.FC<StatCardProps> = ({
+const StatCard = ({
   title,
   value,
   subtitle,
   progress,
   progressColor = 'primary',
+  color,
   icon,
-}) => {
+}: StatCardProps) => {
+  // Use color prop if provided, otherwise fallback to progressColor
+  const themeColor = color || progressColor;
   return (
     <Card>
       <CardContent>
@@ -48,8 +52,8 @@ const StatCard: React.FC<StatCardProps> = ({
                 height: 40,
                 borderRadius: '50%',
                 backgroundColor: (theme) =>
-                  theme.palette[progressColor].light + '20',
-                color: (theme) => theme.palette[progressColor].main,
+                  theme.palette[themeColor].light + '20',
+                color: (theme) => theme.palette[themeColor].main,
               }}
             >
               {icon}
@@ -75,12 +79,12 @@ const StatCard: React.FC<StatCardProps> = ({
             <LinearProgress
               variant="determinate"
               value={progress}
-              color={progressColor}
+              color={themeColor}
               sx={{
                 height: 6,
                 borderRadius: 3,
                 backgroundColor: (theme) =>
-                  theme.palette[progressColor].light + '40',
+                  theme.palette[themeColor].light + '40',
               }}
             />
           </Box>

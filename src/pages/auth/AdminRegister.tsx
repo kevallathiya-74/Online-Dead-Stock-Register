@@ -17,13 +17,13 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Alert,
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { toast } from 'react-toastify';
-import { authService } from '../../services/auth.service';
 import { UserRole } from '../../types';
 
-interface RegisterFormInputs {
+interface AdminRegisterFormInputs {
   username: string;
   email: string;
   password: string;
@@ -38,11 +38,7 @@ const schema = yup.object({
   password: yup
     .string()
     .required('Password is required')
-    .min(8, 'Password must be at least 8 characters')
-    .matches(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-      'Password must contain at least one uppercase letter, one lowercase letter, and one number'
-    ),
+    .min(8, 'Password must be at least 8 characters'),
   confirmPassword: yup
     .string()
     .oneOf([yup.ref('password')], 'Passwords must match')
@@ -60,7 +56,7 @@ const departments = [
   'Administration',
 ];
 
-const Register = () => {
+const AdminRegister = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -71,7 +67,7 @@ const Register = () => {
     handleSubmit,
     control,
     formState: { errors },
-  } = useForm<RegisterFormInputs>({
+  } = useForm<AdminRegisterFormInputs>({
     resolver: yupResolver(schema),
     defaultValues: {
       username: '',
@@ -83,23 +79,38 @@ const Register = () => {
     },
   });
 
-  const onSubmit = async (data: RegisterFormInputs) => {
+  const onSubmit = async (data: AdminRegisterFormInputs) => {
     try {
       setIsLoading(true);
-      const response = await authService.signUp({
+      
+      // For demo purposes, we'll create a simple mock registration
+      // In production, this would call the real backend API
+      const mockUser = {
+        id: `user-${Date.now()}`,
         email: data.email,
-        password: data.password,
-        full_name: data.username,
-        department: data.department,
+        username: data.username,
         role: data.role,
-      });
-
-      if (response.error) {
-        toast.error(response.error.message);
-      } else {
-        toast.success('Registration successful! Please log in.');
-        navigate('/login');
+        department: data.department,
+        created_at: new Date().toISOString(),
+      };
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Store in localStorage for demo purposes
+      const existingUsers = JSON.parse(localStorage.getItem('demo_users') || '[]');
+      
+      // Check if user already exists
+      if (existingUsers.some((user: any) => user.email === data.email)) {
+        toast.error('Email already exists');
+        return;
       }
+      
+      existingUsers.push(mockUser);
+      localStorage.setItem('demo_users', JSON.stringify(existingUsers));
+      
+      toast.success(`${data.role} account created successfully!`);
+      navigate('/login');
     } catch (error: any) {
       toast.error('Registration failed');
     } finally {
@@ -122,12 +133,16 @@ const Register = () => {
         <CardContent sx={{ p: 4 }}>
           <Box sx={{ mb: 4, textAlign: 'center' }}>
             <Typography variant="h4" component="h1" gutterBottom>
-              Create Account
+              Admin Registration
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Join Dead Stock Register to manage assets efficiently
+              Create accounts with specific roles for testing
             </Typography>
           </Box>
+
+          <Alert severity="info" sx={{ mb: 3 }}>
+            This is a demo registration system. In production, admin registration would require proper authentication and authorization.
+          </Alert>
 
           <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
             <TextField
@@ -278,4 +293,4 @@ const Register = () => {
   );
 };
 
-export default Register;
+export default AdminRegister;

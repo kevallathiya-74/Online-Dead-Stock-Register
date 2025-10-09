@@ -5,8 +5,15 @@ const jwt = require('jsonwebtoken');
 
 exports.signup = async (req, res) => {
   try {
-    console.log('Signup request body:', req.body);
-    const { username, email, password, department, role = 'employee' } = req.body;
+    console.log('=== SIGNUP REQUEST START ===');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    
+    const { full_name, username, email, password, department, role = 'employee' } = req.body;
+    
+    // Use full_name if available, otherwise fall back to username
+    const name = full_name || username;
+    
+    console.log('Processing registration for:', { name, email, department, role });
     
     // Map frontend role values to backend enum values
     const roleMap = {
@@ -16,40 +23,60 @@ exports.signup = async (req, res) => {
       'employee': 'Employee'
     };
     
-    const mappedRole = roleMap[role] || 'Employee';
+    const mappedRole = roleMap[role.toLowerCase()] || 'Employee';
+    console.log('Role mapping:', role, '->', mappedRole);
     
     // Validate required fields
-    if (!username || !email || !password || !department) {
-      return res.status(400).json({ message: 'All fields are required' });
+    if (!name) {
+      console.log('ERROR: Missing name field');
+      return res.status(400).json({ message: 'Name is required' });
+    }
+    if (!email) {
+      console.log('ERROR: Missing email field');
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    if (!password) {
+      console.log('ERROR: Missing password field');
+      return res.status(400).json({ message: 'Password is required' });
+    }
+    if (!department) {
+      console.log('ERROR: Missing department field');
+      return res.status(400).json({ message: 'Department is required' });
     }
     
+    console.log('Checking if user already exists...');
     // Check if user already exists
     const existing = await User.findOne({ email });
-    if (existing) return res.status(400).json({ message: 'Email already exists' });
+    if (existing) {
+      console.log('ERROR: Email already exists');
+      return res.status(400).json({ message: 'Email already exists' });
+    }
 
+    console.log('Hashing password...');
     // Hash password
     const hashed = await bcrypt.hash(password, 10);
+    console.log('Password hashed successfully');
     
-    console.log('Creating user with data:', {
-      name: username,
+    const userData = {
+      name: name,
       email,
-      department,
-      role: mappedRole,
-      employee_id: `EMP-${Date.now()}`
-    });
-    
-    // Create user
-    const user = new User({ 
-      name: username,
-      email, 
       password: hashed,
       department,
       role: mappedRole,
       employee_id: `EMP-${Date.now()}` // Generate unique employee ID
+    };
+    
+    console.log('Creating user with data:', {
+      ...userData,
+      password: '[HASHED]'
     });
     
+    // Create user
+    const user = new User(userData);
+    
+    console.log('Saving user to database...');
     const saved = await user.save();
-    console.log('User saved successfully:', saved._id);
+    console.log('User saved successfully with ID:', saved._id);
     
     // Generate JWT token
     const token = jwt.sign(
