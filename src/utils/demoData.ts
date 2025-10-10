@@ -315,12 +315,14 @@ export const getVendorPerformance = () => {
 // Enhanced initialization function
 export const initializeDemoData = () => {
   try {
-    // Initialize users
-    const existingUsers = localStorage.getItem('demo_users');
-    if (!existingUsers) {
-      localStorage.setItem('demo_users', JSON.stringify(demoUsers));
-      console.log('✅ Demo users initialized');
-    }
+    // Force refresh demo users to ensure they match current structure (from main)
+    localStorage.setItem('demo_users', JSON.stringify(demoUsers));
+    console.log('✅ Demo users initialized/refreshed:', demoUsers.length, 'users');
+    
+    // Log each user for debugging
+    demoUsers.forEach((user, index) => {
+      console.log(`Demo user ${index + 1}:`, user.email, '-', user.role);
+    });
 
     // Initialize assets
     const existingAssets = localStorage.getItem('demo_assets');
