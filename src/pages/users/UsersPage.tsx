@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -10,7 +10,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Button,
   Chip,
   Avatar,
@@ -26,6 +25,12 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  TablePagination,
+  Checkbox,
+  CircularProgress,
+  Alert,
+  Tooltip,
+  Switch
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -35,138 +40,205 @@ import {
   Person as PersonIcon,
   Email as EmailIcon,
   Work as WorkIcon,
-  Security as SecurityIcon,
+  CheckCircle as CheckCircleIcon,
+  Download as DownloadIcon,
+  Refresh as RefreshIcon,
+  Visibility as VisibilityIcon,
+  Phone as PhoneIcon,
+  LocationOn as LocationIcon,
+  AdminPanelSettings as AdminIcon
 } from '@mui/icons-material';
+import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import { UserRole } from '../../types';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  department: string;
-  employee_id: string;
-  is_active: boolean;
-  created_at: string;
-  last_login?: string;
-}
+import AdminDataService, { AdminUser } from '../../data/adminDataService';
 
 const UsersPage = () => {
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: '1',
-      name: 'System Administrator',
-      email: 'admin@company.com',
-      role: UserRole.ADMIN,
-      department: 'IT',
-      employee_id: 'EMP001',
-      is_active: true,
-      created_at: '2024-01-01',
-      last_login: '2024-10-10',
-    },
-    {
-      id: '2',
-      name: 'Inventory Manager',
-      email: 'inventory@company.com',
-      role: UserRole.INVENTORY_MANAGER,
-      department: 'Operations',
-      employee_id: 'EMP002',
-      is_active: true,
-      created_at: '2024-01-15',
-      last_login: '2024-10-09',
-    },
-    {
-      id: '3',
-      name: 'John Employee',
-      email: 'employee@company.com',
-      role: UserRole.EMPLOYEE,
-      department: 'Finance',
-      employee_id: 'EMP003',
-      is_active: true,
-      created_at: '2024-02-01',
-      last_login: '2024-10-08',
-    },
-    {
-      id: '4',
-      name: 'Sarah Auditor',
-      email: 'auditor@company.com',
-      role: UserRole.AUDITOR,
-      department: 'Finance',
-      employee_id: 'EMP004',
-      is_active: false,
-      created_at: '2024-02-15',
-    },
-  ]);
-
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [addUserDialogOpen, setAddUserDialogOpen] = useState(false);
+  // const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
+  // const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [bulkSelected, setBulkSelected] = useState<string[]>([]);
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
-    role: UserRole.EMPLOYEE,
+    role: 'Employee' as AdminUser['role'],
     department: '',
     employee_id: '',
+    phone: '',
+    location: '',
+    manager: ''
   });
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+      const userData = AdminDataService.getUsers();
+      setUsers(userData);
+    } catch (error) {
+      toast.error('Failed to load users');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch = 
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.employee_id.toLowerCase().includes(searchTerm.toLowerCase());
+      user.employee_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.department.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesRole = selectedRole === 'all' || user.role === selectedRole;
+    const matchesDepartment = selectedDepartment === 'all' || user.department === selectedDepartment;
+    const matchesStatus = selectedStatus === 'all' || 
+      (selectedStatus === 'active' && user.is_active) ||
+      (selectedStatus === 'inactive' && !user.is_active);
     
-    return matchesSearch && matchesRole;
+    return matchesSearch && matchesRole && matchesDepartment && matchesStatus;
   });
 
-  const handleAddUser = () => {
-    if (!newUser.name || !newUser.email || !newUser.employee_id) return;
+  const paginatedUsers = filteredUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-    const user: User = {
-      id: Date.now().toString(),
-      name: newUser.name,
-      email: newUser.email,
-      role: newUser.role,
-      department: newUser.department,
-      employee_id: newUser.employee_id,
-      is_active: true,
-      created_at: new Date().toISOString().split('T')[0],
-    };
+  const handleAddUser = async () => {
+    if (!newUser.name || !newUser.email || !newUser.employee_id) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
 
-    setUsers(prev => [...prev, user]);
-    setAddUserDialogOpen(false);
+    try {
+      const user: AdminUser = {
+        id: `user_${Date.now()}`,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        department: newUser.department,
+        employee_id: newUser.employee_id,
+        is_active: true,
+        created_at: new Date().toISOString().split('T')[0],
+        last_login: '',
+        phone: newUser.phone,
+        location: newUser.location,
+        manager: newUser.manager,
+        permissions: getPermissionsByRole(newUser.role)
+      };
+
+      setUsers(prev => [...prev, user]);
+      setAddUserDialogOpen(false);
+      resetNewUser();
+      toast.success('User created successfully');
+    } catch (error) {
+      toast.error('Failed to create user');
+    }
+  };
+
+  const handleToggleUserStatus = (userId: string) => {
+    setUsers(prev => 
+      prev.map(user => 
+        user.id === userId 
+          ? { ...user, is_active: !user.is_active }
+          : user
+      )
+    );
+    toast.success('User status updated');
+  };
+
+  const handleDeleteUser = (userId: string) => {
+    if (window.confirm('Are you sure you want to delete this user?')) {
+      setUsers(prev => prev.filter(user => user.id !== userId));
+      toast.success('User deleted successfully');
+    }
+  };
+
+  const handleRefresh = () => {
+    loadUsers();
+    toast.success('Users refreshed');
+  };
+
+  const resetNewUser = () => {
     setNewUser({
       name: '',
       email: '',
-      role: UserRole.EMPLOYEE,
+      role: 'Employee',
       department: '',
       employee_id: '',
+      phone: '',
+      location: '',
+      manager: ''
     });
   };
 
-  const getRoleColor = (role: UserRole) => {
+  const getPermissionsByRole = (role: AdminUser['role']): string[] => {
+    const allPermissions = [
+      'view_users', 'create_users', 'edit_users', 'delete_users',
+      'view_assets', 'create_assets', 'edit_assets', 'delete_assets',
+      'view_transactions', 'approve_transactions', 'create_transactions',
+      'view_reports', 'create_reports', 'export_data',
+      'view_audit_logs', 'view_system_settings', 'edit_system_settings',
+      'manage_vendors', 'schedule_maintenance', 'approve_maintenance'
+    ];
+
     switch (role) {
-      case UserRole.ADMIN:
+      case 'Admin':
+        return allPermissions;
+      case 'Inventory_Manager':
+        return [
+          'view_users', 'view_assets', 'create_assets', 'edit_assets',
+          'view_transactions', 'create_transactions', 'approve_transactions',
+          'view_reports', 'create_reports', 'manage_vendors', 'schedule_maintenance'
+        ];
+      case 'Auditor':
+        return [
+          'view_users', 'view_assets', 'view_transactions', 'view_reports',
+          'create_reports', 'export_data', 'view_audit_logs'
+        ];
+      case 'Employee':
+        return ['view_assets', 'view_transactions'];
+      default:
+        return [];
+    }
+  };
+
+  const getRoleColor = (role: AdminUser['role']) => {
+    switch (role) {
+      case 'Admin':
         return 'error';
-      case UserRole.INVENTORY_MANAGER:
+      case 'Inventory_Manager':
         return 'primary';
-      case UserRole.AUDITOR:
+      case 'Auditor':
         return 'secondary';
-      case UserRole.EMPLOYEE:
+      case 'Employee':
         return 'success';
       default:
         return 'default';
     }
   };
 
-  const stats = {
-    totalUsers: users.length,
-    activeUsers: users.filter(u => u.is_active).length,
-    adminUsers: users.filter(u => u.role === UserRole.ADMIN).length,
-    employeeUsers: users.filter(u => u.role === UserRole.EMPLOYEE).length,
-  };
+  const stats = AdminDataService.getUserStatistics();
+  const departments = Array.from(new Set(users.map(u => u.department)));
+  const roles = ['Admin', 'Inventory_Manager', 'Auditor', 'Employee'];
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+          <CircularProgress size={60} />
+        </Box>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -180,96 +252,109 @@ const UsersPage = () => {
               Manage system users, roles, and permissions
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setAddUserDialogOpen(true)}
-          >
-            Add New User
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={handleRefresh}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setAddUserDialogOpen(true)}
+            >
+              Add User
+            </Button>
+          </Box>
         </Box>
 
         {/* Statistics Cards */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={6} md={3}>
-            <Card>
+            <Card sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
-                    <Typography color="textSecondary" gutterBottom variant="overline">
+                    <Typography variant="overline" sx={{ opacity: 0.8 }}>
                       Total Users
                     </Typography>
-                    <Typography variant="h4">{stats.totalUsers}</Typography>
+                    <Typography variant="h4">{stats.total}</Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                      {stats.recentLogins} logged in this week
+                    </Typography>
                   </Box>
-                  <Avatar sx={{ backgroundColor: 'primary.main' }}>
-                    <PersonIcon />
-                  </Avatar>
+                  <PersonIcon sx={{ fontSize: 40, opacity: 0.8 }} />
                 </Box>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card>
+            <Card sx={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white' }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
-                    <Typography color="textSecondary" gutterBottom variant="overline">
+                    <Typography variant="overline" sx={{ opacity: 0.8 }}>
                       Active Users
                     </Typography>
-                    <Typography variant="h4">{stats.activeUsers}</Typography>
+                    <Typography variant="h4">{stats.active}</Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                      {((stats.active / stats.total) * 100).toFixed(1)}% of total
+                    </Typography>
                   </Box>
-                  <Avatar sx={{ backgroundColor: 'success.main' }}>
-                    <PersonIcon />
-                  </Avatar>
+                  <CheckCircleIcon sx={{ fontSize: 40, opacity: 0.8 }} />
                 </Box>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card>
+            <Card sx={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', color: 'white' }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
-                    <Typography color="textSecondary" gutterBottom variant="overline">
+                    <Typography variant="overline" sx={{ opacity: 0.8 }}>
                       Admin Users
                     </Typography>
-                    <Typography variant="h4">{stats.adminUsers}</Typography>
+                    <Typography variant="h4">{stats.byRole['Admin'] || 0}</Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                      System administrators
+                    </Typography>
                   </Box>
-                  <Avatar sx={{ backgroundColor: 'error.main' }}>
-                    <SecurityIcon />
-                  </Avatar>
+                  <AdminIcon sx={{ fontSize: 40, opacity: 0.8 }} />
                 </Box>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card>
+            <Card sx={{ background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', color: 'white' }}>
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
-                    <Typography color="textSecondary" gutterBottom variant="overline">
-                      Employees
+                    <Typography variant="overline" sx={{ opacity: 0.8 }}>
+                      Departments
                     </Typography>
-                    <Typography variant="h4">{stats.employeeUsers}</Typography>
+                    <Typography variant="h4">{Object.keys(stats.byDepartment).length}</Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                      Active departments
+                    </Typography>
                   </Box>
-                  <Avatar sx={{ backgroundColor: 'info.main' }}>
-                    <WorkIcon />
-                  </Avatar>
+                  <WorkIcon sx={{ fontSize: 40, opacity: 0.8 }} />
                 </Box>
               </CardContent>
             </Card>
           </Grid>
         </Grid>
 
-        {/* Filters */}
+        {/* Enhanced Filters */}
         <Card sx={{ mb: 3 }}>
           <CardContent>
             <Grid container spacing={3} alignItems="center">
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
                   variant="outlined"
-                  placeholder="Search users by name, email, or employee ID..."
+                  placeholder="Search users by name, email, department..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   InputProps={{
@@ -281,116 +366,293 @@ const UsersPage = () => {
                   }}
                 />
               </Grid>
-              <Grid item xs={12} md={3}>
+              <Grid item xs={12} sm={6} md={2}>
                 <FormControl fullWidth>
-                  <InputLabel>Filter by Role</InputLabel>
+                  <InputLabel>Role</InputLabel>
                   <Select
                     value={selectedRole}
-                    label="Filter by Role"
+                    label="Role"
                     onChange={(e) => setSelectedRole(e.target.value)}
                   >
                     <MenuItem value="all">All Roles</MenuItem>
-                    <MenuItem value={UserRole.ADMIN}>Admin</MenuItem>
-                    <MenuItem value={UserRole.INVENTORY_MANAGER}>Inventory Manager</MenuItem>
-                    <MenuItem value={UserRole.AUDITOR}>Auditor</MenuItem>
-                    <MenuItem value={UserRole.EMPLOYEE}>Employee</MenuItem>
+                    {roles.map(role => (
+                      <MenuItem key={role} value={role}>
+                        {role.replace('_', ' ')}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={3}>
-                <Typography variant="body2" color="text.secondary">
-                  Showing {filteredUsers.length} of {users.length} users
-                </Typography>
+              <Grid item xs={12} sm={6} md={2}>
+                <FormControl fullWidth>
+                  <InputLabel>Department</InputLabel>
+                  <Select
+                    value={selectedDepartment}
+                    label="Department"
+                    onChange={(e) => setSelectedDepartment(e.target.value)}
+                  >
+                    <MenuItem value="all">All Departments</MenuItem>
+                    {departments.map(dept => (
+                      <MenuItem key={dept} value={dept}>
+                        {dept}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6} md={2}>
+                <FormControl fullWidth>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={selectedStatus}
+                    label="Status"
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                  >
+                    <MenuItem value="all">All Status</MenuItem>
+                    <MenuItem value="active">Active</MenuItem>
+                    <MenuItem value="inactive">Inactive</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6} md={2}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {filteredUsers.length} of {users.length}
+                  </Typography>
+                  <Tooltip title="Export Users">
+                    <IconButton onClick={() => toast.info('Export functionality coming soon')}>
+                      <DownloadIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
               </Grid>
             </Grid>
           </CardContent>
         </Card>
 
-        {/* Users Table */}
+        {/* Enhanced Users Table */}
         <Card>
           <CardContent>
-            <Typography variant="h6" gutterBottom>
-              System Users
-            </Typography>
-            <TableContainer component={Paper} elevation={0}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">
+                User Directory
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Chip 
+                  label={`${filteredUsers.length} users`} 
+                  color="primary" 
+                  variant="outlined" 
+                  size="small" 
+                />
+                {bulkSelected.length > 0 && (
+                  <Chip 
+                    label={`${bulkSelected.length} selected`} 
+                    color="secondary" 
+                    size="small" 
+                  />
+                )}
+              </Box>
+            </Box>
+            <TableContainer>
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>User</TableCell>
-                    <TableCell>Role</TableCell>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        indeterminate={bulkSelected.length > 0 && bulkSelected.length < filteredUsers.length}
+                        checked={filteredUsers.length > 0 && bulkSelected.length === filteredUsers.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setBulkSelected(filteredUsers.map(u => u.id));
+                          } else {
+                            setBulkSelected([]);
+                          }
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>User Details</TableCell>
+                    <TableCell>Role & Permissions</TableCell>
                     <TableCell>Department</TableCell>
-                    <TableCell>Employee ID</TableCell>
+                    <TableCell>Contact Info</TableCell>
                     <TableCell>Status</TableCell>
-                    <TableCell>Last Login</TableCell>
-                    <TableCell>Actions</TableCell>
+                    <TableCell>Last Activity</TableCell>
+                    <TableCell align="center">Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
+                  {paginatedUsers.map((user) => (
+                    <TableRow 
+                      key={user.id}
+                      selected={bulkSelected.includes(user.id)}
+                      hover
+                    >
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          checked={bulkSelected.includes(user.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setBulkSelected(prev => [...prev, user.id]);
+                            } else {
+                              setBulkSelected(prev => prev.filter(id => id !== user.id));
+                            }
+                          }}
+                        />
+                      </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
-                            {user.name.charAt(0)}
+                          <Avatar 
+                            sx={{ 
+                              mr: 2, 
+                              bgcolor: user.is_active ? 'primary.main' : 'grey.400',
+                              width: 45,
+                              height: 45
+                            }}
+                          >
+                            {user.name.charAt(0).toUpperCase()}
                           </Avatar>
                           <Box>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 'medium' }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                               {user.name}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
                               {user.email}
                             </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                              ID: {user.employee_id}
+                            </Typography>
                           </Box>
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          label={user.role.replace('_', ' ')}
-                          color={getRoleColor(user.role) as any}
-                          size="small"
-                        />
+                        <Box>
+                          <Chip
+                            label={user.role.replace('_', ' ')}
+                            color={getRoleColor(user.role) as any}
+                            size="small"
+                            sx={{ mb: 1 }}
+                          />
+                          <Typography variant="caption" display="block" color="text.secondary">
+                            {user.permissions.length} permissions
+                          </Typography>
+                        </Box>
                       </TableCell>
-                      <TableCell>{user.department}</TableCell>
                       <TableCell>
-                        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                          {user.employee_id}
+                        <Box>
+                          <Typography variant="body2" fontWeight="medium">
+                            {user.department}
+                          </Typography>
+                          {user.location && (
+                            <Typography variant="caption" color="text.secondary" display="flex" alignItems="center" gap={0.5}>
+                              <LocationIcon fontSize="inherit" />
+                              {user.location}
+                            </Typography>
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Box>
+                          {user.phone && (
+                            <Typography variant="caption" display="flex" alignItems="center" gap={0.5} sx={{ mb: 0.5 }}>
+                              <PhoneIcon fontSize="inherit" />
+                              {user.phone}
+                            </Typography>
+                          )}
+                          <Typography variant="caption" display="flex" alignItems="center" gap={0.5}>
+                            <EmailIcon fontSize="inherit" />
+                            {user.email.split('@')[0]}@...
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Switch
+                            checked={user.is_active}
+                            onChange={() => handleToggleUserStatus(user.id)}
+                            size="small"
+                          />
+                          <Chip
+                            label={user.is_active ? 'Active' : 'Inactive'}
+                            color={user.is_active ? 'success' : 'default'}
+                            size="small"
+                          />
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Created: {new Date(user.created_at).toLocaleDateString()}
                         </Typography>
                       </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={user.is_active ? 'Active' : 'Inactive'}
-                          color={user.is_active ? 'success' : 'default'}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
-                      </TableCell>
-                      <TableCell>
-                        <IconButton size="small" color="primary">
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton size="small" color="error">
-                          <DeleteIcon />
-                        </IconButton>
+                      <TableCell align="center">
+                        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+                          <Tooltip title="View Details">
+                            <IconButton 
+                              size="small" 
+                              color="info"
+                              onClick={() => toast.info(`Viewing ${user.name}'s details`)}
+                            >
+                              <VisibilityIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Edit User">
+                            <IconButton 
+                              size="small" 
+                              color="primary"
+                              onClick={() => {
+                                toast.info(`Edit functionality for ${user.name} coming soon`);
+                              }}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete User">
+                            <IconButton 
+                              size="small" 
+                              color="error"
+                              onClick={() => handleDeleteUser(user.id)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </TableContainer>
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={filteredUsers.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={(_, newPage) => setPage(newPage)}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10));
+                setPage(0);
+              }}
+            />
           </CardContent>
         </Card>
 
-        {/* Add User Dialog */}
-        <Dialog open={addUserDialogOpen} onClose={() => setAddUserDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Add New User</DialogTitle>
+        {/* Enhanced Add User Dialog */}
+        <Dialog open={addUserDialogOpen} onClose={() => setAddUserDialogOpen(false)} maxWidth="md" fullWidth>
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <PersonIcon color="primary" />
+              Add New User
+            </Box>
+          </DialogTitle>
           <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
+            <Grid container spacing={3} sx={{ mt: 0.5 }}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
                   label="Full Name"
+                  required
                   value={newUser.name}
                   onChange={(e) => setNewUser(prev => ({ ...prev, name: e.target.value }))}
                   InputProps={{
@@ -402,11 +664,12 @@ const UsersPage = () => {
                   }}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Email"
+                  label="Email Address"
                   type="email"
+                  required
                   value={newUser.email}
                   onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
                   InputProps={{
@@ -419,19 +682,29 @@ const UsersPage = () => {
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
+                <FormControl fullWidth required>
                   <InputLabel>Role</InputLabel>
                   <Select
                     value={newUser.role}
                     label="Role"
-                    onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value as UserRole }))}
+                    onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value as AdminUser['role'] }))}
                   >
-                    <MenuItem value={UserRole.EMPLOYEE}>Employee</MenuItem>
-                    <MenuItem value={UserRole.AUDITOR}>Auditor</MenuItem>
-                    <MenuItem value={UserRole.INVENTORY_MANAGER}>Inventory Manager</MenuItem>
-                    <MenuItem value={UserRole.ADMIN}>Admin</MenuItem>
+                    <MenuItem value="Employee">Employee</MenuItem>
+                    <MenuItem value="Auditor">Auditor</MenuItem>
+                    <MenuItem value="Inventory_Manager">Inventory Manager</MenuItem>
+                    <MenuItem value="Admin">Administrator</MenuItem>
                   </Select>
                 </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Employee ID"
+                  required
+                  value={newUser.employee_id}
+                  onChange={(e) => setNewUser(prev => ({ ...prev, employee_id: e.target.value }))}
+                  placeholder="EMP0001"
+                />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
@@ -448,24 +721,66 @@ const UsersPage = () => {
                   }}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Employee ID"
-                  value={newUser.employee_id}
-                  onChange={(e) => setNewUser(prev => ({ ...prev, employee_id: e.target.value }))}
+                  label="Phone Number"
+                  value={newUser.phone}
+                  onChange={(e) => setNewUser(prev => ({ ...prev, phone: e.target.value }))}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <PhoneIcon />
+                      </InputAdornment>
+                    ),
+                  }}
                 />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Location"
+                  value={newUser.location}
+                  onChange={(e) => setNewUser(prev => ({ ...prev, location: e.target.value }))}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <LocationIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Manager"
+                  value={newUser.manager}
+                  onChange={(e) => setNewUser(prev => ({ ...prev, manager: e.target.value }))}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Alert severity="info">
+                  New users will be created with default permissions based on their role. 
+                  You can modify permissions later in the user settings.
+                </Alert>
               </Grid>
             </Grid>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setAddUserDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => {
+              setAddUserDialogOpen(false);
+              resetNewUser();
+            }}>
+              Cancel
+            </Button>
             <Button 
               variant="contained" 
               onClick={handleAddUser}
               disabled={!newUser.name || !newUser.email || !newUser.employee_id}
+              startIcon={<AddIcon />}
             >
-              Add User
+              Create User
             </Button>
           </DialogActions>
         </Dialog>

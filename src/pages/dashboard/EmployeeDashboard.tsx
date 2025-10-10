@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import {
   Box,
   Grid,
@@ -82,6 +84,8 @@ interface MaintenanceRequest {
 }
 
 const EmployeeDashboard = () => {
+  const navigate = useNavigate();
+  
   const [myAssets, setMyAssets] = useState<Asset[]>([
     {
       id: '1',
@@ -143,6 +147,7 @@ const EmployeeDashboard = () => {
 
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
   const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+  const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [requestForm, setRequestForm] = useState({
     issue_description: '',
@@ -368,7 +373,13 @@ const EmployeeDashboard = () => {
       </Typography>
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={2.4}>
-          <Card sx={{ height: '100%', cursor: 'pointer' }}>
+          <Card 
+            sx={{ height: '100%', cursor: 'pointer' }}
+            onClick={() => {
+              toast.info('Opening asset request form...');
+              navigate('/requests');
+            }}
+          >
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
                 <Avatar sx={{ backgroundColor: 'primary.main', mr: 2, mt: 0.5 }}>
@@ -387,7 +398,13 @@ const EmployeeDashboard = () => {
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
-          <Card sx={{ height: '100%', cursor: 'pointer' }}>
+          <Card 
+            sx={{ height: '100%', cursor: 'pointer' }}
+            onClick={() => {
+              toast.info('Opening issue reporting form...');
+              setRequestDialogOpen(true);
+            }}
+          >
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
                 <Avatar sx={{ backgroundColor: 'error.main', mr: 2, mt: 0.5 }}>
@@ -406,7 +423,13 @@ const EmployeeDashboard = () => {
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
-          <Card sx={{ height: '100%', cursor: 'pointer' }}>
+          <Card 
+            sx={{ height: '100%', cursor: 'pointer' }}
+            onClick={() => {
+              toast.info('Opening asset check-in form...');
+              setCheckInDialogOpen(true);
+            }}
+          >
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
                 <Avatar sx={{ backgroundColor: 'success.main', mr: 2, mt: 0.5 }}>
@@ -425,10 +448,16 @@ const EmployeeDashboard = () => {
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
-          <Card sx={{ height: '100%', cursor: 'pointer' }}>
+          <Card 
+            sx={{ height: '100%', cursor: 'pointer' }}
+            onClick={() => {
+              toast.info('Navigating to asset history...');
+              navigate('/history');
+            }}
+          >
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                <Avatar sx={{ backgroundColor: 'secondary.main', mr: 2, mt: 0.5 }}>
+                <Avatar sx={{ backgroundColor: 'info.main', mr: 2, mt: 0.5 }}>
                   <HistoryIcon />
                 </Avatar>
                 <Box sx={{ flexGrow: 1 }}>
@@ -436,7 +465,7 @@ const EmployeeDashboard = () => {
                     View My History
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    See complete asset usage history
+                    Track all asset activities
                   </Typography>
                 </Box>
               </Box>
@@ -705,6 +734,52 @@ const EmployeeDashboard = () => {
             disabled={!requestForm.issue_description.trim()}
           >
             Submit Request
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Check-in Asset Dialog */}
+      <Dialog 
+        open={checkInDialogOpen} 
+        onClose={() => setCheckInDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Check-in Asset</DialogTitle>
+        <DialogContent>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Select an asset to return to inventory
+          </Alert>
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Choose from your assigned assets:
+            </Typography>
+            {myAssets.map((asset) => (
+              <Card 
+                key={asset.id} 
+                sx={{ 
+                  mb: 1, 
+                  cursor: 'pointer',
+                  '&:hover': { backgroundColor: 'action.hover' }
+                }}
+                onClick={() => {
+                  toast.success(`Asset ${asset.model} has been checked-in successfully!`);
+                  setCheckInDialogOpen(false);
+                }}
+              >
+                <CardContent sx={{ py: 1 }}>
+                  <Typography variant="subtitle2">{asset.model}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {asset.category} - {asset.location}
+                  </Typography>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCheckInDialogOpen(false)}>
+            Cancel
           </Button>
         </DialogActions>
       </Dialog>

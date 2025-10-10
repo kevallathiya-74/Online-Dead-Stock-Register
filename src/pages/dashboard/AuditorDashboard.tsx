@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import Layout from '../../components/layout/Layout';
 import {
   Box,
@@ -69,6 +71,8 @@ interface Asset {
 }
 
 const AuditorDashboard = () => {
+  const navigate = useNavigate();
+  
   const [auditItems, setAuditItems] = useState<AuditItem[]>([
     {
       id: '1',
@@ -256,6 +260,10 @@ const AuditorDashboard = () => {
               variant="outlined"
               startIcon={<ReportIcon />}
               size="large"
+              onClick={() => {
+                toast.success('Generating comprehensive audit report...');
+                navigate('/reports');
+              }}
             >
               Generate Audit Report
             </Button>
@@ -263,6 +271,11 @@ const AuditorDashboard = () => {
               variant="outlined"
               startIcon={<DateIcon />}
               size="large"
+              onClick={() => {
+                toast.info('Opening audit scheduling interface...');
+                // Navigate to audit scheduling page (when available)
+                // navigate('/audit/schedule');
+              }}
             >
               Schedule Audit
             </Button>
@@ -433,7 +446,15 @@ const AuditorDashboard = () => {
                       </Box>
                     }
                   />
-                  <IconButton size="small" color="primary">
+                  <IconButton 
+                    size="small" 
+                    color="primary"
+                    onClick={() => {
+                      toast.info(`Starting audit for ${item.asset_name} (${item.asset_id})`);
+                      // Open audit form or QR scanner for this specific asset
+                      setQrScannerOpen(true);
+                    }}
+                  >
                     <QrIcon />
                   </IconButton>
                 </ListItem>

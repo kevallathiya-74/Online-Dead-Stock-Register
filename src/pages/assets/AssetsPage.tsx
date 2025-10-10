@@ -43,6 +43,7 @@ import {
   Print as PrinterIcon,
   Chair as FurnitureIcon,
 } from '@mui/icons-material';
+import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 
 interface Asset {
@@ -139,6 +140,49 @@ const AssetsPage = () => {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
 
   const categories = ['IT Equipment', 'Office Equipment', 'Mobile Device', 'Furniture', 'Machinery'];
+
+  // Handler functions for asset actions
+  const handleViewAsset = (asset: Asset) => {
+    console.log('Viewing asset:', asset);
+    // In a real app, this would navigate to asset details page or open a modal
+    toast.info(`Viewing details for: ${asset.name} (${asset.unique_asset_id})`);
+  };
+
+  const handleEditAsset = (asset: Asset) => {
+    console.log('Editing asset:', asset);
+    // In a real app, this would navigate to edit page or open edit modal
+    toast.info(`Opening editor for: ${asset.name} (${asset.unique_asset_id})`);
+  };
+
+  const handleDeleteAsset = (asset: Asset) => {
+    if (window.confirm(`Are you sure you want to delete asset: ${asset.name}?`)) {
+      setAssets(prevAssets => prevAssets.filter(a => a.id !== asset.id));
+      console.log('Deleted asset:', asset);
+      toast.success(`Asset "${asset.name}" has been successfully deleted.`);
+    }
+    handleMenuClose();
+  };
+
+  const handleTransferAsset = (asset: Asset) => {
+    console.log('Transferring asset:', asset);
+    // In a real app, this would open a transfer dialog
+    toast.info(`Initiating transfer for: ${asset.name}`);
+    handleMenuClose();
+  };
+
+  const handleGenerateQR = (asset: Asset) => {
+    console.log('Generating QR code for asset:', asset);
+    // In a real app, this would generate and display/download QR code
+    toast.success(`QR Code generated for: ${asset.name} (${asset.unique_asset_id})`);
+    handleMenuClose();
+  };
+
+  const handlePrintLabel = (asset: Asset) => {
+    console.log('Printing label for asset:', asset);
+    // In a real app, this would trigger printing functionality
+    toast.success(`Label printed for: ${asset.name}`);
+    handleMenuClose();
+  };
 
   const filteredAssets = assets.filter((asset) => {
     const matchesSearch = 
@@ -432,15 +476,26 @@ const AssetsPage = () => {
                       <TableCell>{asset.assigned_user || 'Unassigned'}</TableCell>
                       <TableCell>₹{asset.purchase_value.toLocaleString()}</TableCell>
                       <TableCell>
-                        <IconButton size="small" color="primary">
+                        <IconButton 
+                          size="small" 
+                          color="primary"
+                          onClick={() => handleViewAsset(asset)}
+                          title="View Asset Details"
+                        >
                           <ViewIcon />
                         </IconButton>
-                        <IconButton size="small" color="success">
+                        <IconButton 
+                          size="small" 
+                          color="success"
+                          onClick={() => handleEditAsset(asset)}
+                          title="Edit Asset"
+                        >
                           <EditIcon />
                         </IconButton>
                         <IconButton 
                           size="small" 
                           onClick={(e) => handleMenuClick(e, asset)}
+                          title="More Actions"
                         >
                           <MoreIcon />
                         </IconButton>
@@ -459,25 +514,25 @@ const AssetsPage = () => {
           open={Boolean(anchorEl)}
           onClose={handleMenuClose}
         >
-          <MenuItem onClick={handleMenuClose}>
+          <MenuItem onClick={() => selectedAsset && handleGenerateQR(selectedAsset)}>
             <ListItemIcon>
               <QrCodeIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>Generate QR Code</ListItemText>
           </MenuItem>
-          <MenuItem onClick={handleMenuClose}>
+          <MenuItem onClick={() => selectedAsset && handleTransferAsset(selectedAsset)}>
             <ListItemIcon>
               <TransferIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>Transfer Asset</ListItemText>
           </MenuItem>
-          <MenuItem onClick={handleMenuClose}>
+          <MenuItem onClick={() => selectedAsset && handlePrintLabel(selectedAsset)}>
             <ListItemIcon>
               <PrintIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>Print Label</ListItemText>
           </MenuItem>
-          <MenuItem onClick={handleMenuClose}>
+          <MenuItem onClick={() => selectedAsset && handleDeleteAsset(selectedAsset)}>
             <ListItemIcon>
               <DeleteIcon fontSize="small" />
             </ListItemIcon>

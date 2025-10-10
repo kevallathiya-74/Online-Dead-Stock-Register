@@ -16,7 +16,6 @@ import {
   Help as HelpIcon,
   Security as SecurityIcon,
   Assessment as ReportIcon,
-  Category as CategoryIcon,
   History as HistoryIcon,
   Backup as BackupIcon
 } from '@mui/icons-material';
@@ -39,12 +38,11 @@ export const adminNavigation: NavigationItem[] = [
   {
     id: 'users',
     title: 'Users',
-    path: '/users',
+    path: '/admin/users',
     icon: PeopleIcon,
     children: [
-      { id: 'all-users', title: 'All Users', path: '/users', icon: PeopleIcon },
-      { id: 'add-user', title: 'Add User', path: '/users/add', icon: PeopleIcon },
-      { id: 'roles-permissions', title: 'Roles & Permissions', path: '/users/roles', icon: SecurityIcon },
+      { id: 'all-users', title: 'All Users', path: '/admin/users', icon: PeopleIcon },
+      { id: 'add-user', title: 'Add User', path: '/admin/users/add', icon: PeopleIcon },
     ],
   },
   {
@@ -54,9 +52,6 @@ export const adminNavigation: NavigationItem[] = [
     icon: InventoryIcon,
     children: [
       { id: 'all-assets', title: 'All Assets', path: '/assets', icon: InventoryIcon },
-      { id: 'asset-categories', title: 'Categories', path: '/assets/categories', icon: CategoryIcon },
-      { id: 'bulk-operations', title: 'Bulk Operations', path: '/assets/bulk', icon: InventoryIcon },
-      { id: 'asset-history', title: 'Asset History', path: '/assets/history', icon: HistoryIcon },
     ],
   },
   {
@@ -64,38 +59,33 @@ export const adminNavigation: NavigationItem[] = [
     title: 'Approvals',
     path: '/approvals',
     icon: ApprovalIcon,
-    children: [
-      { id: 'all-requests', title: 'All Requests', path: '/approvals', icon: ApprovalIcon },
-      { id: 'workflow-rules', title: 'Workflow Rules', path: '/approvals/rules', icon: SettingsIcon },
-      { id: 'escalation-settings', title: 'Escalation Settings', path: '/approvals/escalation', icon: SettingsIcon },
-    ],
   },
   {
     id: 'analytics',
     title: 'Analytics',
-    path: '/analytics',
+    path: '/admin/analytics',
     icon: AnalyticsIcon,
     children: [
-      { id: 'analytics-dashboard', title: 'Dashboard', path: '/analytics', icon: AnalyticsIcon },
-      { id: 'reports', title: 'Reports', path: '/analytics/reports', icon: ReportIcon },
-      { id: 'custom-reports', title: 'Custom Reports', path: '/analytics/custom', icon: ReportIcon },
+      { id: 'analytics-dashboard', title: 'Dashboard', path: '/admin/analytics', icon: AnalyticsIcon },
+      { id: 'reports', title: 'Reports', path: '/admin/analytics/reports', icon: ReportIcon },
+      { id: 'custom-reports', title: 'Custom Reports', path: '/admin/analytics/custom', icon: ReportIcon },
     ],
   },
   {
     id: 'system',
     title: 'System',
-    path: '/system',
+    path: '/admin/settings',
     icon: SettingsIcon,
     children: [
-      { id: 'settings', title: 'Settings', path: '/system/settings', icon: SettingsIcon },
-      { id: 'audit-logs', title: 'Audit Logs', path: '/system/logs', icon: HistoryIcon },
-      { id: 'backups', title: 'Backups', path: '/system/backups', icon: BackupIcon },
+      { id: 'settings', title: 'Settings', path: '/admin/settings', icon: SettingsIcon },
+      { id: 'audit-logs', title: 'Audit Logs', path: '/admin/audit-logs', icon: HistoryIcon },
+      { id: 'backups', title: 'Backups', path: '/admin/backups', icon: BackupIcon },
     ],
   },
   {
     id: 'documents',
     title: 'Documents',
-    path: '/documents',
+    path: '/admin/documents',
     icon: DocumentIcon,
   },
 ];
@@ -123,13 +113,13 @@ export const inventoryManagerNavigation: NavigationItem[] = [
   {
     id: 'purchases',
     title: 'Purchases',
-    path: '/purchases',
+    path: '/purchase-orders',
     icon: PurchaseIcon,
     children: [
-      { id: 'orders', title: 'Orders', path: '/purchases', icon: PurchaseIcon },
+      { id: 'orders', title: 'Orders', path: '/purchase-orders', icon: PurchaseIcon },
       { id: 'vendors', title: 'Vendors', path: '/vendors', icon: VendorIcon },
-      { id: 'invoices', title: 'Invoices', path: '/purchases/invoices', icon: DocumentIcon },
-      { id: 'budget-tracking', title: 'Budget Tracking', path: '/purchases/budget', icon: AnalyticsIcon },
+      { id: 'invoices', title: 'Invoices', path: '/purchase-orders/invoices', icon: DocumentIcon },
+      { id: 'budget-tracking', title: 'Budget Tracking', path: '/purchase-orders/budget', icon: AnalyticsIcon },
     ],
   },
   {
@@ -149,6 +139,18 @@ export const inventoryManagerNavigation: NavigationItem[] = [
     title: 'Locations',
     path: '/locations',
     icon: LocationIcon,
+  },
+  {
+    id: 'reports',
+    title: 'Reports',
+    path: '/reports',
+    icon: ReportIcon,
+    children: [
+      { id: 'all-reports', title: 'All Reports', path: '/reports', icon: ReportIcon },
+      { id: 'asset-reports', title: 'Asset Reports', path: '/reports/assets', icon: InventoryIcon },
+      { id: 'maintenance-reports', title: 'Maintenance Reports', path: '/reports/maintenance', icon: MaintenanceIcon },
+      { id: 'vendor-reports', title: 'Vendor Reports', path: '/reports/vendors', icon: VendorIcon },
+    ],
   },
   {
     id: 'my-approvals',

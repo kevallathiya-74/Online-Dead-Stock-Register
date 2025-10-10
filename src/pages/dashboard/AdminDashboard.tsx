@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Grid,
@@ -37,6 +38,7 @@ import {
   Visibility,
   Edit,
 } from '@mui/icons-material';
+import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 
 interface StatCardProps {
@@ -128,6 +130,14 @@ const QuickActionCard: React.FC<QuickActionProps> = ({ title, description, icon,
 );
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
+  
+  const handleApprovalAction = (approvalId: number, action: 'approve' | 'reject') => {
+    // In a real app, this would make an API call
+    toast.success(`Approval ${action}d successfully!`);
+    // Optionally refresh the pending approvals data
+  };
+  
   // Mock data - in real app, this would come from API
   const stats = {
     totalAssets: 1247,
@@ -143,28 +153,28 @@ const AdminDashboard = () => {
       title: 'Add New User',
       description: 'Create new user accounts and assign roles',
       icon: <PersonAdd />,
-      onClick: () => console.log('Add user'),
+      onClick: () => navigate('/admin/users/add'),
       color: 'primary' as const,
     },
     {
       title: 'System Backup',
       description: 'Create system backup and manage recovery',
       icon: <Backup />,
-      onClick: () => console.log('System backup'),
+      onClick: () => navigate('/admin/backups'),
       color: 'secondary' as const,
     },
     {
       title: 'View Audit Logs',
       description: 'Review system activity and user actions',
       icon: <Assessment />,
-      onClick: () => console.log('Audit logs'),
+      onClick: () => navigate('/admin/audit-logs'),
       color: 'success' as const,
     },
     {
       title: 'System Settings',
       description: 'Configure global system preferences',
       icon: <Settings />,
-      onClick: () => console.log('Settings'),
+      onClick: () => navigate('/admin/settings'),
       color: 'warning' as const,
     },
   ];
@@ -385,10 +395,18 @@ const AdminDashboard = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          <IconButton size="small" color="primary">
+                          <IconButton 
+                            size="small" 
+                            color="primary"
+                            onClick={() => navigate(`/approvals/${approval.id}`)}
+                          >
                             <Visibility />
                           </IconButton>
-                          <IconButton size="small" color="success">
+                          <IconButton 
+                            size="small" 
+                            color="success"
+                            onClick={() => handleApprovalAction(approval.id, 'approve')}
+                          >
                             <Edit />
                           </IconButton>
                         </TableCell>
@@ -401,7 +419,7 @@ const AdminDashboard = () => {
                 fullWidth
                 variant="outlined"
                 sx={{ mt: 2 }}
-                onClick={() => console.log('View all approvals')}
+                onClick={() => navigate('/approvals')}
               >
                 View All Approvals
               </Button>
