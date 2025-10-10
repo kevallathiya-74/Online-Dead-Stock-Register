@@ -152,6 +152,9 @@ const Login = () => {
               <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
                 • Manager: inventory@company.com / Inventory@123
               </Typography>
+              <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
+                • Auditor: auditor@company.com / Auditor@123
+              </Typography>
               <Typography variant="caption" display="block">
                 • Employee: employee@company.com / Employee@123
               </Typography>

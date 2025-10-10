@@ -82,10 +82,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     
     try {
-      // First try demo users from localStorage
+      // Ensure demo users are available
+      const { initializeDemoData } = await import('../utils/demoData');
+      initializeDemoData();
+      
+      // Get demo users from localStorage
       const demoUsers = JSON.parse(localStorage.getItem('demo_users') || '[]');
       console.log('AuthContext: Demo users loaded:', demoUsers.length);
+      console.log('AuthContext: Looking for email:', email);
+      
       const demoUser = demoUsers.find((user: any) => user.email === email);
+      console.log('AuthContext: Demo user found:', demoUser ? 'YES' : 'NO');
       
       if (demoUser) {
         console.log('AuthContext: Demo user found:', demoUser.email);

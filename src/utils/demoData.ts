@@ -34,13 +34,26 @@ export const demoUsers = [
     is_active: true,
     created_at: new Date().toISOString(),
   },
+  {
+    id: 'demo-user-4',
+    username: 'Audit Manager',
+    email: 'auditor@company.com',
+    password: 'Auditor@123',
+    role: UserRole.AUDITOR,
+    department: 'Audit',
+    employee_id: 'EMP004',
+    is_active: true,
+    created_at: new Date().toISOString(),
+  },
 ];
 
 export const initializeDemoData = () => {
-  // Check if demo users already exist
-  const existingUsers = localStorage.getItem('demo_users');
-  if (!existingUsers) {
-    localStorage.setItem('demo_users', JSON.stringify(demoUsers));
-    console.log('Demo users initialized');
-  }
+  // Force refresh demo users to ensure they match current structure
+  localStorage.setItem('demo_users', JSON.stringify(demoUsers));
+  console.log('Demo users initialized/refreshed:', demoUsers.length, 'users');
+  
+  // Log each user for debugging
+  demoUsers.forEach((user, index) => {
+    console.log(`Demo user ${index + 1}:`, user.email, '-', user.role);
+  });
 };

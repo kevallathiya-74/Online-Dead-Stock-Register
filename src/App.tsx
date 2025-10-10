@@ -23,9 +23,6 @@ import Dashboard from './pages/dashboard/Dashboard';
 // Documents Pages
 import Documents from './pages/documents/Documents';
 
-// Debug Pages
-import AuthDebug from './pages/debug/AuthDebug';
-
 // Admin Pages
 import UsersPage from './pages/users/UsersPage';
 
@@ -54,7 +51,6 @@ const App = () => {
             <Route path="/admin-register" element={<AdminRegister />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password/:token" element={<ResetPassword />} />
-            <Route path="/debug" element={<AuthDebug />} />
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
