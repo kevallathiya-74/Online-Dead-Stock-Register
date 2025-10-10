@@ -8,6 +8,7 @@ connectDB();
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static('public'));
 
 // Import route files
 const assetRoutes = require('./routes/assets');
@@ -29,6 +30,11 @@ app.use('/api/documents', docRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/maintenance', maintRoutes);
 app.use('/api/auth', authRoutes);
+
+// Serve the main page
+app.get('/', (req, res) => {
+    res.sendFile('index.html', { root: 'public' });
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

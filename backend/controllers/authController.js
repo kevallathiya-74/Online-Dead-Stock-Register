@@ -132,11 +132,19 @@ exports.login = async (req, res) => {
       { expiresIn: '8h' }
     );
     
+    // Map backend role back to frontend format for response
+    const reverseRoleMap = {
+      'Admin': 'admin',
+      'Inventory_Manager': 'inventory_manager',
+      'Auditor': 'auditor',
+      'Employee': 'employee'
+    };
+    
     res.json({ 
       user: {
         id: user._id,
         email: user.email,
-        role: user.role,
+        role: reverseRoleMap[user.role] || 'employee',
         full_name: user.name,
         department: user.department
       },

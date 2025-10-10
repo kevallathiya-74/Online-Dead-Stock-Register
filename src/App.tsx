@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider } from './context/AuthContext';
 import { theme } from './config/theme';
+import { initializeDemoData } from './utils/demoData';
 
 // Auth Pages
+import Landing from './pages/auth/Landing';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import AdminRegister from './pages/auth/AdminRegister';
@@ -23,6 +26,11 @@ import Documents from './pages/documents/Documents';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
 const App = () => {
+  // Initialize demo data on app startup
+  useEffect(() => {
+    initializeDemoData();
+  }, []);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -30,6 +38,7 @@ const App = () => {
         <Router>
           <Routes>
             {/* Public Routes */}
+            <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/admin-register" element={<AdminRegister />} />
@@ -44,11 +53,22 @@ const App = () => {
             </Route>
 
             {/* Default Routes */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Router>
-
+        
+        {/* Toast Container for notifications */}
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+        />
       </AuthProvider>
     </ThemeProvider>
   );
