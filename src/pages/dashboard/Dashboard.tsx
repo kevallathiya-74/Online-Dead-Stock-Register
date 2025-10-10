@@ -1,26 +1,37 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
-import AuditorDashboard from './AuditorDashboard';
+import AdminDashboard from './AdminDashboard';
+import InventoryManagerDashboard from './InventoryManagerDashboard';
 import EmployeeDashboard from './EmployeeDashboard';
+import AuditorDashboard from './AuditorDashboard';
 
 const Dashboard = () => {
   const { user } = useAuth();
 
-  // DEMO MODE: For demonstration purposes, use AUDITOR role if no user
-  const currentUserRole = user?.role || UserRole.AUDITOR;
+  console.log('Dashboard component rendering - User:', user);
+  
+  // DEMO MODE: For demonstration purposes, use EMPLOYEE role if no user
+  const currentUserRole = user?.role || UserRole.EMPLOYEE;
+  
+  console.log('Dashboard - Current user role:', currentUserRole);
   
   switch (currentUserRole) {
     case UserRole.ADMIN:
-      return <AuditorDashboard />; // Temporary - use Auditor dashboard for Admin
+      console.log('Rendering AdminDashboard');
+      return <AdminDashboard />;
     case UserRole.INVENTORY_MANAGER:
-      return <AuditorDashboard />; // Temporary - use Auditor dashboard
+      console.log('Rendering InventoryManagerDashboard');
+      return <InventoryManagerDashboard />;
     case UserRole.AUDITOR:
+      console.log('Rendering AuditorDashboard');
       return <AuditorDashboard />;
     case UserRole.EMPLOYEE:
+      console.log('Rendering EmployeeDashboard');
       return <EmployeeDashboard />;
     default:
-      return <AuditorDashboard />; // Default to Auditor dashboard for demo
+      console.log('Rendering default EmployeeDashboard');
+      return <EmployeeDashboard />; // Default to Employee dashboard for demo
   }
 };
 

@@ -15,7 +15,6 @@ import {
   IconButton,
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { toast } from 'react-toastify';
 import { useAuth } from '../../context/AuthContext';
 
 interface LoginFormInputs {
@@ -49,11 +48,16 @@ const Login = () => {
   const onSubmit = async (data: LoginFormInputs) => {
     try {
       setIsLoading(true);
+      console.log('Login component: Attempting login for:', data.email);
       await login(data.email, data.password);
-      toast.success('Login successful');
-      navigate('/dashboard');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Login failed');
+      console.log('Login component: Login successful, navigating to dashboard');
+      // Add a small delay to ensure state is updated
+      setTimeout(() => {
+        console.log('Login component: Executing navigation to dashboard');
+        navigate('/dashboard', { replace: true });
+      }, 100);
+    } catch (error) {
+      console.error('Login component: Login failed:', error);
     } finally {
       setIsLoading(false);
     }
@@ -137,22 +141,19 @@ const Login = () => {
               {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>
 
-            {/* Demo Users Section */}
+            {/* Test Users Section */}
             <Box sx={{ mt: 3, p: 2, backgroundColor: 'grey.50', borderRadius: 1 }}>
               <Typography variant="subtitle2" gutterBottom color="primary">
-                Demo Users (any password works):
+                Test User Credentials:
               </Typography>
               <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
-                • Admin: admin@demo.com
+                • Admin: admin@company.com / Admin@123
               </Typography>
               <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
-                • Manager: manager@demo.com
-              </Typography>
-              <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
-                • Auditor: auditor@demo.com
+                • Manager: inventory@company.com / Inventory@123
               </Typography>
               <Typography variant="caption" display="block">
-                • Employee: employee@demo.com
+                • Employee: employee@company.com / Employee@123
               </Typography>
             </Box>
 

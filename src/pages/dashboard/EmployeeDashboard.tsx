@@ -20,6 +20,14 @@ import {
   Divider,
   Avatar,
   MenuItem,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  ListItemAvatar,
 } from '@mui/material';
 import {
   Laptop as LaptopIcon,
@@ -35,10 +43,17 @@ import {
   Build as MaintenanceIcon,
   Warning as WarningIcon,
   CheckCircle as CheckIcon,
+  Add as AddIcon,
+  Report as ReportIcon,
+  Check as CheckinIcon,
+  History as HistoryIcon,
+  Assignment as RequestIcon,
+  Schedule as ReminderIcon,
+  EventAvailable as ReturnIcon,
+  TrendingUp,
 } from '@mui/icons-material';
-import StatCard from '../../components/dashboard/StatCard';
-import ChartComponent from '../../components/dashboard/ChartComponent';
-import QRScanner from '../../components/common/QRScanner';
+import DashboardLayout from '../../components/layout/DashboardLayout';
+import { useAuth } from '../../context/AuthContext';
 
 interface Asset {
   id: string;
@@ -148,46 +163,7 @@ const EmployeeDashboard = () => {
     }).length,
   };
 
-  // Asset category distribution
-  const categoryData = {
-    labels: ['Laptop', 'Mobile', 'Monitor', 'Printer', 'Other'],
-    datasets: [
-      {
-        label: 'My Assets',
-        data: [
-          myAssets.filter(a => a.category === 'Laptop').length,
-          myAssets.filter(a => a.category === 'Mobile').length,
-          myAssets.filter(a => a.category === 'Monitor').length,
-          myAssets.filter(a => a.category === 'Printer').length,
-          myAssets.filter(a => a.category && !['Laptop', 'Mobile', 'Monitor', 'Printer'].includes(a.category)).length,
-        ],
-        backgroundColor: [
-          '#2196F3',
-          '#4CAF50',
-          '#FF9800',
-          '#9C27B0',
-          '#607D8B',
-        ],
-      },
-    ],
-  };
 
-  // Asset condition chart
-  const conditionData = {
-    labels: ['Excellent', 'Good', 'Fair', 'Poor'],
-    datasets: [
-      {
-        label: 'Asset Condition',
-        data: [
-          myAssets.filter(a => a.condition === 'Excellent').length,
-          myAssets.filter(a => a.condition === 'Good').length,
-          myAssets.filter(a => a.condition === 'Fair').length,
-          myAssets.filter(a => a.condition === 'Poor').length,
-        ],
-        backgroundColor: ['#4CAF50', '#8BC34A', '#FF9800', '#FF5722'],
-      },
-    ],
-  };
 
   const handleQRScan = (asset: Asset) => {
     // Verify if this asset is assigned to current user
@@ -266,15 +242,49 @@ const EmployeeDashboard = () => {
     return expiryDate <= threeMonthsFromNow;
   };
 
+  const { user } = useAuth();
+
+  const StatCard: React.FC<{
+    title: string;
+    value: string | number;
+    icon: React.ReactNode;
+    color?: 'primary' | 'secondary' | 'success' | 'warning' | 'error';
+  }> = ({ title, value, icon, color = 'primary' }) => (
+    <Card sx={{ height: '100%' }}>
+      <CardContent>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box>
+            <Typography color="textSecondary" gutterBottom variant="overline">
+              {title}
+            </Typography>
+            <Typography variant="h4" component="h2">
+              {value}
+            </Typography>
+          </Box>
+          <Avatar
+            sx={{
+              backgroundColor: `${color}.main`,
+              height: 56,
+              width: 56,
+            }}
+          >
+            {icon}
+          </Avatar>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+
   return (
-    <Box p={3}>
+    <DashboardLayout>
+      <Box>
       <Box display="flex" alignItems="center" gap={2} mb={3}>
         <Avatar sx={{ bgcolor: 'primary.main' }}>
           <PersonIcon />
         </Avatar>
         <Box>
           <Typography variant="h4">
-            My Assets Dashboard
+            Welcome back, {user?.full_name || 'Employee'}!
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Manage your assigned assets and maintenance requests
@@ -352,23 +362,86 @@ const EmployeeDashboard = () => {
         </Grid>
       </Grid>
 
-      {/* Charts */}
-      <Grid container spacing={3} mb={3}>
-        <Grid item xs={12} md={6}>
-          <ChartComponent
-            title="My Assets by Category"
-            type="doughnut"
-            data={categoryData}
-            height={300}
-          />
+      {/* Quick Actions */}
+      <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>
+        Quick Actions
+      </Typography>
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={2.4}>
+          <Card sx={{ height: '100%', cursor: 'pointer' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+                <Avatar sx={{ backgroundColor: 'primary.main', mr: 2, mt: 0.5 }}>
+                  <AddIcon />
+                </Avatar>
+                <Box sx={{ flexGrow: 1 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Request New Asset
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Submit request for new equipment
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
         </Grid>
-        <Grid item xs={12} md={6}>
-          <ChartComponent
-            title="Asset Condition Overview"
-            type="bar"
-            data={conditionData}
-            height={300}
-          />
+        <Grid item xs={12} sm={6} md={2.4}>
+          <Card sx={{ height: '100%', cursor: 'pointer' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+                <Avatar sx={{ backgroundColor: 'error.main', mr: 2, mt: 0.5 }}>
+                  <ReportIcon />
+                </Avatar>
+                <Box sx={{ flexGrow: 1 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Report Issue
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Report problems with assets
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={2.4}>
+          <Card sx={{ height: '100%', cursor: 'pointer' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+                <Avatar sx={{ backgroundColor: 'success.main', mr: 2, mt: 0.5 }}>
+                  <CheckinIcon />
+                </Avatar>
+                <Box sx={{ flexGrow: 1 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Check-in Asset
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Return assets no longer needed
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={2.4}>
+          <Card sx={{ height: '100%', cursor: 'pointer' }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+                <Avatar sx={{ backgroundColor: 'secondary.main', mr: 2, mt: 0.5 }}>
+                  <HistoryIcon />
+                </Avatar>
+                <Box sx={{ flexGrow: 1 }}>
+                  <Typography variant="h6" gutterBottom>
+                    View My History
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    See complete asset usage history
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
 
@@ -566,13 +639,16 @@ const EmployeeDashboard = () => {
         </Grid>
       </Grid>
 
-      {/* QR Scanner */}
-      <QRScanner
-        open={qrScannerOpen}
-        onClose={() => setQrScannerOpen(false)}
-        onAssetFound={handleQRScan}
-        mode="lookup"
-      />
+      {/* QR Scanner Dialog - Would be implemented with camera library */}
+      <Dialog open={qrScannerOpen} onClose={() => setQrScannerOpen(false)}>
+        <DialogTitle>QR Code Scanner</DialogTitle>
+        <DialogContent>
+          <Typography>QR Scanner would be implemented here with camera access</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setQrScannerOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Maintenance Request Dialog */}
       <Dialog
@@ -632,7 +708,8 @@ const EmployeeDashboard = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+      </Box>
+    </DashboardLayout>
   );
 };
 

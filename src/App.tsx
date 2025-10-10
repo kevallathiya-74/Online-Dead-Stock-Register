@@ -7,6 +7,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider } from './context/AuthContext';
 import { theme } from './config/theme';
 import { initializeDemoData } from './utils/demoData';
+import { UserRole } from './types';
 
 // Auth Pages
 import Landing from './pages/auth/Landing';
@@ -21,6 +22,15 @@ import Dashboard from './pages/dashboard/Dashboard';
 
 // Documents Pages
 import Documents from './pages/documents/Documents';
+
+// Debug Pages
+import AuthDebug from './pages/debug/AuthDebug';
+
+// Admin Pages
+import UsersPage from './pages/users/UsersPage';
+
+// Inventory Manager Pages
+import AssetsPage from './pages/assets/AssetsPage';
 
 // Protected Route Component
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -44,12 +54,25 @@ const App = () => {
             <Route path="/admin-register" element={<AdminRegister />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password/:token" element={<ResetPassword />} />
+            <Route path="/debug" element={<AuthDebug />} />
 
             {/* Protected Routes */}
             <Route element={<ProtectedRoute />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/dashboard/*" element={<Dashboard />} />
               <Route path="/documents" element={<Documents />} />
+            </Route>
+              
+            {/* Admin Only Routes */}
+            <Route element={<ProtectedRoute allowedRoles={[UserRole.ADMIN]} />}>
+              <Route path="/users" element={<UsersPage />} />
+              <Route path="/users/*" element={<UsersPage />} />
+            </Route>
+              
+            {/* Inventory Manager Routes */}
+            <Route element={<ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.INVENTORY_MANAGER]} />}>
+              <Route path="/assets" element={<AssetsPage />} />
+              <Route path="/assets/*" element={<AssetsPage />} />
             </Route>
 
             {/* Default Routes */}

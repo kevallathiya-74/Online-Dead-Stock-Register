@@ -77,16 +77,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     checkAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<void> => {
+    console.log('AuthContext: Login attempt for:', email);
+    setLoading(true);
+    
     try {
-      setLoading(true);
-      
       // First try demo users from localStorage
       const demoUsers = JSON.parse(localStorage.getItem('demo_users') || '[]');
+      console.log('AuthContext: Demo users loaded:', demoUsers.length);
       const demoUser = demoUsers.find((user: any) => user.email === email);
       
       if (demoUser) {
-        // For demo purposes, accept any password for demo users
+        console.log('AuthContext: Demo user found:', demoUser.email);
+        // Validate password for demo users
+        if (demoUser.password !== password) {
+          console.log('AuthContext: Invalid password for demo user');
+          throw new Error('Invalid credentials');
+        }
+        
         const jwtUser: JWTUser = {
           id: demoUser.id,
           email: demoUser.email,
@@ -97,24 +105,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           updated_at: demoUser.created_at,
         };
         
-        setUser(jwtUser);
+        console.log('AuthContext: Setting user state:', jwtUser);
+        // Set user state and token
         localStorage.setItem('auth_token', 'demo-token-' + demoUser.id);
-        toast.success(`Logged in as ${demoUser.role}`);
+        setUser(jwtUser);
+        setLoading(false);
+        toast.success(`Welcome ${demoUser.username}!`);
+        console.log('AuthContext: Login successful');
         return;
       }
       
+      console.log('AuthContext: No demo user found, trying backend login');
       // Fall back to real backend login
       const response = await authService.signIn(email, password);
-      setUser(response.user);
       if (response.token) {
         localStorage.setItem('auth_token', response.token);
       }
+      if (response.user) {
+        setUser(response.user);
+      }
+      setLoading(false);
       toast.success('Logged in successfully');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Login failed');
-      throw error;
-    } finally {
+      console.error('AuthContext: Login error:', error);
       setLoading(false);
+      const errorMessage = error.message || error.response?.data?.message || 'Login failed';
+      toast.error(errorMessage);
+      throw new Error(errorMessage);
     }
   };
 
