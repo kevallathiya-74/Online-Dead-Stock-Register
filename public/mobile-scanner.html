@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📱 Mobile QR Scanner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .camera-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .camera-view {
+            width: 100%;
+            height: 300px;
+            background: #000;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .scanning-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            border: 3px solid #fff;
+            border-radius: 10px;
+        }
+        
+        .scanning-overlay::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border: 3px solid #2196f3;
+            border-radius: 10px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+        
+        .button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .button.primary {
+            background: #2196f3;
+            color: white;
+        }
+        
+        .button.primary:hover {
+            background: #1976d2;
+        }
+        
+        .button.success {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .button.danger {
+            background: #f44336;
+            color: white;
+        }
+        
+        .result-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            display: none;
+        }
+        
+        .result-card.show {
+            display: block;
+        }
+        
+        .asset-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .info-item {
+            text-align: center;
+        }
+        
+        .info-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .status {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .status.active { background: #c8e6c9; color: #2e7d32; }
+        .status.maintenance { background: #fff3e0; color: #ef6c00; }
+        
+        .instructions {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .error-message {
+            background: #ffebee;
+            border: 1px solid #f44336;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        
+        .success-message {
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📱 Mobile QR Scanner</h1>
+            <p>Scan Asset QR Codes</p>
+            <p><strong>Connected to:</strong> 10.150.151.205</p>
+        </div>
+        
+        <!-- Error Message -->
+        <div id="errorMessage" class="error-message"></div>
+        
+        <!-- Success Message -->
+        <div id="successMessage" class="success-message"></div>
+        
+        <!-- Camera Container -->
+        <div class="camera-container">
+            <div class="camera-view" id="cameraView">
+                <video id="video" autoplay playsinline></video>
+                <div class="scanning-overlay" id="scanningOverlay" style="display: none;"></div>
+                <div id="cameraPlaceholder" style="display: flex; align-items: center; justify-content: center; height: 100%; color: white; text-align: center;">
+                    <div>
+                        <div style="font-size: 48px; margin-bottom: 15px;">📷</div>
+                        <div>Tap "Start Camera" to begin scanning</div>
+                    </div>
+                </div>
+            </div>
+            
+            <button id="startCamera" class="button primary">📷 Start Camera</button>
+            <button id="stopCamera" class="button danger" style="display: none;">🛑 Stop Camera</button>
+        </div>
+        
+        <!-- Result Card -->
+        <div id="resultCard" class="result-card">
+            <h3 style="color: #4caf50; margin-bottom: 15px;">✅ Asset Found!</h3>
+            <div id="assetInfo" class="asset-info">
+                <!-- Asset information will be populated here -->
+            </div>
+            <button id="scanAnother" class="button success" style="margin-top: 15px;">🔍 Scan Another</button>
+        </div>
+        
+        <!-- Instructions -->
+        <div class="instructions">
+            <h3>📋 Instructions</h3>
+            <ol>
+                <li><strong>Start Camera:</strong> Tap the "Start Camera" button</li>
+                <li><strong>Allow Permissions:</strong> Grant camera access when prompted</li>
+                <li><strong>Position QR Code:</strong> Hold phone 6-12 inches from QR code</li>
+                <li><strong>Keep Steady:</strong> Hold phone steady until scan completes</li>
+                <li><strong>View Results:</strong> Asset information will appear below</li>
+            </ol>
+            
+            <h4 style="margin-top: 20px;">🔗 System URLs:</h4>
+            <p><strong>Frontend:</strong> http://10.150.151.205:3000</p>
+            <p><strong>Backend API:</strong> http://10.150.151.205:5000</p>
+            <p><strong>QR Scan API:</strong> /api/assets/scan/:id</p>
+        </div>
+    </div>
+
+    <!-- Include QR Code scanning library -->
+    <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+    
+    <script>
+        let codeReader = null;
+        let selectedDeviceId = null;
+        let isScanning = false;
+        
+        const video = document.getElementById('video');
+        const startCameraBtn = document.getElementById('startCamera');
+        const stopCameraBtn = document.getElementById('stopCamera');
+        const scanningOverlay = document.getElementById('scanningOverlay');
+        const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+        const resultCard = document.getElementById('resultCard');
+        const assetInfo = document.getElementById('assetInfo');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+        const scanAnotherBtn = document.getElementById('scanAnother');
+        
+        // Initialize QR Code Reader
+        function initializeScanner() {
+            codeReader = new ZXing.BrowserQRCodeReader();
+            console.log('QR Scanner initialized');
+        }
+        
+        // Show error message
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            successMessage.style.display = 'none';
+        }
+        
+        // Show success message
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.style.display = 'block';
+            errorMessage.style.display = 'none';
+        }
+        
+        // Hide messages
+        function hideMessages() {
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+        }
+        
+        // Start camera and scanning
+        async function startCamera() {
+            try {
+                hideMessages();
+                
+                if (!codeReader) {
+                    initializeScanner();
+                }
+                
+                // Get video devices
+                const videoInputDevices = await codeReader.listVideoInputDevices();
+                
+                if (videoInputDevices.length === 0) {
+                    showError('No camera devices found on this device.');
+                    return;
+                }
+                
+                // Use back camera if available (for mobile)
+                selectedDeviceId = videoInputDevices.find(device => 
+                    device.label.toLowerCase().includes('back') || 
+                    device.label.toLowerCase().includes('rear')
+                )?.deviceId || videoInputDevices[0].deviceId;
+                
+                console.log('Using camera:', selectedDeviceId);
+                
+                // Start scanning
+                codeReader.decodeFromVideoDevice(selectedDeviceId, video, (result, err) => {
+                    if (result) {
+                        console.log('QR Code detected:', result.text);
+                        handleQRCodeDetected(result.text);
+                    }
+                    if (err && !(err instanceof ZXing.NotFoundException)) {
+                        console.warn('Scan error:', err);
+                    }
+                });
+                
+                // Update UI
+                isScanning = true;
+                cameraPlaceholder.style.display = 'none';
+                scanningOverlay.style.display = 'block';
+                startCameraBtn.style.display = 'none';
+                stopCameraBtn.style.display = 'block';
+                resultCard.classList.remove('show');
+                
+                showSuccess('Camera started! Point at QR code to scan.');
+                
+            } catch (error) {
+                console.error('Camera start error:', error);
+                showError('Failed to start camera. Please check permissions and try again.');
+            }
+        }
+        
+        // Stop camera
+        function stopCamera() {
+            if (codeReader) {
+                codeReader.reset();
+            }
+            
+            isScanning = false;
+            cameraPlaceholder.style.display = 'flex';
+            scanningOverlay.style.display = 'none';
+            startCameraBtn.style.display = 'block';
+            stopCameraBtn.style.display = 'none';
+            
+            hideMessages();
+        }
+        
+        // Handle QR code detection
+        async function handleQRCodeDetected(qrText) {
+            try {
+                console.log('Processing QR code:', qrText);
+                
+                // Parse QR code data
+                let qrData;
+                try {
+                    qrData = JSON.parse(qrText);
+                } catch (e) {
+                    // If not JSON, treat as simple asset ID
+                    qrData = { id: qrText };
+                }
+                
+                // Stop camera
+                stopCamera();
+                
+                // Simulate API call to get asset data
+                // In real implementation, this would call your backend API
+                const assetData = await simulateAssetLookup(qrData.id);
+                
+                // Display results
+                displayAssetInfo(assetData);
+                
+                showSuccess(`Asset found: ${assetData.manufacturer} ${assetData.model}`);
+                
+            } catch (error) {
+                console.error('QR processing error:', error);
+                showError('Failed to process QR code. Please try again.');
+            }
+        }
+        
+        // Simulate asset lookup (replace with actual API call)
+        async function simulateAssetLookup(assetId) {
+            // Simulate API delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Return mock asset data
+            return {
+                unique_asset_id: assetId || 'AST-MOBILE-001',
+                manufacturer: 'Apple',
+                model: 'iPhone 14 Pro',
+                serial_number: 'APL987654321',
+                status: 'Active',
+                condition: 'Excellent',
+                location: 'Sales Department - Floor 2',
+                assigned_user: 'Sarah Johnson',
+                purchase_date: '2024-01-15',
+                last_audit_date: '2024-10-01'
+            };
+        }
+        
+        // Display asset information
+        function displayAssetInfo(asset) {
+            assetInfo.innerHTML = `
+                <div class="info-item">
+                    <div class="info-label">Asset ID</div>
+                    <div class="info-value">${asset.unique_asset_id}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Status</div>
+                    <div class="status active">${asset.status}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Device</div>
+                    <div class="info-value">${asset.manufacturer}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Model</div>
+                    <div class="info-value">${asset.model}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Location</div>
+                    <div class="info-value">${asset.location}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Assigned To</div>
+                    <div class="info-value">${asset.assigned_user}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Condition</div>
+                    <div class="info-value">${asset.condition}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Last Audit</div>
+                    <div class="info-value">${new Date(asset.last_audit_date).toLocaleDateString()}</div>
+                </div>
+            `;
+            
+            resultCard.classList.add('show');
+        }
+        
+        // Event listeners
+        startCameraBtn.addEventListener('click', startCamera);
+        stopCameraBtn.addEventListener('click', stopCamera);
+        scanAnotherBtn.addEventListener('click', () => {
+            resultCard.classList.remove('show');
+            startCamera();
+        });
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Mobile QR Scanner loaded');
+            hideMessages();
+        });
+        
+        // Handle page visibility change
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && isScanning) {
+                stopCamera();
+            }
+        });
+    </script>
+</body>
+</html>

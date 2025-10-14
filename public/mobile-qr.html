@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📱 Mobile QR Scanner - Asset Management</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .method {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .method:hover {
+            border-color: #2196f3;
+            background: #f3f9ff;
+        }
+        
+        .method h3 {
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .method p {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .button {
+            display: inline-block;
+            background: #2196f3;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: bold;
+            text-align: center;
+            margin: 10px 0;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            transition: background 0.3s ease;
+        }
+        
+        .button:hover {
+            background: #1976d2;
+        }
+        
+        .button.secondary {
+            background: #4caf50;
+        }
+        
+        .button.secondary:hover {
+            background: #45a049;
+        }
+        
+        .instructions {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        
+        .instructions h4 {
+            color: #ef6c00;
+            margin-bottom: 10px;
+        }
+        
+        .instructions ol {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 5px;
+            color: #333;
+        }
+        
+        .ip-info {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: center;
+        }
+        
+        .ip-info strong {
+            color: #1976d2;
+            font-size: 18px;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .status {
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .status.working { background: #c8e6c9; color: #2e7d32; }
+        .status.demo { background: #fff3e0; color: #ef6c00; }
+        
+        .qr-display {
+            text-align: center;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 10px;
+            }
+            
+            body {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📱 Mobile QR Scanner</h1>
+            <p>Scan asset QR codes using your phone</p>
+            <div style="margin-top: 10px;">
+                <span class="status working">✅ Backend Running</span>
+            </div>
+        </div>
+        
+        <!-- Connection Info -->
+        <div class="card">
+            <h3>🌐 Access Your System from Phone</h3>
+            <div class="ip-info">
+                <strong>Your Laptop IP:</strong>
+                <div>10.150.151.205</div>
+                <small>Make sure your phone and laptop are on the same WiFi network</small>
+            </div>
+        </div>
+        
+        <!-- Method 1: Web App -->
+        <div class="card">
+            <div class="method">
+                <h3>🌐 Method 1: Mobile Web App</h3>
+                <p>Access your full asset management system from your phone browser with mobile-optimized QR scanner.</p>
+                <a href="http://10.150.151.205:3001/demo/mobile-qr" class="button" target="_blank">
+                    Open Mobile QR Scanner
+                </a>
+                <div class="instructions">
+                    <h4>Steps:</h4>
+                    <ol>
+                        <li>Connect phone to same WiFi as laptop</li>
+                        <li>Open phone browser (Chrome/Safari)</li>
+                        <li>Click the button above or go to: <strong>10.150.151.205:3001</strong></li>
+                        <li>Login with your credentials</li>
+                        <li>Navigate to QR Scanner Demo</li>
+                        <li>Allow camera permissions</li>
+                        <li>Scan QR codes!</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Method 2: Built-in Camera -->
+        <div class="card">
+            <div class="method">
+                <h3>📷 Method 2: Phone's Built-in Camera</h3>
+                <p>Use your phone's default camera app to scan QR codes, then manually enter the data.</p>
+                <div class="instructions">
+                    <h4>Steps:</h4>
+                    <ol>
+                        <li>Open your phone's Camera app</li>
+                        <li>Point at QR code</li>
+                        <li>Tap the QR code notification</li>
+                        <li>Copy the asset ID from the QR data</li>
+                        <li>Go to your laptop and search for that asset</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Method 3: QR Scanner Apps -->
+        <div class="card">
+            <div class="method">
+                <h3>📱 Method 3: QR Scanner Apps</h3>
+                <p>Download a dedicated QR scanner app for more reliable scanning.</p>
+                <div class="instructions">
+                    <h4>Recommended Apps:</h4>
+                    <ol>
+                        <li><strong>iPhone:</strong> Built-in Camera app</li>
+                        <li><strong>Android:</strong> Google Lens or QR Code Reader</li>
+                        <li>Scan QR code to get asset data</li>
+                        <li>Use the asset ID on your laptop system</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Test QR Code -->
+        <div class="card">
+            <h3>🧪 Test QR Code</h3>
+            <p>Try scanning this sample QR code with your phone:</p>
+            <div class="qr-display">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={%22id%22:%22AST-TEST-001%22,%22scan_url%22:%22http://10.150.151.205:5000/api/assets/scan/AST-TEST-001%22}" 
+                     alt="Test QR Code" style="max-width: 200px; height: auto;" />
+                <p style="margin-top: 10px; font-size: 14px; color: #666;">
+                    Sample Asset: AST-TEST-001
+                </p>
+            </div>
+        </div>
+        
+        <!-- API Endpoints -->
+        <div class="card">
+            <h3>🔗 API Endpoints</h3>
+            <div class="instructions">
+                <h4>Your Backend URLs:</h4>
+                <ol>
+                    <li><strong>Frontend:</strong> http://10.150.151.205:3001</li>
+                    <li><strong>Backend API:</strong> http://10.150.151.205:5000</li>
+                    <li><strong>QR Scan:</strong> /api/assets/scan/:id</li>
+                    <li><strong>Create Asset:</strong> /api/assets (auto-generates QR)</li>
+                </ol>
+            </div>
+        </div>
+        
+        <!-- Troubleshooting -->
+        <div class="card">
+            <h3>🔧 Troubleshooting</h3>
+            <div class="instructions">
+                <h4>If you can't access from phone:</h4>
+                <ol>
+                    <li>Ensure both devices are on same WiFi network</li>
+                    <li>Check Windows Firewall settings</li>
+                    <li>Try different IP address: 192.168.56.1:3001</li>
+                    <li>Restart your laptop's WiFi connection</li>
+                    <li>Use phone's hotspot and connect laptop to it</li>
+                </ol>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="card" style="text-align: center; background: rgba(255, 255, 255, 0.8);">
+            <p style="color: #666; font-size: 14px;">
+                📱 Asset Management System - Mobile QR Scanner<br>
+                <strong>Status:</strong> <span class="status working">Ready to Use</span>
+            </p>
+        </div>
+    </div>
+    
+    <script>
+        // Auto-refresh status every 30 seconds
+        setInterval(() => {
+            console.log('System status: Active');
+        }, 30000);
+        
+        // Handle click events
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if we can reach the backend
+            fetch('http://10.150.151.205:5000/api/assets/dashboard/stats')
+                .then(response => {
+                    if (response.ok) {
+                        console.log('Backend is accessible');
+                    }
+                })
+                .catch(error => {
+                    console.log('Backend connection issue:', error);
+                });
+        });
+    </script>
+</body>
+</html>
