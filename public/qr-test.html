@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Test - Asset Management System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 20px 0;
+        }
+        .qr-section {
+            text-align: center;
+            padding: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+        }
+        .qr-code {
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        button {
+            background: #1976d2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        button:hover {
+            background: #1565c0;
+        }
+        .asset-info {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .asset-info h3 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        .instructions {
+            background: #fff3e0;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #ff9800;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            margin: 5px;
+            display: inline-block;
+        }
+        .status.active { background: #c8e6c9; color: #2e7d32; }
+        .status.maintenance { background: #fff3e0; color: #ef6c00; }
+        .status.available { background: #e1f5fe; color: #0277bd; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 QR Code Test - Asset Management System</h1>
+        <p>This page demonstrates how QR codes work in your asset management system running on your laptop.</p>
+        
+        <div class="grid">
+            <!-- QR Code Generation Section -->
+            <div class="qr-section">
+                <h2>📋 Generate Test QR Code</h2>
+                <p>Click below to generate a sample asset QR code:</p>
+                <button onclick="generateQRCode()">Generate Asset QR Code</button>
+                <div id="qrCodeDisplay"></div>
+                <div id="qrData" style="margin-top: 15px;"></div>
+            </div>
+            
+            <!-- Manual Scan Test -->
+            <div class="qr-section">
+                <h2>📱 Test Scanning (Manual)</h2>
+                <p>Test the QR data by clicking below:</p>
+                <button onclick="simulateScan()">Simulate QR Scan</button>
+                <div id="scanResult"></div>
+            </div>
+        </div>
+        
+        <!-- Asset Information Display -->
+        <div id="assetInfo" class="asset-info" style="display: none;">
+            <h3>📊 Scanned Asset Information</h3>
+            <div id="assetDetails"></div>
+        </div>
+        
+        <!-- Instructions -->
+        <div class="instructions">
+            <h3>📝 How to Use QR Scanner on Your Laptop:</h3>
+            <ol>
+                <li><strong>Camera Access:</strong> Your laptop needs a built-in camera or external webcam</li>
+                <li><strong>Browser Permissions:</strong> Allow camera access when prompted</li>
+                <li><strong>QR Scanner:</strong> Go to <code>http://localhost:3000/demo/qr-scanner</code></li>
+                <li><strong>Scan QR:</strong> Point camera at QR code generated below</li>
+                <li><strong>View Data:</strong> Asset information will display automatically</li>
+            </ol>
+            
+            <h4>🔗 Your Backend API Endpoints:</h4>
+            <ul>
+                <li><strong>Create Asset:</strong> <code>POST /api/assets</code> (auto-generates QR)</li>
+                <li><strong>Scan QR Code:</strong> <code>GET /api/assets/scan/:id</code></li>
+                <li><strong>Dashboard Stats:</strong> <code>GET /api/assets/dashboard/stats</code></li>
+                <li><strong>List Assets:</strong> <code>GET /api/assets</code></li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Include QR Code generation library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    
+    <script>
+        // Sample asset data that would come from your MongoDB
+        const sampleAsset = {
+            id: "674e7f8a1234567890abcdef",
+            unique_asset_id: "AST-LAPTOP-001",
+            manufacturer: "Dell",
+            model: "XPS 15",
+            serial_number: "DLL123456789",
+            asset_type: "Laptop",
+            category: "IT Equipment",
+            status: "Active",
+            condition: "Good",
+            location: "IT Department - Floor 2",
+            assigned_user: "John Smith",
+            purchase_date: "2024-01-15",
+            purchase_cost: 85000,
+            current_value: 68000,
+            last_audit_date: "2024-10-01",
+            qr_scan_count: 3,
+            warranty_expiry: "2027-01-15"
+        };
+        
+        // Generate QR Code for testing
+        async function generateQRCode() {
+            const qrData = {
+                id: sampleAsset.id,
+                scan_url: `http://localhost:5000/api/assets/scan/${sampleAsset.id}`
+            };
+            
+            try {
+                // Generate QR code
+                const qrCodeDataURL = await QRCode.toDataURL(JSON.stringify(qrData), {
+                    type: 'image/png',
+                    quality: 0.92,
+                    margin: 1,
+                    color: {
+                        dark: '#000000',
+                        light: '#FFFFFF'
+                    },
+                    width: 256
+                });
+                
+                // Display QR code
+                document.getElementById('qrCodeDisplay').innerHTML = `
+                    <div class="qr-code">
+                        <img src="${qrCodeDataURL}" alt="Asset QR Code" />
+                        <p><strong>Asset ID:</strong> ${sampleAsset.unique_asset_id}</p>
+                        <p><strong>Device:</strong> ${sampleAsset.manufacturer} ${sampleAsset.model}</p>
+                    </div>
+                `;
+                
+                // Display QR data
+                document.getElementById('qrData').innerHTML = `
+                    <h4>QR Code Contains:</h4>
+                    <pre>${JSON.stringify(qrData, null, 2)}</pre>
+                    <p><small>📷 Use your React app at <code>localhost:3000/demo/qr-scanner</code> to scan this QR code!</small></p>
+                `;
+                
+            } catch (error) {
+                console.error('QR Code generation failed:', error);
+                document.getElementById('qrCodeDisplay').innerHTML = '<p style="color: red;">QR Code generation failed</p>';
+            }
+        }
+        
+        // Simulate what happens when QR is scanned
+        function simulateScan() {
+            // This simulates the API response from your backend
+            const scanResponse = {
+                success: true,
+                data: {
+                    basic_info: {
+                        id: sampleAsset.id,
+                        unique_asset_id: sampleAsset.unique_asset_id,
+                        manufacturer: sampleAsset.manufacturer,
+                        model: sampleAsset.model,
+                        serial_number: sampleAsset.serial_number,
+                        asset_type: sampleAsset.asset_type,
+                        category: sampleAsset.category
+                    },
+                    current_status: {
+                        status: sampleAsset.status,
+                        condition: sampleAsset.condition,
+                        location: sampleAsset.location,
+                        assigned_user: sampleAsset.assigned_user,
+                        last_audit_date: sampleAsset.last_audit_date
+                    },
+                    financial_info: {
+                        purchase_date: sampleAsset.purchase_date,
+                        purchase_cost: sampleAsset.purchase_cost,
+                        current_value: sampleAsset.current_value,
+                        warranty_expiry: sampleAsset.warranty_expiry
+                    },
+                    scan_info: {
+                        scan_count: sampleAsset.qr_scan_count + 1,
+                        last_scanned: new Date().toISOString()
+                    }
+                }
+            };
+            
+            // Display scan result
+            document.getElementById('scanResult').innerHTML = `
+                <div style="background: #c8e6c9; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                    <h4 style="color: #2e7d32; margin: 0;">✅ QR Scan Successful!</h4>
+                    <p>Asset found and data retrieved from database</p>
+                </div>
+            `;
+            
+            // Show detailed asset information
+            displayAssetInfo(scanResponse.data);
+        }
+        
+        // Display detailed asset information
+        function displayAssetInfo(data) {
+            const assetInfoDiv = document.getElementById('assetInfo');
+            const assetDetailsDiv = document.getElementById('assetDetails');
+            
+            assetDetailsDiv.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                    <div>
+                        <h4>📋 Basic Information</h4>
+                        <p><strong>Asset ID:</strong> ${data.basic_info.unique_asset_id}</p>
+                        <p><strong>Device:</strong> ${data.basic_info.manufacturer} ${data.basic_info.model}</p>
+                        <p><strong>Serial:</strong> ${data.basic_info.serial_number}</p>
+                        <p><strong>Type:</strong> ${data.basic_info.asset_type}</p>
+                        <p><strong>Category:</strong> ${data.basic_info.category}</p>
+                    </div>
+                    
+                    <div>
+                        <h4>📍 Current Status</h4>
+                        <p><strong>Status:</strong> <span class="status ${data.current_status.status.toLowerCase()}">${data.current_status.status}</span></p>
+                        <p><strong>Condition:</strong> ${data.current_status.condition}</p>
+                        <p><strong>Location:</strong> ${data.current_status.location}</p>
+                        <p><strong>Assigned To:</strong> ${data.current_status.assigned_user}</p>
+                        <p><strong>Last Audit:</strong> ${new Date(data.current_status.last_audit_date).toLocaleDateString()}</p>
+                    </div>
+                    
+                    <div>
+                        <h4>💰 Financial Information</h4>
+                        <p><strong>Purchase Date:</strong> ${new Date(data.financial_info.purchase_date).toLocaleDateString()}</p>
+                        <p><strong>Purchase Cost:</strong> ₹${data.financial_info.purchase_cost.toLocaleString()}</p>
+                        <p><strong>Current Value:</strong> ₹${data.financial_info.current_value.toLocaleString()}</p>
+                        <p><strong>Warranty Until:</strong> ${new Date(data.financial_info.warranty_expiry).toLocaleDateString()}</p>
+                    </div>
+                    
+                    <div>
+                        <h4>🔍 Scan Information</h4>
+                        <p><strong>Total Scans:</strong> ${data.scan_info.scan_count}</p>
+                        <p><strong>Last Scanned:</strong> ${new Date(data.scan_info.last_scanned).toLocaleString()}</p>
+                        <p><strong>QR Status:</strong> <span class="status active">Active</span></p>
+                    </div>
+                </div>
+            `;
+            
+            assetInfoDiv.style.display = 'block';
+        }
+        
+        // Auto-generate QR on page load
+        window.onload = function() {
+            generateQRCode();
+        };
+    </script>
+</body>
+</html>
