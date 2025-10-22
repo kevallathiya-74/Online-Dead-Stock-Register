@@ -37,7 +37,7 @@ export const adminNavigation: NavigationItem[] = [
   },
   {
     id: 'users',
-    title: 'Users',
+    title: 'User Management',
     path: '/admin/users',
     icon: PeopleIcon,
     children: [
@@ -47,47 +47,42 @@ export const adminNavigation: NavigationItem[] = [
   },
   {
     id: 'assets',
-    title: 'Assets',
+    title: 'Asset Management',
     path: '/assets',
     icon: InventoryIcon,
     children: [
       { id: 'all-assets', title: 'All Assets', path: '/assets', icon: InventoryIcon },
+      { id: 'add-asset', title: 'Add Asset', path: '/assets/add', icon: InventoryIcon },
+      { id: 'categories', title: 'Categories', path: '/assets/categories', icon: InventoryIcon },
     ],
   },
   {
-    id: 'approvals',
-    title: 'Approvals',
-    path: '/approvals',
-    icon: ApprovalIcon,
+    id: 'inventory',
+    title: 'Dead Stock',
+    path: '/inventory',
+    icon: InventoryIcon,
+    children: [
+      { id: 'dead-stock', title: 'Dead Stock Items', path: '/inventory/dead-stock', icon: InventoryIcon },
+      { id: 'disposal', title: 'Disposal Records', path: '/inventory/disposal', icon: InventoryIcon },
+    ],
   },
   {
-    id: 'analytics',
-    title: 'Analytics',
-    path: '/admin/analytics',
+    id: 'reports',
+    title: 'Reports & Analytics',
+    path: '/admin/reports',
     icon: AnalyticsIcon,
     children: [
-      { id: 'analytics-dashboard', title: 'Dashboard', path: '/admin/analytics', icon: AnalyticsIcon },
-      { id: 'reports', title: 'Reports', path: '/admin/analytics/reports', icon: ReportIcon },
-      { id: 'custom-reports', title: 'Custom Reports', path: '/admin/analytics/custom', icon: ReportIcon },
+      { id: 'asset-reports', title: 'Asset Reports', path: '/reports/assets', icon: ReportIcon },
+      { id: 'disposal-reports', title: 'Disposal Reports', path: '/reports/disposal', icon: ReportIcon },
+      { id: 'audit-logs', title: 'Audit Logs', path: '/admin/audit-logs', icon: HistoryIcon },
     ],
   },
   {
-    id: 'system',
-    title: 'System',
+    id: 'settings',
+    title: 'System Settings',
     path: '/admin/settings',
     icon: SettingsIcon,
-    children: [
-      { id: 'settings', title: 'Settings', path: '/admin/settings', icon: SettingsIcon },
-      { id: 'audit-logs', title: 'Audit Logs', path: '/admin/audit-logs', icon: HistoryIcon },
-      { id: 'backups', title: 'Backups', path: '/admin/backups', icon: BackupIcon },
-    ],
-  },
-  {
-    id: 'documents',
-    title: 'Documents',
-    path: '/admin/documents',
-    icon: DocumentIcon,
-  },
+  }
 ];
 
 export const inventoryManagerNavigation: NavigationItem[] = [
@@ -96,6 +91,37 @@ export const inventoryManagerNavigation: NavigationItem[] = [
     title: 'Dashboard',
     path: '/dashboard',
     icon: DashboardIcon,
+  },
+  {
+    id: 'inventory',
+    title: 'Dead Stock Management',
+    path: '/inventory',
+    icon: InventoryIcon,
+    children: [
+      { id: 'dead-stock', title: 'Dead Stock Items', path: '/inventory/dead-stock', icon: InventoryIcon },
+      { id: 'add-item', title: 'Add Dead Stock', path: '/inventory/add', icon: InventoryIcon },
+      { id: 'disposal', title: 'Disposal Records', path: '/inventory/disposal', icon: InventoryIcon },
+    ],
+  },
+  {
+    id: 'assets',
+    title: 'Assets',
+    path: '/assets',
+    icon: InventoryIcon,
+    children: [
+      { id: 'all-assets', title: 'View Assets', path: '/assets', icon: InventoryIcon },
+      { id: 'maintenance', title: 'Maintenance', path: '/assets/maintenance', icon: MaintenanceIcon },
+    ],
+  },
+  {
+    id: 'reports',
+    title: 'Reports',
+    path: '/reports',
+    icon: ReportIcon,
+    children: [
+      { id: 'inventory-reports', title: 'Inventory Reports', path: '/reports/inventory', icon: ReportIcon },
+      { id: 'disposal-reports', title: 'Disposal Reports', path: '/reports/disposal', icon: ReportIcon },
+    ],
   },
   {
     id: 'assets',
@@ -168,10 +194,14 @@ export const employeeNavigation: NavigationItem[] = [
     icon: DashboardIcon,
   },
   {
-    id: 'my-assets',
-    title: 'My Assets',
-    path: '/my-assets',
+    id: 'assets',
+    title: 'Dead Stock Items',
+    path: '/assets',
     icon: InventoryIcon,
+    children: [
+      { id: 'view-items', title: 'View Items', path: '/assets/view', icon: InventoryIcon },
+      { id: 'my-items', title: 'My Items', path: '/assets/my-items', icon: InventoryIcon },
+    ]
   },
   {
     id: 'requests',
@@ -181,7 +211,6 @@ export const employeeNavigation: NavigationItem[] = [
     children: [
       { id: 'new-request', title: 'New Request', path: '/requests/new', icon: RequestIcon },
       { id: 'my-requests', title: 'My Requests', path: '/requests', icon: RequestIcon },
-      { id: 'request-history', title: 'Request History', path: '/requests/history', icon: HistoryIcon },
     ],
   },
   {
@@ -189,13 +218,7 @@ export const employeeNavigation: NavigationItem[] = [
     title: 'Profile',
     path: '/profile',
     icon: ProfileIcon,
-  },
-  {
-    id: 'help',
-    title: 'Help',
-    path: '/help',
-    icon: HelpIcon,
-  },
+  }
 ];
 
 export const getNavigationForRole = (role: UserRole): NavigationItem[] => {
@@ -205,9 +228,6 @@ export const getNavigationForRole = (role: UserRole): NavigationItem[] => {
     case UserRole.INVENTORY_MANAGER:
       return inventoryManagerNavigation;
     case UserRole.EMPLOYEE:
-      return employeeNavigation;
-    case UserRole.AUDITOR:
-      // Auditor gets similar to employee but with read-only access
       return employeeNavigation;
     default:
       return employeeNavigation;

@@ -28,7 +28,7 @@ interface AdminRegisterFormInputs {
   email: string;
   password: string;
   confirmPassword: string;
-  department: string;
+  department: Department;
   role: UserRole;
 }
 
@@ -43,17 +43,19 @@ const schema = yup.object({
     .string()
     .oneOf([yup.ref('password')], 'Passwords must match')
     .required('Please confirm your password'),
-  department: yup.string().required('Department is required'),
+  department: yup
+    .mixed<Department>()
+    .oneOf(Object.values(Department))
+    .required('Department is required'),
   role: yup.mixed<UserRole>().oneOf(Object.values(UserRole)).required('Role is required'),
 }).required();
 
+import { Department } from '../../types';
+
 const departments = [
-  'IT',
-  'Finance',
-  'HR',
-  'Operations',
-  'Maintenance',
-  'Administration',
+  { value: Department.IT, label: 'Information Technology' },
+  { value: Department.INVENTORY, label: 'Inventory' },
+  { value: Department.ADMIN, label: 'Administration' },
 ];
 
 const AdminRegister = () => {
@@ -74,7 +76,7 @@ const AdminRegister = () => {
       email: '',
       password: '',
       confirmPassword: '',
-      department: '',
+      department: Department.INVENTORY,
       role: UserRole.EMPLOYEE,
     },
   });
@@ -223,8 +225,8 @@ const AdminRegister = () => {
                     error={!!errors.department}
                   >
                     {departments.map((dept) => (
-                      <MenuItem key={dept} value={dept}>
-                        {dept}
+                      <MenuItem key={dept.value} value={dept.value}>
+                        {dept.label}
                       </MenuItem>
                     ))}
                   </Select>
@@ -249,7 +251,6 @@ const AdminRegister = () => {
                     error={!!errors.role}
                   >
                     <MenuItem value={UserRole.EMPLOYEE}>Employee</MenuItem>
-                    <MenuItem value={UserRole.AUDITOR}>Auditor</MenuItem>
                     <MenuItem value={UserRole.INVENTORY_MANAGER}>Inventory Manager</MenuItem>
                     <MenuItem value={UserRole.ADMIN}>Admin</MenuItem>
                   </Select>

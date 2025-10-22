@@ -1,8 +1,31 @@
 # Online Dead Stock Register - AI Coding Instructions
 
+## Project Overview
+
+A comprehensive dead stock management system for tracking and managing organizational assets. The system features QR code-based asset tracking, role-based access control, real-time asset monitoring, and detailed reporting capabilities.
+
 ## Architecture Overview
 
 This is a full-stack asset management system using React/TypeScript frontend with Express.js/MongoDB backend, featuring role-based access control and integrated authentication.
+
+### Technology Stack Overview
+
+**Frontend Core**:
+- React 18 with TypeScript
+- Material-UI v5 for UI components
+- Redux Toolkit for state management
+- React Hook Form + Yup for form handling
+- React Router v6 for routing
+- Chart.js + Recharts for visualizations
+- QR code integration (qrcode.react, react-qr-scanner)
+
+**Backend Core**:
+- Express.js for API server
+- MongoDB with Mongoose ODM
+- JWT authentication
+- Multer for file uploads
+- bcryptjs for security
+- Node.js background jobs
 
 ### Key Architecture Patterns
 
@@ -98,3 +121,90 @@ cd backend && node server.js  # Express API (port 5000)
 - JWT tokens must be included in `Authorization: Bearer <token>` header format
 - Asset updates have ownership validation - only assigned user or admin can modify
 - All API responses should be consistent JSON format with error handling
+
+## Testing and Quality Assurance
+
+### Unit Testing
+- Frontend: Jest + React Testing Library
+- Backend: Jest + Supertest
+- Models: Mongoose model testing
+- Services: Mocked dependencies
+
+### Integration Testing
+- API endpoint testing
+- Authentication flow testing
+- Asset management workflows
+- File upload testing
+
+### End-to-End Testing
+- User journeys
+- Asset lifecycle testing
+- Role-based access testing
+- QR code workflows
+
+## Deployment Guidelines
+
+### Production Build
+```bash
+# Frontend build
+npm run build
+
+# Backend preparation
+cd backend
+npm install --production
+```
+
+### Environment Variables
+```bash
+# Frontend (.env)
+REACT_APP_API_URL=http://api.example.com
+REACT_APP_VERSION=1.0.0
+
+# Backend (.env)
+NODE_ENV=production
+MONGODB_URI=mongodb://...
+JWT_SECRET=secure-secret
+PORT=5000
+```
+
+### Security Checklist
+- [ ] Environment variables configured
+- [ ] JWT secret properly set
+- [ ] CORS settings reviewed
+- [ ] MongoDB authentication enabled
+- [ ] API rate limiting configured
+- [ ] File upload limits set
+- [ ] Error handling sanitized
+- [ ] SSL/TLS certificates installed
+
+## Performance Optimization
+
+### Frontend Optimization
+1. Code splitting and lazy loading
+2. Image optimization
+3. Bundle size analysis
+4. Caching strategies
+5. Performance monitoring
+
+### Backend Optimization
+1. Database indexing
+2. Query optimization
+3. Response caching
+4. Connection pooling
+5. Load balancing
+
+## Maintenance and Updates
+
+### Regular Tasks
+1. Dependency updates
+2. Security patches
+3. Database backups
+4. Log rotation
+5. Performance monitoring
+
+### Emergency Procedures
+1. Rollback procedures
+2. Database recovery
+3. SSL certificate renewal
+4. Security incident response
+5. Service outage handling

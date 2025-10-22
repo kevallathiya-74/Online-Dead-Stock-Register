@@ -3,6 +3,21 @@ const User = require('../models/user');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+// Password validation
+const validatePassword = (password) => {
+  const minLength = 8;
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  
+  return password.length >= minLength && 
+         hasUpperCase && 
+         hasLowerCase && 
+         hasNumbers && 
+         hasSpecialChar;
+};
+
 exports.signup = async (req, res) => {
   try {
     console.log('=== SIGNUP REQUEST START ===');
@@ -17,13 +32,12 @@ exports.signup = async (req, res) => {
     
     // Map frontend role values to backend enum values
     const roleMap = {
-      'admin': 'Admin',
-      'inventory_manager': 'Inventory_Manager',
-      'auditor': 'Auditor',
-      'employee': 'Employee'
+      'ADMIN': 'ADMIN',
+      'INVENTORY_MANAGER': 'INVENTORY_MANAGER',
+      'EMPLOYEE': 'EMPLOYEE'
     };
     
-    const mappedRole = roleMap[role.toLowerCase()] || 'Employee';
+    const mappedRole = roleMap[role.toUpperCase()] || 'EMPLOYEE';
     console.log('Role mapping:', role, '->', mappedRole);
     
     // Validate required fields
@@ -38,6 +52,12 @@ exports.signup = async (req, res) => {
     if (!password) {
       console.log('ERROR: Missing password field');
       return res.status(400).json({ message: 'Password is required' });
+    }
+    if (!validatePassword(password)) {
+      console.log('ERROR: Password does not meet strength requirements');
+      return res.status(400).json({ 
+        message: 'Password must be at least 8 characters long and contain uppercase, lowercase, numbers and special characters' 
+      });
     }
     if (!department) {
       console.log('ERROR: Missing department field');

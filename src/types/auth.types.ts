@@ -1,5 +1,3 @@
-import { User } from '@supabase/supabase-js';
-
 import { UserRole } from './index';
 export type Role = UserRole;
 
@@ -14,13 +12,14 @@ export interface UserProfile {
   updated_at: string;
 }
 
-export interface AuthUser extends User {
-  user_metadata: {
-    role: Role;
-    full_name?: string;
+export interface AuthUser {
+  id: string;
+  email: string;
+  role: Role;
+  full_name?: string;
     department?: string;
   };
-}
+
 
 export interface AuthState {
   user: AuthUser | null;

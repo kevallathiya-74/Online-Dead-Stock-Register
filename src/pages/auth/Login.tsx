@@ -141,25 +141,6 @@ const Login = () => {
               {isLoading ? 'Signing in...' : 'Sign In'}
             </Button>
 
-            {/* Test Users Section */}
-            <Box sx={{ mt: 3, p: 2, backgroundColor: 'grey.50', borderRadius: 1 }}>
-              <Typography variant="subtitle2" gutterBottom color="primary">
-                Test User Credentials:
-              </Typography>
-              <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
-                • Admin: admin@company.com / Admin@123
-              </Typography>
-              <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
-                • Manager: inventory@company.com / Inventory@123
-              </Typography>
-              <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>
-                • Auditor: auditor@company.com / Auditor@123
-              </Typography>
-              <Typography variant="caption" display="block">
-                • Employee: employee@company.com / Employee@123
-              </Typography>
-            </Box>
-
             <Box sx={{ mt: 3, textAlign: 'center' }}>
               <Typography variant="body2" color="text.secondary">
                 Don't have an account?{' '}

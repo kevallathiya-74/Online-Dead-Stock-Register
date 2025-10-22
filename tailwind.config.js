@@ -1,23 +1,28 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+export default {
   content: [
-    "./src/**/*.{js,jsx,ts,tsx}",
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+    "./public/**/*.html"
   ],
   theme: {
     extend: {
       colors: {
         primary: {
-          light: '#4B5EF5',
-          main: '#2C3FE6',
-          dark: '#1E2DB3',
+          main: '#1976d2',
+          light: '#42a5f5',
+          dark: '#1565c0',
         },
         secondary: {
-          light: '#64748B',
-          main: '#475569',
-          dark: '#334155',
+          main: '#9c27b0',
+          light: '#ba68c8',
+          dark: '#7b1fa2',
         },
       },
     },
   },
   plugins: [],
+  corePlugins: {
+    preflight: false, // Disable Tailwind's reset to avoid conflicts with MUI
+  },
 }

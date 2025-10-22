@@ -40,5 +40,18 @@ export const API_ENDPOINTS = {
 
   // Report endpoints
   REPORTS: '/reports',
-  ANALYTICS: '/analytics'
+  ANALYTICS: '/analytics',
+
+  // Dashboard endpoints
+  DASHBOARD: {
+    STATS: (role: string) => `/dashboard/stats/${role}`,
+    ASSETS_LOCATION: '/dashboard/assets-by-location',
+    WARRANTY_EXPIRING: '/dashboard/warranty-expiring',
+    MAINTENANCE_SCHEDULE: '/dashboard/maintenance-schedule',
+    VENDOR_PERFORMANCE: '/dashboard/vendor-performance',
+    USER_ASSETS: (userId: string) => `/dashboard/user-assets/${userId}`,
+    AUDIT_ITEMS: '/dashboard/audit-items',
+    CHART_DATA: (type: string) => `/dashboard/chart-data/${type}`,
+    REALTIME_UPDATES: '/dashboard/realtime-updates'
+  }
 };

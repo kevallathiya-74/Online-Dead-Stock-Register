@@ -4,16 +4,21 @@ export interface User {
   username: string;
   email: string;
   role: UserRole;
-  department: string;
+  department: Department;
   createdAt: string;
   updatedAt: string;
 }
 
 export enum UserRole {
-  ADMIN = 'admin',
-  INVENTORY_MANAGER = 'inventory_manager',
-  AUDITOR = 'auditor',
-  EMPLOYEE = 'employee'
+  ADMIN = 'ADMIN',
+  INVENTORY_MANAGER = 'INVENTORY_MANAGER',
+  EMPLOYEE = 'EMPLOYEE'
+}
+
+export enum Department {
+  INVENTORY = 'INVENTORY',
+  IT = 'IT',
+  ADMIN = 'ADMIN'
 }
 
 // Asset Types

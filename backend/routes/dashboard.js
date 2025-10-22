@@ -28,11 +28,6 @@ const {
   getEmployeeStats
 } = require('../controllers/dashboardController');
 
-// Test route without auth
-router.get('/test', (req, res) => {
-  res.json({ message: 'Dashboard routes working!', timestamp: new Date().toISOString() });
-});
-
 // Apply auth middleware to all dashboard routes
 router.use(authMiddleware);
 

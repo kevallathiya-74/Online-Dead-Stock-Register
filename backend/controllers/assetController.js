@@ -3,7 +3,14 @@ const Asset = require('../models/asset');
 // GET all assets
 exports.getAssets = async (req, res) => {
   try {
-    const assets = await Asset.find().populate('assigned_user', 'name email');
+    let query = {};
+    
+    // If not admin, filter by user's department
+    if (req.user.role !== 'ADMIN') {
+      query.department = req.user.department;
+    }
+    
+    const assets = await Asset.find(query).populate('assigned_user', 'name email department');
     res.json(assets);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -24,7 +31,18 @@ exports.getAssetById = async (req, res) => {
 // CREATE asset
 exports.createAsset = async (req, res) => {
   try {
-    const asset = new Asset(req.body);
+    // If not admin, ensure asset is created in user's department
+    if (req.user.role !== 'ADMIN' && req.body.department !== req.user.department) {
+      return res.status(403).json({ 
+        message: 'You can only create assets in your own department' 
+      });
+    }
+
+    const asset = new Asset({
+      ...req.body,
+      department: req.user.role === 'ADMIN' ? req.body.department : req.user.department
+    });
+    
     const saved = await asset.save();
     res.status(201).json(saved);
   } catch (err) {

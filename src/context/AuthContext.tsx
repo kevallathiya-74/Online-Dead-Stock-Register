@@ -3,12 +3,14 @@ import { toast } from 'react-toastify';
 import { authService } from '../services/auth.service';
 import { UserRole } from '../types';
 
+import { Department } from '../types';
+
 interface JWTUser {
   id: string;
   email: string;
   role: UserRole;
   full_name?: string;
-  department?: string;
+  department: Department;  // Making department required
   created_at: string;
   updated_at: string;
 }
@@ -17,7 +19,7 @@ interface AuthContextType {
   user: JWTUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string, fullName: string, role?: UserRole) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
@@ -30,43 +32,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if token exists and get current user
     const checkAuth = async () => {
       try {
         const token = localStorage.getItem('auth_token');
         if (token) {
-          // Check if it's a demo token
-          if (token.startsWith('demo-token-')) {
-            const demoUsers = JSON.parse(localStorage.getItem('demo_users') || '[]');
-            const userId = token.replace('demo-token-', '');
-            const demoUser = demoUsers.find((user: any) => user.id === userId);
-            
-            if (demoUser) {
-              const jwtUser: JWTUser = {
-                id: demoUser.id,
-                email: demoUser.email,
-                role: demoUser.role as UserRole,
-                full_name: demoUser.username,
-                department: demoUser.department,
-                created_at: demoUser.created_at,
-                updated_at: demoUser.created_at,
-              };
-              setUser(jwtUser);
-            } else {
-              // Demo user not found, clear token
-              localStorage.removeItem('auth_token');
-              setUser(null);
-            }
-          } else {
-            // Verify real token and get user data
-            const userData = await authService.getCurrentUser();
-            setUser(userData);
-          }
+          const userData = await authService.getCurrentUser();
+          setUser(userData);
         } else {
           setUser(null);
         }
       } catch (error) {
-        // Token invalid, remove it
         localStorage.removeItem('auth_token');
         setUser(null);
       } finally {
@@ -78,88 +53,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string): Promise<void> => {
-    console.log('AuthContext: Login attempt for:', email);
     setLoading(true);
-    
     try {
-      // Ensure demo users are available
-      const { initializeDemoData } = await import('../utils/demoData');
-      initializeDemoData();
-      
-      // Get demo users from localStorage
-      const demoUsers = JSON.parse(localStorage.getItem('demo_users') || '[]');
-      console.log('AuthContext: Demo users loaded:', demoUsers.length);
-      console.log('AuthContext: Looking for email:', email);
-      
-      const demoUser = demoUsers.find((user: any) => user.email === email);
-      console.log('AuthContext: Demo user found:', demoUser ? 'YES' : 'NO');
-      
-      if (demoUser) {
-        console.log('AuthContext: Demo user found:', demoUser.email);
-        // Validate password for demo users
-        if (demoUser.password !== password) {
-          console.log('AuthContext: Invalid password for demo user');
-          throw new Error('Invalid credentials');
-        }
-        
-        const jwtUser: JWTUser = {
-          id: demoUser.id,
-          email: demoUser.email,
-          role: demoUser.role as UserRole,
-          full_name: demoUser.username,
-          department: demoUser.department,
-          created_at: demoUser.created_at,
-          updated_at: demoUser.created_at,
-        };
-        
-        console.log('AuthContext: Setting user state:', jwtUser);
-        // Set user state and token
-        localStorage.setItem('auth_token', 'demo-token-' + demoUser.id);
-        setUser(jwtUser);
-        setLoading(false);
-        toast.success(`Welcome ${demoUser.username}!`);
-        console.log('AuthContext: Login successful');
-        return;
-      }
-      
-      console.log('AuthContext: No demo user found, trying backend login');
-      // Fall back to real backend login
       const response = await authService.signIn(email, password);
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
       if (response.token) {
         localStorage.setItem('auth_token', response.token);
       }
       if (response.user) {
         setUser(response.user);
+        toast.success('Login successful');
       }
-      setLoading(false);
-      toast.success('Logged in successfully');
     } catch (error: any) {
-      console.error('AuthContext: Login error:', error);
+      toast.error(error.message || 'Login failed');
+      throw error;
+    } finally {
       setLoading(false);
-      const errorMessage = error.message || error.response?.data?.message || 'Login failed';
-      toast.error(errorMessage);
-      throw new Error(errorMessage);
     }
   };
 
-  const signup = async (email: string, password: string) => {
+  const signup = async (email: string, password: string, fullName: string, role: UserRole = UserRole.EMPLOYEE, department: Department = Department.INVENTORY): Promise<void> => {
+    setLoading(true);
     try {
-      setLoading(true);
-      // For signup, we need basic user data - using defaults for now
       const response = await authService.signUp({
         email,
         password,
-        full_name: '',
-        department: '',
-        role: UserRole.EMPLOYEE
+        full_name: fullName,
+        role,
+        department
       });
-      setUser(response.user);
-      if (response.token) {
-        localStorage.setItem('auth_token', response.token);
+      if (response.error) {
+        throw new Error(response.error.message);
       }
-      toast.success('Account created successfully!');
+      if (response.user) {
+        setUser(response.user);
+        toast.success('Registration successful');
+      }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Registration failed');
+      toast.error(error.message || 'Registration failed');
       throw error;
     } finally {
       setLoading(false);
@@ -211,7 +144,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     updatePassword,
   };
 
-  return React.createElement(AuthContext.Provider, { value }, children);
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {

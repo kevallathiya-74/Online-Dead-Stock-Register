@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { API_ENDPOINTS, API_BASE_URL } from '../config/api.config';
-import { UserRole } from '../types';
+import { UserRole, Department } from '../types';
 
 // JWT Authentication interfaces
 interface JWTAuthError {
@@ -14,7 +14,7 @@ interface JWTUser {
   email: string;
   role: UserRole;
   full_name?: string;
-  department?: string;
+  department: Department;
   created_at: string;
   updated_at: string;
 }
@@ -26,7 +26,7 @@ interface LoginCredentials {
 
 interface SignUpData extends LoginCredentials {
   full_name: string;
-  department?: string;
+  department: Department;
   role?: UserRole;
 }
 

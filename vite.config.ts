@@ -1,4 +1,3 @@
-/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import { resolve } from 'path'
@@ -13,19 +12,37 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
-    },
+    }
   },
   build: {
     outDir: 'build',
-    sourcemap: true
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'mui-vendor': ['@mui/material', '@mui/icons-material'],
+        }
+      }
+    }
+  },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      '@mui/material',
+      '@mui/icons-material',
+      'react-router-dom',
+      '@reduxjs/toolkit',
+      'react-hook-form',
+      'yup'
+    ],
+    exclude: ['@types/react']
   },
   define: {
-    // This is needed for some libraries that use process.env
     'process.env': {}
   },
-  test: {
-    globals: true,
-    environment: 'jsdom',
-    setupFiles: './src/setupTests.ts',
-  },
+  esbuild: {
+    jsxInject: `import React from 'react'` // Automatically inject React
+  }
 })

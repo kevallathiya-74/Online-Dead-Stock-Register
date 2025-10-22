@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -6,7 +6,6 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider } from './context/AuthContext';
 import { theme } from './config/theme';
-import { initializeDemoData } from './utils/demoData';
 import { UserRole } from './types';
 
 // Auth Pages
@@ -58,11 +57,6 @@ import HelpPage from './pages/employee/HelpPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
 const App = () => {
-  // Initialize demo data on app startup
-  useEffect(() => {
-    initializeDemoData();
-  }, []);
-
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />

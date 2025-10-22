@@ -1,11 +1,6 @@
-import { 
-  generateInventoryStats, 
-  getWarrantyExpiringAssets, 
-  getMaintenanceSchedule, 
-  getVendorPerformance,
-  locations
-} from '../utils/demoData';
 import { Asset, AssetStatus, UserRole } from '../types';
+import api from './api';
+import { API_ENDPOINTS } from '../config/api.config';
 
 export interface DashboardStats {
   totalAssets: number;
@@ -83,226 +78,140 @@ export class DashboardDataService {
   }
 
   // Get dashboard statistics based on user role
-  getDashboardStats(userRole: UserRole): DashboardStats {
+  async getDashboardStats(userRole: UserRole): Promise<DashboardStats> {
     const cacheKey = `stats_${userRole}`;
     const cached = this.getCachedData<DashboardStats>(cacheKey);
     if (cached) return cached;
 
-    const assets = this.getAssets();
-    const inventoryStats = generateInventoryStats();
-    
-    const totalAssets = assets.length;
-    const activeAssets = assets.filter(a => a.status === AssetStatus.ACTIVE).length;
-    const inMaintenanceAssets = assets.filter(a => a.status === AssetStatus.IN_MAINTENANCE).length;
-    const disposedAssets = assets.filter(a => a.status === AssetStatus.DISPOSED).length;
-    
-    const totalValue = assets.reduce((sum, asset) => sum + asset.currentValue, 0);
-    const monthlyPurchaseValue = Math.floor(totalValue * 0.15); // Simulate 15% monthly purchases
-    
-    let stats: DashboardStats = {
-      totalAssets,
-      activeAssets,
-      inMaintenanceAssets,
-      disposedAssets,
-      totalValue,
-      monthlyPurchaseValue,
-      activeUsers: 87, // Simulated
-      pendingApprovals: Math.floor(Math.random() * 30) + 10,
-      locationCount: inventoryStats.locations,
-      warrantyExpiring: inventoryStats.warrantySoonCount,
-      maintenanceDue: inventoryStats.maintenanceDue,
-      purchaseOrders: inventoryStats.purchaseOrders,
-    };
-
-    // Role-specific additions
-    if (userRole === UserRole.AUDITOR) {
-      const assigned = Math.floor(totalAssets * 0.3);
-      const completed = Math.floor(assigned * 0.57);
-      const pending = assigned - completed;
-      const discrepancies = Math.floor(Math.random() * 20) + 5;
-      
-      stats = {
-        ...stats,
-        assigned,
-        completed,
-        pending,
-        discrepancies,
-        completionRate: Math.round((completed / assigned) * 100)
-      };
+    try {
+      const response = await api.get(API_ENDPOINTS.DASHBOARD.STATS(userRole));
+      return this.setCachedData(cacheKey, response.data);
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      throw error;
     }
-
-    return this.setCachedData(cacheKey, stats);
   }
 
   // Get assets by location for inventory dashboard
-  getAssetsByLocation(): LocationData[] {
+  async getAssetsByLocation(): Promise<LocationData[]> {
     const cacheKey = 'assets_by_location';
     const cached = this.getCachedData<LocationData[]>(cacheKey);
     if (cached) return cached;
 
-    const assets = this.getAssets();
-    const totalAssets = assets.length;
-    
-    const locationData = locations.map(location => {
-      const count = assets.filter(asset => asset.location === location).length;
-      return {
-        location,
-        count,
-        percentage: totalAssets > 0 ? Math.round((count / totalAssets) * 100) : 0
-      };
-    }).filter(item => item.count > 0)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8); // Top 8 locations
-
-    return this.setCachedData(cacheKey, locationData);
+    try {
+      const response = await api.get(API_ENDPOINTS.DASHBOARD.ASSETS_LOCATION);
+      return this.setCachedData(cacheKey, response.data);
+    } catch (error) {
+      console.error('Error fetching assets by location:', error);
+      throw error;
+    }
   }
 
   // Get warranty expiring assets
-  getWarrantyExpiringAssets(): WarrantyExpiringData[] {
+  async getWarrantyExpiringAssets(): Promise<WarrantyExpiringData[]> {
     const cacheKey = 'warranty_expiring';
     const cached = this.getCachedData<WarrantyExpiringData[]>(cacheKey);
     if (cached) return cached;
 
-    const data = getWarrantyExpiringAssets();
-    return this.setCachedData(cacheKey, data);
+    try {
+      const response = await api.get(API_ENDPOINTS.DASHBOARD.WARRANTY_EXPIRING);
+      return this.setCachedData(cacheKey, response.data);
+    } catch (error) {
+      console.error('Error fetching warranty expiring assets:', error);
+      throw error;
+    }
   }
 
   // Get maintenance schedule
-  getMaintenanceSchedule(): MaintenanceScheduleData[] {
+  async getMaintenanceSchedule(): Promise<MaintenanceScheduleData[]> {
     const cacheKey = 'maintenance_schedule';
     const cached = this.getCachedData<MaintenanceScheduleData[]>(cacheKey);
     if (cached) return cached;
 
-    const data = getMaintenanceSchedule();
-    return this.setCachedData(cacheKey, data);
+    try {
+      const response = await api.get(API_ENDPOINTS.DASHBOARD.MAINTENANCE_SCHEDULE);
+      return this.setCachedData(cacheKey, response.data);
+    } catch (error) {
+      console.error('Error fetching maintenance schedule:', error);
+      throw error;
+    }
   }
 
   // Get vendor performance data
-  getVendorPerformance(): VendorData[] {
+  async getVendorPerformance(): Promise<VendorData[]> {
     const cacheKey = 'vendor_performance';
     const cached = this.getCachedData<VendorData[]>(cacheKey);
     if (cached) return cached;
 
-    const data = getVendorPerformance();
-    return this.setCachedData(cacheKey, data);
+    try {
+      const response = await api.get(API_ENDPOINTS.DASHBOARD.VENDOR_PERFORMANCE);
+      return this.setCachedData(cacheKey, response.data);
+    } catch (error) {
+      console.error('Error fetching vendor performance:', error);
+      throw error;
+    }
   }
 
   // Get assets for employee dashboard (assigned to user)
-  getUserAssets(userId: string): Asset[] {
+  async getUserAssets(userId: string): Promise<Asset[]> {
     const cacheKey = `user_assets_${userId}`;
     const cached = this.getCachedData<Asset[]>(cacheKey);
     if (cached) return cached;
 
-    const assets = this.getAssets();
-    
-    // Simulate user-assigned assets (for demo, we'll take random 3-5 assets)
-    const userAssets = assets
-      .filter(asset => asset.status === AssetStatus.ACTIVE)
-      .sort(() => 0.5 - Math.random())
-      .slice(0, Math.floor(Math.random() * 3) + 3); // 3-5 assets
-
-    return this.setCachedData(cacheKey, userAssets);
+    try {
+      const response = await api.get(API_ENDPOINTS.DASHBOARD.USER_ASSETS(userId));
+      return this.setCachedData(cacheKey, response.data);
+    } catch (error) {
+      console.error('Error fetching user assets:', error);
+      throw error;
+    }
   }
 
   // Get audit items for auditor dashboard
-  getAuditItems(): any[] {
+  async getAuditItems(): Promise<any[]> {
     const cacheKey = 'audit_items';
     const cached = this.getCachedData<any[]>(cacheKey);
     if (cached) return cached;
 
-    const assets = this.getAssets();
-    const auditStatuses = ['pending', 'verified', 'discrepancy'];
-    
-    const auditItems = assets
-      .slice(0, 15) // First 15 assets for audit
-      .map((asset, index) => ({
-        id: asset.id,
-        name: asset.name,
-        assetCode: asset.qrCode,
-        location: asset.location,
-        assignedUser: `User ${Math.floor(Math.random() * 20) + 1}`,
-        status: auditStatuses[index % 3],
-        lastAudit: this.getRandomPastDate(30, 365),
-        notes: index % 3 === 2 ? 'Location mismatch - found in different floor' : undefined
-      }));
-
-    return this.setCachedData(cacheKey, auditItems);
+    try {
+      const response = await api.get(API_ENDPOINTS.DASHBOARD.AUDIT_ITEMS);
+      return this.setCachedData(cacheKey, response.data);
+    } catch (error) {
+      console.error('Error fetching audit items:', error);
+      throw error;
+    }
   }
 
   // Get chart data for various dashboards
-  getChartData(chartType: 'asset_trends' | 'maintenance_trends' | 'purchase_trends'): any {
+  async getChartData(chartType: 'asset_trends' | 'maintenance_trends' | 'purchase_trends'): Promise<any> {
     const cacheKey = `chart_${chartType}`;
     const cached = this.getCachedData<any>(cacheKey);
     if (cached) return cached;
 
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const currentMonth = new Date().getMonth();
-    const last6Months = months.slice(Math.max(0, currentMonth - 5), currentMonth + 1);
-
-    let data;
-    switch (chartType) {
-      case 'asset_trends':
-        data = {
-          labels: last6Months,
-          datasets: [{
-            label: 'New Assets Added',
-            data: last6Months.map(() => Math.floor(Math.random() * 50) + 10),
-            borderColor: '#2C3FE6',
-            backgroundColor: 'rgba(44, 63, 230, 0.1)',
-            tension: 0.4
-          }]
-        };
-        break;
-      case 'maintenance_trends':
-        data = {
-          labels: last6Months,
-          datasets: [{
-            label: 'Maintenance Completed',
-            data: last6Months.map(() => Math.floor(Math.random() * 30) + 5),
-            borderColor: '#4caf50',
-            backgroundColor: 'rgba(76, 175, 80, 0.1)',
-            tension: 0.4
-          }]
-        };
-        break;
-      default:
-        data = { labels: [], datasets: [] };
-    }
-
-    return this.setCachedData(cacheKey, data);
-  }
-
-  // Private helper methods
-  private getAssets(): Asset[] {
     try {
-      return JSON.parse(localStorage.getItem('demo_assets') || '[]');
-    } catch {
-      return [];
+      const response = await api.get(API_ENDPOINTS.DASHBOARD.CHART_DATA(chartType));
+      return this.setCachedData(cacheKey, response.data);
+    } catch (error) {
+      console.error('Error fetching chart data:', error);
+      throw error;
     }
-  }
-
-  private getRandomPastDate(minDaysAgo: number, maxDaysAgo: number): string {
-    const daysAgo = Math.floor(Math.random() * (maxDaysAgo - minDaysAgo + 1)) + minDaysAgo;
-    const date = new Date();
-    date.setDate(date.getDate() - daysAgo);
-    return date.toLocaleDateString();
   }
 
   // Refresh all cached data
   refreshCache(): void {
     this.cache.clear();
-    console.log('🔄 Dashboard cache refreshed');
+    console.log('Dashboard cache refreshed');
   }
 
-  // Get real-time updates simulation
-  getRealtimeUpdates(): any {
-    return {
-      assetsAdded: Math.floor(Math.random() * 5),
-      maintenanceCompleted: Math.floor(Math.random() * 3),
-      approvalsReceived: Math.floor(Math.random() * 8),
-      warrantyAlerts: Math.floor(Math.random() * 2),
-      timestamp: new Date().toISOString()
-    };
+  // Get real-time updates
+  async getRealtimeUpdates(): Promise<any> {
+    try {
+      const response = await api.get(API_ENDPOINTS.DASHBOARD.REALTIME_UPDATES);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching realtime updates:', error);
+      throw error;
+    }
   }
 }
 
