@@ -9,7 +9,9 @@ const userSchema = new mongoose.Schema({
   employee_id: { type: String, unique: true },
   is_active: { type: Boolean, default: true },
   created_at: { type: Date, default: Date.now },
-  last_login: { type: Date }
+  last_login: { type: Date },
+  resetPasswordToken: { type: String, select: false },
+  resetPasswordExpires: { type: Date, select: false }
 }, {
   timestamps: true
 });

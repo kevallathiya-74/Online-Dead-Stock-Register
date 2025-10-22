@@ -2,6 +2,17 @@ require('dotenv').config();
 const User = require('../models/user');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const emailService = require('../utils/emailService');
+
+// Check required environment variables
+if (!process.env.JWT_SECRET) {
+  console.warn('WARNING: JWT_SECRET is not set in environment variables. Using default (NOT SECURE FOR PRODUCTION)');
+}
+
+if (!process.env.MONGODB_URI) {
+  console.warn('WARNING: MONGODB_URI is not set in environment variables');
+}
 
 // Password validation
 const validatePassword = (password) => {
@@ -21,7 +32,7 @@ const validatePassword = (password) => {
 exports.signup = async (req, res) => {
   try {
     console.log('=== SIGNUP REQUEST START ===');
-    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('Request body:', JSON.stringify({...req.body, password: '[REDACTED]'}, null, 2));
     
     const { full_name, username, email, password, department, role = 'employee' } = req.body;
     
@@ -59,10 +70,13 @@ exports.signup = async (req, res) => {
         message: 'Password must be at least 8 characters long and contain uppercase, lowercase, numbers and special characters' 
       });
     }
-    if (!department) {
-      console.log('ERROR: Missing department field');
-      return res.status(400).json({ message: 'Department is required' });
+    if (!department || !['INVENTORY', 'IT', 'ADMIN'].includes(department.toUpperCase())) {
+      console.log('ERROR: Invalid department');
+      return res.status(400).json({ message: 'Department must be one of: INVENTORY, IT, ADMIN' });
     }
+    
+    // Convert department to uppercase to match enum
+    const normalizedDepartment = department.toUpperCase();
     
     console.log('Checking if user already exists...');
     // Check if user already exists
@@ -81,7 +95,7 @@ exports.signup = async (req, res) => {
       name: name,
       email,
       password: hashed,
-      department,
+      department: normalizedDepartment,
       role: mappedRole,
       employee_id: `EMP-${Date.now()}` // Generate unique employee ID
     };
@@ -97,6 +111,9 @@ exports.signup = async (req, res) => {
     console.log('Saving user to database...');
     const saved = await user.save();
     console.log('User saved successfully with ID:', saved._id);
+    
+    // Send welcome email
+    await emailService.sendWelcomeEmail(saved.email, saved.name);
     
     // Generate JWT token
     const token = jwt.sign(
@@ -154,10 +171,9 @@ exports.login = async (req, res) => {
     
     // Map backend role back to frontend format for response
     const reverseRoleMap = {
-      'Admin': 'admin',
-      'Inventory_Manager': 'inventory_manager',
-      'Auditor': 'auditor',
-      'Employee': 'employee'
+      'ADMIN': 'admin',
+      'INVENTORY_MANAGER': 'inventory_manager',
+      'EMPLOYEE': 'employee'
     };
     
     res.json({ 
@@ -171,6 +187,7 @@ exports.login = async (req, res) => {
       token 
     });
   } catch (err) {
+    console.error('Login error:', err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -178,28 +195,97 @@ exports.login = async (req, res) => {
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
+
+    // Find user by email
     const user = await User.findOne({ email });
-    
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'No account found with this email' });
     }
-    
-    // In production, you would send an email with a reset token
-    // For now, just return a success message
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
+
+    // Save token to user
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = resetTokenExpiry;
+    await user.save();
+
+    // Send password reset email
+    await emailService.sendPasswordResetEmail(user.email, resetToken);
+
     res.json({ message: 'Password reset instructions sent to your email' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ message: 'Error processing password reset' });
   }
 };
 
 exports.resetPassword = async (req, res) => {
   try {
-    const { token, password } = req.body;
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: 'Token and new password are required' });
+    }
+
+    // Find user with valid reset token
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() }
+    }).select('+password +resetPasswordToken +resetPasswordExpires');
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired reset token' });
+    }
+
+    // Validate new password
+    if (!validatePassword(newPassword)) {
+      return res.status(400).json({
+        message: 'Password must be at least 8 characters and contain uppercase, lowercase, numbers and special characters'
+      });
+    }
+
+    // Ensure new password is different from current
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    if (isSamePassword) {
+      return res.status(400).json({
+        message: 'New password must be different from current password'
+      });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update user password and clear reset token
+    user.password = hashedPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    // Send confirmation email
+    await emailService.sendPasswordChangeConfirmationEmail(user.email);
+
+    res.json({ message: 'Password has been reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Error resetting password' });
+  }
+};
+
+exports.verifyResetToken = async (req, res) => {
+  try {
+    const { token } = req.params;
     
-    // In production, you would verify the reset token
-    // For now, just return a success message
-    res.json({ message: 'Password reset successfully' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    res.json({ valid: Boolean(user) });
+  } catch (error) {
+    console.error('Verify token error:', error);
+    res.status(500).json({ message: 'Error verifying reset token' });
   }
 };
