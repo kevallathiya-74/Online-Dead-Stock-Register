@@ -46,6 +46,7 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
+import api from '../../services/api';
 
 interface BackupInfo {
   id: string;
@@ -85,6 +86,7 @@ const AdminBackupPage: React.FC = () => {
   // Form states
   const [backupName, setBackupName] = useState('');
   const [backupType, setBackupType] = useState<'full' | 'incremental' | 'differential'>('full');
+  const [backupLocation, setBackupLocation] = useState<'local' | 'cloud'>('local');
   const [backupDescription, setBackupDescription] = useState('');
 
   useEffect(() => {
@@ -94,66 +96,18 @@ const AdminBackupPage: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Simulate API calls
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const [backupsResponse, jobsResponse] = await Promise.all([
+        api.get('/backups'),
+        api.get('/backups/jobs')
+      ]);
       
-      // Mock data
-      setBackups([
-        {
-          id: '1',
-          name: 'Daily_Backup_2024_10_10',
-          type: 'full',
-          size: '2.3 GB',
-          createdAt: '2024-10-10T08:00:00Z',
-          status: 'completed',
-          location: 'local',
-          description: 'Daily automated full backup'
-        },
-        {
-          id: '2',
-          name: 'Weekly_Backup_2024_10_07',
-          type: 'full',
-          size: '2.1 GB',
-          createdAt: '2024-10-07T02:00:00Z',
-          status: 'completed',
-          location: 'cloud',
-          description: 'Weekly scheduled backup'
-        },
-        {
-          id: '3',
-          name: 'Emergency_Backup_2024_10_09',
-          type: 'incremental',
-          size: '450 MB',
-          createdAt: '2024-10-09T14:30:00Z',
-          status: 'completed',
-          location: 'local',
-          description: 'Emergency backup before system update'
-        }
-      ]);
-
-      setBackupJobs([
-        {
-          id: '1',
-          name: 'Daily Full Backup',
-          type: 'full',
-          schedule: 'Daily at 2:00 AM',
-          enabled: true,
-          lastRun: '2024-10-10T02:00:00Z',
-          nextRun: '2024-10-11T02:00:00Z',
-          status: 'active'
-        },
-        {
-          id: '2',
-          name: 'Hourly Incremental',
-          type: 'incremental',
-          schedule: 'Every hour',
-          enabled: true,
-          lastRun: '2024-10-10T16:00:00Z',
-          nextRun: '2024-10-10T17:00:00Z',
-          status: 'active'
-        }
-      ]);
+      const backupsData = backupsResponse.data.data || backupsResponse.data;
+      const jobsData = jobsResponse.data.data || jobsResponse.data;
+      
+      setBackups(backupsData);
+      setBackupJobs(jobsData);
     } catch (error) {
+      console.error('Failed to load backup data:', error);
       toast.error('Failed to load backup data');
     } finally {
       setLoading(false);
@@ -170,37 +124,28 @@ const AdminBackupPage: React.FC = () => {
     setProgress(0);
     
     try {
-      // Simulate backup progress
-      const interval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            return 100;
-          }
-          return prev + Math.random() * 15;
-        });
-      }, 500);
-
-      // Simulate backup completion
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      
-      const newBackup: BackupInfo = {
-        id: Date.now().toString(),
+      const response = await api.post('/backups', {
         name: backupName,
         type: backupType,
-        size: '1.8 GB',
-        createdAt: new Date().toISOString(),
-        status: 'completed',
-        location: 'local',
+        location: backupLocation,
         description: backupDescription
-      };
-
+      }, {
+        onDownloadProgress: (progressEvent) => {
+          const progress = progressEvent.total
+            ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
+            : 0;
+          setProgress(progress);
+        },
+      });
+      
+      const newBackup = response.data.data || response.data;
       setBackups(prev => [newBackup, ...prev]);
       setCreateBackupOpen(false);
       setBackupName('');
       setBackupDescription('');
       toast.success('Backup created successfully!');
     } catch (error) {
+      console.error('Failed to create backup:', error);
       toast.error('Failed to create backup');
     } finally {
       setBackupInProgress(false);
@@ -215,24 +160,20 @@ const AdminBackupPage: React.FC = () => {
     setProgress(0);
 
     try {
-      // Simulate restore progress
-      const interval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            return 100;
-          }
-          return prev + Math.random() * 10;
-        });
-      }, 800);
-
-      // Simulate restore completion
-      await new Promise(resolve => setTimeout(resolve, 8000));
+      await api.post(`/backups/${selectedBackup.id}/restore`, {}, {
+        onDownloadProgress: (progressEvent) => {
+          const progress = progressEvent.total
+            ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
+            : 0;
+          setProgress(progress);
+        },
+      });
       
       setRestoreBackupOpen(false);
       setSelectedBackup(null);
       toast.success('System restored successfully!');
     } catch (error) {
+      console.error('Failed to restore backup:', error);
       toast.error('Failed to restore backup');
     } finally {
       setRestoreInProgress(false);
@@ -244,11 +185,11 @@ const AdminBackupPage: React.FC = () => {
     try {
       toast.info(`Downloading ${backup.name}...`);
       
-      // Simulate download process
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const response = await api.get(`/backups/${backup.id}/download`, {
+        responseType: 'blob'
+      });
       
-      // In a real app, this would initiate a file download
-      const blob = new Blob(['Mock backup data'], { type: 'application/zip' });
+      const blob = new Blob([response.data], { type: 'application/zip' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -260,6 +201,7 @@ const AdminBackupPage: React.FC = () => {
       
       toast.success('Backup downloaded successfully');
     } catch (error) {
+      console.error('Failed to download backup:', error);
       toast.error('Failed to download backup');
     }
   };
@@ -285,10 +227,21 @@ const AdminBackupPage: React.FC = () => {
   const handleDeleteBackup = async (backupId: string) => {
     if (window.confirm('Are you sure you want to delete this backup?')) {
       try {
-        setBackups(prev => prev.filter(b => b.id !== backupId));
+        console.log('Deleting backup via API:', backupId);
+        
+        // Call API to delete backup
+        await api.delete(`/backups/${backupId}`);
+        
+        // Reload backups from server
+        const response = await api.get('/backups');
+        const backupData = response.data.data || response.data;
+        setBackups(backupData);
+        
         toast.success('Backup deleted successfully');
-      } catch (error) {
-        toast.error('Failed to delete backup');
+      } catch (error: any) {
+        console.error('Failed to delete backup:', error);
+        const errorMsg = error.response?.data?.message || error.message || 'Failed to delete backup';
+        toast.error(errorMsg);
       }
     }
   };

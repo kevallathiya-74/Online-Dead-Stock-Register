@@ -9,13 +9,13 @@ router.get('/', authMiddleware, assetCtrl.getAssets);
 // Protected: GET single asset
 router.get('/:id', authMiddleware, assetCtrl.getAssetById);
 
-// Admin only: POST create asset
-router.post('/', authMiddleware, requireRole(['Admin']), assetCtrl.createAsset);
+// Admin and Inventory Manager: POST create asset
+router.post('/', authMiddleware, requireRole(['ADMIN', 'INVENTORY_MANAGER']), assetCtrl.createAsset);
 
-// Protected: PUT update asset
-router.put('/:id', authMiddleware, assetCtrl.updateAsset);
+// Admin and Inventory Manager: PUT update asset
+router.put('/:id', authMiddleware, requireRole(['ADMIN', 'INVENTORY_MANAGER']), assetCtrl.updateAsset);
 
 // Admin only: DELETE asset
-router.delete('/:id', authMiddleware, requireRole(['Admin']), assetCtrl.deleteAsset);
+router.delete('/:id', authMiddleware, requireRole(['ADMIN']), assetCtrl.deleteAsset);
 
 module.exports = router;

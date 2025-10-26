@@ -44,7 +44,11 @@ export const API_ENDPOINTS = {
 
   // Dashboard endpoints
   DASHBOARD: {
-    STATS: (role: string) => `/dashboard/stats/${role}`,
+    STATS: '/dashboard/stats',
+    ADMIN_STATS: '/dashboard/stats',
+    INVENTORY_STATS: '/dashboard/inventory-stats',
+    AUDITOR_STATS: '/dashboard/auditor/stats',
+    EMPLOYEE_STATS: '/dashboard/employee/stats',
     ASSETS_LOCATION: '/dashboard/assets-by-location',
     WARRANTY_EXPIRING: '/dashboard/warranty-expiring',
     MAINTENANCE_SCHEDULE: '/dashboard/maintenance-schedule',

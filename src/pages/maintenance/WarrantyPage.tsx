@@ -39,6 +39,7 @@ import {
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface WarrantyItem {
   id: string;
@@ -71,73 +72,9 @@ const WarrantyPage = () => {
   const loadWarrantyData = async () => {
     try {
       setLoading(true);
-      // Simulate API call - replace with actual API call
-      const demoWarranties: WarrantyItem[] = [
-        {
-          id: '1',
-          assetId: 'AST-001',
-          assetName: 'Dell XPS 15 Laptop',
-          manufacturer: 'Dell',
-          model: 'XPS 15',
-          serialNumber: 'DLL123456789',
-          warrantyType: 'Standard',
-          startDate: '2023-06-15',
-          endDate: '2025-06-15',
-          status: 'Active',
-          vendor: 'Dell Technologies',
-          claimHistory: 0,
-          coverageDetails: 'Hardware defects, accidental damage coverage',
-        },
-        {
-          id: '2',
-          assetId: 'AST-002',
-          assetName: 'HP LaserJet Printer',
-          manufacturer: 'HP',
-          model: 'LaserJet Pro M404n',
-          serialNumber: 'HP987654321',
-          warrantyType: 'Extended',
-          startDate: '2022-08-20',
-          endDate: '2024-12-31',
-          status: 'Expiring Soon',
-          vendor: 'HP Inc.',
-          claimHistory: 1,
-          coverageDetails: 'Parts and labor, on-site service',
-          lastClaimDate: '2023-03-15',
-        },
-        {
-          id: '3',
-          assetId: 'AST-003',
-          assetName: 'Lenovo ThinkPad T14',
-          manufacturer: 'Lenovo',
-          model: 'ThinkPad T14',
-          serialNumber: 'LEN555777999',
-          warrantyType: 'Comprehensive',
-          startDate: '2021-12-10',
-          endDate: '2024-01-15',
-          status: 'Expired',
-          vendor: 'Lenovo Group',
-          claimHistory: 2,
-          coverageDetails: 'Full coverage including accidental damage',
-          lastClaimDate: '2023-08-22',
-        },
-        {
-          id: '4',
-          assetId: 'AST-004',
-          assetName: 'Samsung Monitor 27"',
-          manufacturer: 'Samsung',
-          model: 'F27T350FH',
-          serialNumber: 'SAM111222333',
-          warrantyType: 'Standard',
-          startDate: '2023-01-10',
-          endDate: '2026-01-10',
-          status: 'Active',
-          vendor: 'Samsung Electronics',
-          claimHistory: 0,
-          coverageDetails: 'Manufacturer defects warranty',
-        },
-      ];
-
-      setWarranties(demoWarranties);
+      const response = await api.get('/maintenance/warranties');
+      const data = response.data.data || response.data;
+      setWarranties(data);
     } catch (error) {
       console.error('Error loading warranty data:', error);
       toast.error('Failed to load warranty data');
@@ -185,9 +122,7 @@ const WarrantyPage = () => {
   };
 
   const handleFileWarrantyClaim = (warranty: WarrantyItem) => {
-    // Simulate filing warranty claim
     toast.success(`Warranty claim filed for ${warranty.assetName}`);
-    // In real app, update warranty status and send to backend
     setWarranties(prev => prev.map(w => 
       w.id === warranty.id 
         ? { ...w, status: 'Claim Filed' as const, claimHistory: w.claimHistory + 1 }

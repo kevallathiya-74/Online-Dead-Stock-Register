@@ -54,6 +54,7 @@ import {
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface MaintenanceRecord {
   id: string;
@@ -95,96 +96,22 @@ const MaintenancePage = () => {
   const [tabValue, setTabValue] = useState(0);
   const [scheduleMaintenanceOpen, setScheduleMaintenanceOpen] = useState(false);
 
-  // Generate dynamic maintenance data
-  const generateMaintenanceData = (): MaintenanceRecord[] => {
-    const assetNames = [
-      'Dell OptiPlex 7090', 'HP LaserJet Pro', 'Cisco Switch 2960', 'UPS APC 1500VA',
-      'MacBook Pro 16"', 'Samsung Monitor 27"', 'Canon Printer MF445dw', 'Projector Epson',
-      'Server Dell PowerEdge', 'Router Netgear Pro', 'Laptop Lenovo ThinkPad', 'Tablet iPad Air',
-      'Phone System Avaya', 'Scanner Fujitsu', 'Workstation HP Z4', 'NAS Synology DS920+',
-    ];
-
-    const types: ('Preventive' | 'Corrective' | 'Predictive' | 'Emergency')[] = 
-      ['Preventive', 'Corrective', 'Predictive', 'Emergency'];
-    const statuses: ('Scheduled' | 'In Progress' | 'Completed' | 'Overdue' | 'Cancelled')[] = 
-      ['Scheduled', 'In Progress', 'Completed', 'Overdue', 'Cancelled'];
-    const priorities: ('Low' | 'Medium' | 'High' | 'Critical')[] = ['Low', 'Medium', 'High', 'Critical'];
-    const downtime: ('Low' | 'Medium' | 'High')[] = ['Low', 'Medium', 'High'];
-    
-    const technicians = ['Rajesh Kumar', 'Priya Singh', 'Amit Sharma', 'Neha Patel', 'Vikram Joshi'];
-
-    return Array.from({ length: 50 }, (_, index) => {
-      const scheduledDate = new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1);
-      const status = statuses[Math.floor(Math.random() * statuses.length)];
-      const isCompleted = status === 'Completed';
-      
-      return {
-        id: `MNT-${(index + 1).toString().padStart(4, '0')}`,
-        asset_id: `AST-${Math.floor(Math.random() * 500) + 1}`,
-        asset_name: assetNames[index % assetNames.length],
-        type: types[Math.floor(Math.random() * types.length)],
-        description: [
-          'Regular cleaning and inspection',
-          'Hardware component replacement',
-          'Software update and configuration',
-          'Performance optimization',
-          'Security patch installation',
-          'Calibration and testing',
-          'Filter replacement',
-          'Cooling system maintenance',
-          'Network connectivity check',
-          'Backup system verification',
-        ][Math.floor(Math.random() * 10)],
-        scheduled_date: scheduledDate.toISOString().split('T')[0],
-        completed_date: isCompleted ? 
-          new Date(scheduledDate.getTime() + Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : 
-          undefined,
-        status,
-        priority: priorities[Math.floor(Math.random() * priorities.length)],
-        assigned_technician: technicians[Math.floor(Math.random() * technicians.length)],
-        estimated_cost: Math.floor(Math.random() * 50000) + 5000,
-        actual_cost: isCompleted ? Math.floor(Math.random() * 60000) + 4000 : undefined,
-        estimated_duration: Math.floor(Math.random() * 8) + 1,
-        actual_duration: isCompleted ? Math.floor(Math.random() * 10) + 1 : undefined,
-        next_maintenance_date: isCompleted ? 
-          new Date(scheduledDate.getTime() + (90 + Math.random() * 180) * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : 
-          undefined,
-        notes: Math.random() > 0.5 ? 'Additional notes and observations' : undefined,
-        downtime_impact: downtime[Math.floor(Math.random() * downtime.length)],
-      };
-    });
-  };
-
-  const generateTechnicianData = (): Technician[] => {
-    const techNames = ['Rajesh Kumar', 'Priya Singh', 'Amit Sharma', 'Neha Patel', 'Vikram Joshi'];
-    const specializations = [
-      ['Hardware', 'Networking', 'Servers'],
-      ['Software', 'OS', 'Applications'],
-      ['Electronics', 'Components', 'Repair'],
-      ['IT Support', 'Troubleshooting', 'Maintenance'],
-      ['Systems', 'Infrastructure', 'Security'],
-    ];
-
-    return techNames.map((name, index) => ({
-      id: `TCH-${(index + 1).toString().padStart(3, '0')}`,
-      name,
-      specialization: specializations[index],
-      current_workload: Math.floor(Math.random() * 10) + 1,
-      rating: Math.round((Math.random() * 2 + 3) * 10) / 10,
-      total_completed: Math.floor(Math.random() * 200) + 50,
-    }));
-  };
-
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const maintenanceData = generateMaintenanceData();
-        const technicianData = generateTechnicianData();
+        const [maintenanceResponse, techniciansResponse] = await Promise.all([
+          api.get('/maintenance'),
+          api.get('/maintenance/technicians').catch(() => ({ data: { data: [] } })) // Fallback if endpoint doesn't exist
+        ]);
+        
+        const maintenanceData = maintenanceResponse.data.data || maintenanceResponse.data;
+        const technicianData = techniciansResponse.data.data || [];
+        
         setMaintenanceRecords(maintenanceData);
         setTechnicians(technicianData);
       } catch (error) {
+        console.error('Failed to load maintenance data:', error);
         toast.error('Failed to load maintenance data');
       } finally {
         setLoading(false);

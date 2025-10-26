@@ -12,17 +12,17 @@ const {
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
 
 // Purchase Order Routes
-// GET /api/purchase-management/orders - Get all purchase orders (Admin, Inventory Manager, Auditor)
+// GET /api/purchase-management/orders - Get all purchase orders (Admin, Inventory Manager)
 router.get('/orders', 
   authenticateToken, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'AUDITOR']), 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
   getAllPurchaseOrders
 );
 
-// GET /api/purchase-management/orders/:id - Get purchase order by ID (Admin, Inventory Manager, Auditor)
+// GET /api/purchase-management/orders/:id - Get purchase order by ID (Admin, Inventory Manager)
 router.get('/orders/:id', 
   authenticateToken, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'AUDITOR']), 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
   getPurchaseOrderById
 );
 
@@ -41,10 +41,10 @@ router.patch('/orders/:id/status',
 );
 
 // Purchase Request Routes
-// GET /api/purchase-management/requests - Get all purchase requests (Admin, Inventory Manager, Auditor)
+// GET /api/purchase-management/requests - Get all purchase requests (Admin, Inventory Manager)
 router.get('/requests', 
   authenticateToken, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'AUDITOR']), 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
   getAllPurchaseRequests
 );
 
@@ -55,10 +55,10 @@ router.post('/requests',
 );
 
 // Statistics Route
-// GET /api/purchase-management/stats - Get purchase statistics (Admin, Inventory Manager, Auditor)
+// GET /api/purchase-management/stats - Get purchase statistics (Admin, Inventory Manager)
 router.get('/stats', 
   authenticateToken, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'AUDITOR']), 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
   getPurchaseStats
 );
 

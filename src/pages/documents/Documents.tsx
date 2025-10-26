@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import Layout from '../../components/layout/Layout';
+import { toast } from 'react-toastify';
+import api from '../../services/api';
 import {
   Box,
   Typography,
@@ -110,8 +112,15 @@ const Documents = () => {
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
-    if (selectedDocument) {
+  const handleDeleteConfirm = async () => {
+    if (!selectedDocument) return;
+    
+    try {
+      console.log('Deleting document via API:', selectedDocument.id);
+      
+      // Call API to delete document
+      await api.delete(`/documents/${selectedDocument.id}`);
+      
       // Remove document from list
       setDocuments(prev => prev.filter(doc => doc.id !== selectedDocument.id));
       setDeleteDialogOpen(false);
@@ -120,6 +129,11 @@ const Documents = () => {
       
       // Hide success message after 3 seconds
       setTimeout(() => setDeleteSuccess(false), 3000);
+    } catch (error: any) {
+      console.error('Failed to delete document:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to delete document';
+      toast.error(errorMsg);
+      setDeleteDialogOpen(false);
     }
   };
 

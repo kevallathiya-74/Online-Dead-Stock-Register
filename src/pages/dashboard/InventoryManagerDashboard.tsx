@@ -193,12 +193,12 @@ const InventoryManagerDashboard = () => {
     try {
       setLoading(true);
       
-      // Load all dynamic data
-      const dashboardStats = dashboardDataService.getDashboardStats(UserRole.INVENTORY_MANAGER);
-      const locationData = dashboardDataService.getAssetsByLocation();
-      const warrantyData = dashboardDataService.getWarrantyExpiringAssets();
-      const maintenanceData = dashboardDataService.getMaintenanceSchedule();
-      const vendorData = dashboardDataService.getVendorPerformance();
+      // Load all dynamic data with await
+      const dashboardStats = await dashboardDataService.getDashboardStats(UserRole.INVENTORY_MANAGER);
+      const locationData = await dashboardDataService.getAssetsByLocation();
+      const warrantyData = await dashboardDataService.getWarrantyExpiringAssets();
+      const maintenanceData = await dashboardDataService.getMaintenanceSchedule();
+      const vendorData = await dashboardDataService.getVendorPerformance();
 
       setStats({
         assetsByLocation: dashboardStats.locationCount,
@@ -234,7 +234,7 @@ const InventoryManagerDashboard = () => {
   useEffect(() => {
     loadDashboardData();
     
-    // Auto-refresh data every 2 minutes to simulate real-time updates
+    // Auto-refresh data every 2 minutes
     const interval = setInterval(loadDashboardData, 120000);
     
     return () => clearInterval(interval);

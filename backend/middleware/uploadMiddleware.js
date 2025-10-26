@@ -100,8 +100,50 @@ const assetImageUpload = multer({
   }
 });
 
+// Storage configuration for import files (CSV/JSON)
+const importStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/temp/');
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const extension = path.extname(file.originalname);
+    cb(null, `import-${uniqueSuffix}${extension}`);
+  }
+});
+
+// File filter for import files
+const importFileFilter = (req, file, cb) => {
+  const allowedTypes = [
+    'text/csv',
+    'application/json',
+    'application/vnd.ms-excel', // Some systems send CSV as this
+    'text/plain' // Some systems send CSV as this
+  ];
+
+  const allowedExtensions = ['.csv', '.json'];
+  const ext = path.extname(file.originalname).toLowerCase();
+
+  if (allowedTypes.includes(file.mimetype) || allowedExtensions.includes(ext)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only CSV and JSON files are allowed for import'), false);
+  }
+};
+
+// Import file upload configuration
+const importUpload = multer({
+  storage: importStorage,
+  fileFilter: importFileFilter,
+  limits: {
+    fileSize: 15 * 1024 * 1024, // 15MB limit
+    files: 1 // Only one file at a time
+  }
+});
+
 module.exports = {
   documentUpload,
   assetImageUpload,
+  importUpload,
   createUploadDirs
 };

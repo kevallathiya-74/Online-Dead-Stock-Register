@@ -36,6 +36,7 @@ import {
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { format, parseISO, subMonths } from 'date-fns';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface ReportTemplate {
   id: string;
@@ -106,99 +107,16 @@ const AssetReportsPage = () => {
     try {
       setLoading(true);
       
-      // Demo report templates
-      const demoTemplates: ReportTemplate[] = [
-        {
-          id: '1',
-          name: 'Asset Inventory Summary',
-          description: 'Complete overview of all assets with current status, location, and value',
-          category: 'Asset Tracking',
-          frequency: 'Monthly',
-          lastGenerated: '2024-10-01',
-          format: 'PDF',
-          status: 'Active',
-        },
-        {
-          id: '2',
-          name: 'Asset Depreciation Report',
-          description: 'Financial report showing asset depreciation and current book values',
-          category: 'Financial',
-          frequency: 'Quarterly',
-          lastGenerated: '2024-09-30',
-          format: 'Excel',
-          status: 'Active',
-        },
-        {
-          id: '3',
-          name: 'Asset Utilization Analysis',
-          description: 'Analysis of asset usage patterns and utilization rates',
-          category: 'Utilization',
-          frequency: 'Monthly',
-          lastGenerated: '2024-10-05',
-          format: 'PDF',
-          status: 'Active',
-        },
-        {
-          id: '4',
-          name: 'Asset Compliance Audit',
-          description: 'Compliance status of assets with regulatory requirements',
-          category: 'Compliance',
-          frequency: 'Annual',
-          lastGenerated: '2024-04-01',
-          format: 'PDF',
-          status: 'Active',
-        },
-        {
-          id: '5',
-          name: 'Asset Location Tracking',
-          description: 'Detailed report of asset locations and movement history',
-          category: 'Asset Tracking',
-          frequency: 'Weekly',
-          lastGenerated: '2024-10-08',
-          format: 'Excel',
-          status: 'Active',
-        },
-        {
-          id: '6',
-          name: 'Asset Maintenance Schedule',
-          description: 'Upcoming and overdue maintenance activities for all assets',
-          category: 'Maintenance',
-          frequency: 'Weekly',
-          lastGenerated: '2024-10-07',
-          format: 'PDF',
-          status: 'Active',
-        },
-      ];
-
-      // Demo asset summary
-      const demoSummary: AssetSummary = {
-        totalAssets: 1450,
-        activeAssets: 1250,
-        inactiveAssets: 155,
-        underMaintenance: 45,
-        totalValue: 25000000,
-        depreciatedValue: 18500000,
-        byCategory: [
-          { category: 'IT Equipment', count: 680, value: 15000000 },
-          { category: 'Office Equipment', count: 420, value: 4500000 },
-          { category: 'Furniture', count: 250, value: 3200000 },
-          { category: 'Machinery', count: 100, value: 2300000 },
-        ],
-        byLocation: [
-          { location: 'Main Office - Floor 1', count: 450, percentage: 31 },
-          { location: 'Main Office - Floor 2', count: 380, percentage: 26 },
-          { location: 'Branch Office - Mumbai', count: 290, percentage: 20 },
-          { location: 'Warehouse - Pune', count: 330, percentage: 23 },
-        ],
-        byStatus: [
-          { status: 'Active', count: 1250, percentage: 86 },
-          { status: 'Inactive', count: 155, percentage: 11 },
-          { status: 'Under Maintenance', count: 45, percentage: 3 },
-        ],
-      };
-
-      setReportTemplates(demoTemplates);
-      setAssetSummary(demoSummary);
+      const [templatesResponse, summaryResponse] = await Promise.all([
+        api.get('/reports/templates'),
+        api.get('/reports/asset-summary')
+      ]);
+      
+      const templates = templatesResponse.data.data || templatesResponse.data;
+      const summary = summaryResponse.data.data || summaryResponse.data;
+      
+      setReportTemplates(templates);
+      setAssetSummary(summary);
     } catch (error) {
       console.error('Error loading report data:', error);
       toast.error('Failed to load report data');

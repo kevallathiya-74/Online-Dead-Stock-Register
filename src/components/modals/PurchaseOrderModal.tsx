@@ -33,6 +33,7 @@ import {
   Calculate as CalculateIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface PurchaseOrderModalProps {
   open: boolean;
@@ -161,20 +162,19 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ open, onClose, 
       const { subtotal, tax, total } = calculateTotals();
       
       const purchaseOrder = {
-        po_number: poNumber,
         ...formData,
         items,
         subtotal,
         tax,
         total,
         status: 'Draft',
-        created_date: new Date().toISOString().split('T')[0],
-        id: Date.now().toString(),
+        po_number: poNumber,
       };
 
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+      const response = await api.post('/purchase-management/purchase-orders', purchaseOrder);
+      const createdPO = response.data.data || response.data;
       
-      onSubmit(purchaseOrder);
+      onSubmit(createdPO);
       toast.success(`Purchase Order ${poNumber} created successfully!`);
       
       // Reset form

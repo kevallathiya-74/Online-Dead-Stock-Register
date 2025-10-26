@@ -50,7 +50,24 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import AdminDataService, { AdminUser } from '../../data/adminDataService';
+import api from '../../services/api';
+
+interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'Admin' | 'Inventory Manager' | 'Auditor' | 'Employee' | 'Inventory_Manager';
+  department: string;
+  employee_id: string;
+  status: 'Active' | 'Inactive';
+  is_active: boolean;
+  phone: string;
+  location: string;
+  manager: string;
+  created_at: string;
+  last_login?: string;
+  permissions?: string[];
+}
 
 const UsersPage = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -69,7 +86,7 @@ const UsersPage = () => {
     name: '',
     email: '',
     role: 'Employee' as AdminUser['role'],
-    department: '',
+    department: 'INVENTORY',
     employee_id: '',
     phone: '',
     location: '',
@@ -83,11 +100,29 @@ const UsersPage = () => {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      const userData = AdminDataService.getUsers();
-      setUsers(userData);
+      const response = await api.get('/users', {
+        params: { _t: Date.now() }
+      });
+      
+      console.log('Users response:', response.data);
+      
+      const userData = response.data.data || response.data;
+      
+      if (!Array.isArray(userData)) {
+        console.error('Invalid user data format:', userData);
+        throw new Error('Invalid data format received from server');
+      }
+      
+      const mappedUsers = userData.map((user: any) => ({
+        ...user,
+        id: user._id || user.id,
+        status: user.is_active ? 'Active' : 'Inactive'
+      }));
+      
+      console.log('Mapped users:', mappedUsers.length, 'users loaded');
+      setUsers(mappedUsers);
     } catch (error) {
+      console.error('Failed to load users:', error);
       toast.error('Failed to load users');
     } finally {
       setLoading(false);
@@ -113,52 +148,76 @@ const UsersPage = () => {
   const paginatedUsers = filteredUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   const handleAddUser = async () => {
-    if (!newUser.name || !newUser.email || !newUser.employee_id) {
+    if (!newUser.name || !newUser.email || !newUser.employee_id || !newUser.department) {
       toast.error('Please fill in all required fields');
       return;
     }
 
     try {
-      const user: AdminUser = {
-        id: `user_${Date.now()}`,
+      console.log('Creating user:', newUser);
+      const response = await api.post('/users', {
         name: newUser.name,
         email: newUser.email,
         role: newUser.role,
         department: newUser.department,
         employee_id: newUser.employee_id,
         is_active: true,
-        created_at: new Date().toISOString().split('T')[0],
-        last_login: '',
         phone: newUser.phone,
         location: newUser.location,
         manager: newUser.manager,
-        permissions: getPermissionsByRole(newUser.role)
-      };
+        password: 'defaultPassword123' 
+      });
 
-      setUsers(prev => [...prev, user]);
+      console.log('User created:', response.data);
+      await loadUsers();
+      
       setAddUserDialogOpen(false);
       resetNewUser();
       toast.success('User created successfully');
-    } catch (error) {
-      toast.error('Failed to create user');
+    } catch (error: any) {
+      console.error('Failed to create user:', error);
+      toast.error(error?.response?.data?.message || 'Failed to create user');
     }
   };
 
-  const handleToggleUserStatus = (userId: string) => {
-    setUsers(prev => 
-      prev.map(user => 
-        user.id === userId 
-          ? { ...user, is_active: !user.is_active }
-          : user
-      )
-    );
-    toast.success('User status updated');
+  const handleToggleUserStatus = async (userId: string) => {
+    try {
+      const user = users.find(u => u.id === userId);
+      if (!user) return;
+      
+      // Update user status via API
+      await api.put(`/users/${userId}`, {
+        is_active: !user.is_active
+      });
+      
+      // Update local state
+      setUsers(prev => 
+        prev.map(user => 
+          user.id === userId 
+            ? { ...user, is_active: !user.is_active, status: !user.is_active ? 'Active' : 'Inactive' }
+            : user
+        )
+      );
+      toast.success('User status updated');
+    } catch (error) {
+      console.error('Failed to update user status:', error);
+      toast.error('Failed to update user status');
+    }
   };
 
-  const handleDeleteUser = (userId: string) => {
+  const handleDeleteUser = async (userId: string) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
-      setUsers(prev => prev.filter(user => user.id !== userId));
-      toast.success('User deleted successfully');
+      try {
+        // Delete user via API
+        await api.delete(`/users/${userId}`);
+        
+        // Update local state
+        setUsers(prev => prev.filter(user => user.id !== userId));
+        toast.success('User deleted successfully');
+      } catch (error) {
+        console.error('Failed to delete user:', error);
+        toast.error('Failed to delete user');
+      }
     }
   };
 
@@ -172,7 +231,7 @@ const UsersPage = () => {
       name: '',
       email: '',
       role: 'Employee',
-      department: '',
+      department: 'INVENTORY',
       employee_id: '',
       phone: '',
       location: '',
@@ -226,8 +285,30 @@ const UsersPage = () => {
     }
   };
 
-  const stats = AdminDataService.getUserStatistics();
-  const departments = Array.from(new Set(users.map(u => u.department)));
+  const stats = {
+    total: users.length,
+    totalUsers: users.length,
+    active: users.filter(u => u.is_active || u.status === 'Active').length,
+    activeUsers: users.filter(u => u.is_active || u.status === 'Active').length,
+    inactiveUsers: users.filter(u => !u.is_active || u.status === 'Inactive').length,
+    adminUsers: users.filter(u => u.role === 'Admin').length,
+    recentLogins: users.filter(u => u.last_login).length,
+    byRole: {
+      'Admin': users.filter(u => u.role === 'Admin').length,
+      'Inventory Manager': users.filter(u => u.role === 'Inventory Manager' || u.role === 'Inventory_Manager').length,
+      'Auditor': users.filter(u => u.role === 'Auditor').length,
+      'Employee': users.filter(u => u.role === 'Employee').length,
+    },
+    byDepartment: users.reduce((acc: any, user) => {
+      if (user.department) {
+        acc[user.department] = (acc[user.department] || 0) + 1;
+      }
+      return acc;
+    }, {}),
+  };
+  
+  // Filter out empty/undefined departments and ensure unique values
+  const departments = Array.from(new Set(users.map(u => u.department).filter(d => d && d.trim() !== '')));
   const roles = ['Admin', 'Inventory_Manager', 'Auditor', 'Employee'];
 
   if (loading) {
@@ -480,9 +561,9 @@ const UsersPage = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {paginatedUsers.map((user) => (
+                  {paginatedUsers.filter(user => user.id).map((user, index) => (
                     <TableRow 
-                      key={user.id}
+                      key={user.id || `user-${index}`}
                       selected={bulkSelected.includes(user.id)}
                       hover
                     >
@@ -532,7 +613,7 @@ const UsersPage = () => {
                             sx={{ mb: 1 }}
                           />
                           <Typography variant="caption" display="block" color="text.secondary">
-                            {user.permissions.length} permissions
+                            {user.permissions?.length || 0} permissions
                           </Typography>
                         </Box>
                       </TableCell>
@@ -707,19 +788,24 @@ const UsersPage = () => {
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Department"
-                  value={newUser.department}
-                  onChange={(e) => setNewUser(prev => ({ ...prev, department: e.target.value }))}
-                  InputProps={{
-                    startAdornment: (
+                <FormControl fullWidth required>
+                  <InputLabel>Department</InputLabel>
+                  <Select
+                    value={newUser.department}
+                    label="Department"
+                    onChange={(e) => setNewUser(prev => ({ ...prev, department: e.target.value }))}
+                    startAdornment={
                       <InputAdornment position="start">
                         <WorkIcon />
                       </InputAdornment>
-                    ),
-                  }}
-                />
+                    }
+                  >
+                    <MenuItem value="INVENTORY">Inventory</MenuItem>
+                    <MenuItem value="IT">IT</MenuItem>
+                    <MenuItem value="ADMIN">Admin</MenuItem>
+                    <MenuItem value="VENDOR">Vendor</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
@@ -777,7 +863,7 @@ const UsersPage = () => {
             <Button 
               variant="contained" 
               onClick={handleAddUser}
-              disabled={!newUser.name || !newUser.email || !newUser.employee_id}
+              disabled={!newUser.name || !newUser.email || !newUser.employee_id || !newUser.department}
               startIcon={<AddIcon />}
             >
               Create User

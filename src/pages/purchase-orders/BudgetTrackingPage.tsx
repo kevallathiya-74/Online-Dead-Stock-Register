@@ -38,6 +38,7 @@ import {
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface BudgetCategory {
   id: string;
@@ -106,131 +107,16 @@ const BudgetTrackingPage = () => {
     try {
       setLoading(true);
       
-      // Demo budget categories
-      const demoBudgetCategories: BudgetCategory[] = [
-        {
-          id: '1',
-          name: 'IT Equipment',
-          allocatedAmount: 5000000,
-          spentAmount: 3200000,
-          committedAmount: 800000,
-          availableAmount: 1000000,
-          utilizationPercentage: 80,
-          department: 'IT',
-          fiscalYear: '2024-25',
-          status: 'On Track',
-        },
-        {
-          id: '2',
-          name: 'Office Furniture',
-          allocatedAmount: 2000000,
-          spentAmount: 2100000,
-          committedAmount: 0,
-          availableAmount: -100000,
-          utilizationPercentage: 105,
-          department: 'Admin',
-          fiscalYear: '2024-25',
-          status: 'Over Budget',
-        },
-        {
-          id: '3',
-          name: 'Software Licenses',
-          allocatedAmount: 3000000,
-          spentAmount: 2700000,
-          committedAmount: 200000,
-          availableAmount: 100000,
-          utilizationPercentage: 97,
-          department: 'IT',
-          fiscalYear: '2024-25',
-          status: 'Nearly Exceeded',
-        },
-        {
-          id: '4',
-          name: 'Maintenance & Repairs',
-          allocatedAmount: 1500000,
-          spentAmount: 600000,
-          committedAmount: 300000,
-          availableAmount: 600000,
-          utilizationPercentage: 60,
-          department: 'Operations',
-          fiscalYear: '2024-25',
-          status: 'Under Utilized',
-        },
-        {
-          id: '5',
-          name: 'Security Equipment',
-          allocatedAmount: 1000000,
-          spentAmount: 450000,
-          committedAmount: 150000,
-          availableAmount: 400000,
-          utilizationPercentage: 60,
-          department: 'Security',
-          fiscalYear: '2024-25',
-          status: 'On Track',
-        },
-      ];
-
-      // Demo transactions
-      const demoTransactions: BudgetTransaction[] = [
-        {
-          id: '1',
-          date: '2024-10-01',
-          description: 'Dell Laptops Purchase - Q2',
-          category: 'IT Equipment',
-          department: 'IT',
-          amount: 250000,
-          type: 'Expense',
-          status: 'Approved',
-          referenceNumber: 'PO-2024-001',
-        },
-        {
-          id: '2',
-          date: '2024-09-28',
-          description: 'Office Chairs - Executive Floor',
-          category: 'Office Furniture',
-          department: 'Admin',
-          amount: 180000,
-          type: 'Expense',
-          status: 'Approved',
-          referenceNumber: 'PO-2024-002',
-        },
-        {
-          id: '3',
-          date: '2024-10-05',
-          description: 'Microsoft Office 365 - Annual License',
-          category: 'Software Licenses',
-          department: 'IT',
-          amount: 150000,
-          type: 'Commitment',
-          status: 'Pending',
-          referenceNumber: 'PO-2024-003',
-        },
-        {
-          id: '4',
-          date: '2024-09-20',
-          description: 'CCTV System Maintenance',
-          category: 'Maintenance & Repairs',
-          department: 'Security',
-          amount: 45000,
-          type: 'Expense',
-          status: 'Approved',
-          referenceNumber: 'PO-2024-004',
-        },
-        {
-          id: '5',
-          date: '2024-10-08',
-          description: 'Budget Adjustment - IT Equipment',
-          category: 'IT Equipment',
-          department: 'IT',
-          amount: 200000,
-          type: 'Adjustment',
-          status: 'Approved',
-          referenceNumber: 'ADJ-2024-001',
-        },
-      ];
-
-      setCategories(demoBudgetCategories);
-      setTransactions(demoTransactions);
+      const [categoriesResponse, transactionsResponse] = await Promise.all([
+        api.get('/purchase-management/budget-categories'),
+        api.get('/purchase-management/budget-transactions')
+      ]);
+      
+      const categories = categoriesResponse.data.data || categoriesResponse.data;
+      const transactions = transactionsResponse.data.data || transactionsResponse.data;
+      
+      setCategories(categories);
+      setTransactions(transactions);
     } catch (error) {
       console.error('Error loading budget data:', error);
       toast.error('Failed to load budget data');

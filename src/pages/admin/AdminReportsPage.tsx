@@ -58,6 +58,7 @@ import {
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface Report {
   id: string;
@@ -112,82 +113,11 @@ const AdminReportsPage: React.FC = () => {
 
   const loadReports = async () => {
     try {
-      // Mock reports data
-      const mockReports: Report[] = [
-        {
-          id: '1',
-          name: 'Asset Utilization Report',
-          description: 'Comprehensive analysis of asset usage across departments',
-          category: 'Assets',
-          type: 'table',
-          lastRun: '2024-01-20T10:30:00Z',
-          createdBy: 'John Smith',
-          status: 'Active',
-          frequency: 'Weekly',
-          recipients: ['admin@company.com', 'manager@company.com'],
-          fileFormat: 'PDF',
-          parameters: { dateRange: '30days', includeInactive: false }
-        },
-        {
-          id: '2',
-          name: 'Financial Summary Dashboard',
-          description: 'Monthly financial overview with cost analysis',
-          category: 'Financial',
-          type: 'dashboard',
-          lastRun: '2024-01-19T08:00:00Z',
-          createdBy: 'Jane Doe',
-          status: 'Active',
-          frequency: 'Monthly',
-          recipients: ['finance@company.com'],
-          fileFormat: 'Excel',
-          parameters: { currency: 'USD', includeForecast: true }
-        },
-        {
-          id: '3',
-          name: 'User Activity Analysis',
-          description: 'Track user engagement and system usage patterns',
-          category: 'Users',
-          type: 'chart',
-          lastRun: '2024-01-18T14:15:00Z',
-          createdBy: 'Mike Johnson',
-          status: 'Scheduled',
-          frequency: 'Daily',
-          recipients: ['hr@company.com'],
-          fileFormat: 'CSV',
-          parameters: { timeframe: 'weekly', activeOnly: true }
-        },
-        {
-          id: '4',
-          name: 'Inventory Status Report',
-          description: 'Current inventory levels and reorder recommendations',
-          category: 'Inventory',
-          type: 'table',
-          lastRun: '2024-01-17T16:45:00Z',
-          createdBy: 'Sarah Wilson',
-          status: 'Draft',
-          frequency: 'On-demand',
-          recipients: ['inventory@company.com'],
-          fileFormat: 'PDF',
-          parameters: { warehouse: 'all', lowStockAlert: true }
-        },
-        {
-          id: '5',
-          name: 'Performance Metrics',
-          description: 'KPI dashboard with trending and comparisons',
-          category: 'Analytics',
-          type: 'dashboard',
-          lastRun: '2024-01-16T09:20:00Z',
-          createdBy: 'David Brown',
-          status: 'Active',
-          frequency: 'Weekly',
-          recipients: ['executives@company.com'],
-          fileFormat: 'Interactive',
-          parameters: { metrics: ['efficiency', 'costs', 'satisfaction'] }
-        }
-      ];
-      
-      setReports(mockReports);
+      const response = await api.get('/reports');
+      const reportsData = response.data.data || response.data;
+      setReports(reportsData);
     } catch (error) {
+      console.error('Failed to load reports:', error);
       toast.error('Failed to load reports');
     }
   };
@@ -233,19 +163,28 @@ const AdminReportsPage: React.FC = () => {
     setIsRunning(true);
     setRunProgress(0);
 
-    // Simulate report generation
-    const interval = setInterval(() => {
-      setRunProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsRunning(false);
-          setSelectedReport(null);
-          toast.success(`${report.name} generated successfully!`);
-          return 100;
-        }
-        return prev + 20;
+    try {
+      const response = await api.post(`/reports/${report.id}/run`, {}, {
+        onDownloadProgress: (progressEvent) => {
+          const progress = progressEvent.total
+            ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
+            : 0;
+          setRunProgress(progress);
+        },
       });
-    }, 500);
+
+      setIsRunning(false);
+      setSelectedReport(null);
+      toast.success(`${report.name} generated successfully!`);
+      
+      // Reload reports to get updated lastRun timestamp
+      loadReports();
+    } catch (error) {
+      console.error('Failed to run report:', error);
+      setIsRunning(false);
+      setSelectedReport(null);
+      toast.error('Failed to generate report');
+    }
   };
 
   const reportsByCategory = [

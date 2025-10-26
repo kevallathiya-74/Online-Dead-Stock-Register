@@ -12,7 +12,6 @@ import { UserRole } from './types';
 import Landing from './pages/auth/Landing';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
-import AdminRegister from './pages/auth/AdminRegister';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 
@@ -53,6 +52,18 @@ import ProfilePage from './pages/employee/ProfilePage';
 import HistoryPage from './pages/employee/HistoryPage';
 import HelpPage from './pages/employee/HelpPage';
 
+// Auditor Pages
+import AuditorDashboard from './pages/auditor/AuditorDashboard';
+import AuditListPage from './pages/auditor/AuditListPage';
+import CompliancePage from './pages/auditor/CompliancePage';
+
+// Vendor Pages
+import VendorDashboard from './pages/vendor/VendorDashboard';
+import VendorOrdersPage from './pages/vendor/VendorOrdersPage';
+import VendorProductsPage from './pages/vendor/VendorProductsPage';
+import VendorInvoicesPage from './pages/vendor/VendorInvoicesPage';
+import VendorProfilePage from './pages/vendor/VendorProfilePage';
+
 // Protected Route Component
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
@@ -67,15 +78,19 @@ const App = () => {
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/admin-register" element={<AdminRegister />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-            {/* Protected Routes */}
+            {/* Protected Routes - Common to all authenticated users */}
             <Route element={<ProtectedRoute />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/dashboard/*" element={<Dashboard />} />
               <Route path="/documents" element={<Documents />} />
+              <Route path="/employee/my-assets" element={<MyAssetsPage />} />
+              <Route path="/employee/requests" element={<RequestsPage />} />
+              <Route path="/employee/profile" element={<ProfilePage />} />
+              <Route path="/employee/history" element={<HistoryPage />} />
+              <Route path="/employee/help" element={<HelpPage />} />
             </Route>
               
             {/* Admin Only Routes */}
@@ -97,7 +112,7 @@ const App = () => {
               <Route path="/users/*" element={<UsersPage />} />
             </Route>
               
-            {/* Inventory Manager Routes */}
+            {/* Inventory Manager Routes - ADMIN and INVENTORY_MANAGER only */}
             <Route element={<ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.INVENTORY_MANAGER]} />}>
               <Route path="/assets" element={<AssetsPage />} />
               <Route path="/assets/*" element={<AssetsPage />} />
@@ -115,13 +130,22 @@ const App = () => {
               <Route path="/approvals/*" element={<ApprovalsPage />} />
             </Route>
 
-            {/* Employee Routes - Available to all authenticated users */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="/employee/my-assets" element={<MyAssetsPage />} />
-              <Route path="/employee/requests" element={<RequestsPage />} />
-              <Route path="/employee/profile" element={<ProfilePage />} />
-              <Route path="/employee/history" element={<HistoryPage />} />
-              <Route path="/employee/help" element={<HelpPage />} />
+            {/* Auditor Routes - AUDITOR role only */}
+            <Route element={<ProtectedRoute allowedRoles={[UserRole.AUDITOR]} />}>
+              <Route path="/auditor" element={<AuditorDashboard />} />
+              <Route path="/auditor/dashboard" element={<AuditorDashboard />} />
+              <Route path="/auditor/audit-list" element={<AuditListPage />} />
+              <Route path="/auditor/compliance" element={<CompliancePage />} />
+            </Route>
+
+            {/* Vendor Routes - VENDOR role only */}
+            <Route element={<ProtectedRoute allowedRoles={[UserRole.VENDOR]} />}>
+              <Route path="/vendor" element={<VendorDashboard />} />
+              <Route path="/vendor/dashboard" element={<VendorDashboard />} />
+              <Route path="/vendor/orders" element={<VendorOrdersPage />} />
+              <Route path="/vendor/products" element={<VendorProductsPage />} />
+              <Route path="/vendor/invoices" element={<VendorInvoicesPage />} />
+              <Route path="/vendor/profile" element={<VendorProfilePage />} />
             </Route>
 
             {/* Default Routes */}

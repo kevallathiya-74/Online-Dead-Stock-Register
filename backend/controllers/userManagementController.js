@@ -1,6 +1,6 @@
 const User = require('../models/user');
 const AuditLog = require('../models/auditLog');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 // Get all users with pagination and filtering
 exports.getAllUsers = async (req, res) => {

@@ -3,10 +3,12 @@ const express = require('express');
 const connectDB = require('./config/db');
 const cors = require('cors');
 const helmet = require('helmet');
-const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 const errorHandler = require('./middleware/errorHandler');
+const logger = require('./utils/logger');
+const requestLogger = require('./middleware/requestLogger');
+const { swaggerUi, swaggerSpec } = require('./config/swagger');
 
 // Initialize express
 const app = express();
@@ -15,7 +17,8 @@ const app = express();
 app.use(cors({
   origin: 'http://localhost:3000', // Explicitly set the allowed origin
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control'],
+  exposedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
   optionsSuccessStatus: 200,
   preflightContinue: false
@@ -30,10 +33,8 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// Logging
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
-}
+// HTTP Request Logging with Morgan and Winston
+app.use(requestLogger);
 
 // Custom sanitization middleware for security
 app.use((req, res, next) => {
@@ -86,9 +87,13 @@ app.use('/api/', limiter);
 
 // Connect to MongoDB
 connectDB().then(() => {
-  console.log('Database connection established');
+  logger.info('Database connection established');
+  
+  // Initialize cron jobs for scheduled audits
+  const { initializeCronJobs } = require('./services/cronService');
+  initializeCronJobs();
 }).catch(err => {
-  console.error('Database connection error:', err);
+  logger.error('Database connection error:', err);
   process.exit(1);
 });
 
@@ -108,8 +113,30 @@ const docRoutes = require('./routes/documents');
 const vendorRoutes = require('./routes/vendors');
 const maintRoutes = require('./routes/maintenance');
 const authRoutes = require('./routes/auth');
+const dashboardRoutes = require('./routes/dashboard');
+const assetRequestRoutes = require('./routes/assetRequests');
+const assetTransferRoutes = require('./routes/assetTransfers');
+const purchaseManagementRoutes = require('./routes/purchaseManagement');
+const notificationRoutes = require('./routes/notifications');
+const uploadRoutes = require('./routes/upload');
+const exportImportRoutes = require('./routes/exportImport');
+const userManagementRoutes = require('./routes/userManagement');
+const vendorManagementRoutes = require('./routes/vendorManagement');
+const vendorPortalRoutes = require('./routes/vendorPortal');
+const qrScanRoutes = require('./routes/qrScan');
+const photoRoutes = require('./routes/photos');
+const bulkOperationsRoutes = require('./routes/bulkOperations');
+const customFiltersRoutes = require('./routes/customFilters');
+const scheduledAuditsRoutes = require('./routes/scheduledAudits');
+
+// API Documentation with Swagger
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Asset Management API Docs'
+}));
 
 // Mount routes
+app.use('/api/auth', authRoutes);
 app.use('/api/assets', assetRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/transactions', txnRoutes);
@@ -118,7 +145,21 @@ app.use('/api/auditlogs', auditRoutes);
 app.use('/api/documents', docRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/maintenance', maintRoutes);
-app.use('/api/auth', authRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/asset-requests', assetRequestRoutes);
+app.use('/api/asset-transfers', assetTransferRoutes);
+app.use('/api/purchase-management', purchaseManagementRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/export-import', exportImportRoutes);
+app.use('/api/user-management', userManagementRoutes);
+app.use('/api/vendor-management', vendorManagementRoutes);
+app.use('/api/vendor', vendorPortalRoutes);
+app.use('/api/qr', qrScanRoutes);
+app.use('/api/photos', photoRoutes);
+app.use('/api/bulk', bulkOperationsRoutes);
+app.use('/api/filters', customFiltersRoutes);
+app.use('/api/scheduled-audits', scheduledAuditsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -148,14 +189,17 @@ app.use(errorHandler);
 // Start server
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+  logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  logger.info(`API Documentation available at http://localhost:${PORT}/api-docs`);
 });
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
-  console.error('UNHANDLED REJECTION! 💥 Shutting down...');
-  console.error('Error:', err.name, err.message);
-  console.error('Stack:', err.stack);
+  logger.error('UNHANDLED REJECTION! 💥 Shutting down...', {
+    name: err.name,
+    message: err.message,
+    stack: err.stack
+  });
   
   // Close server & exit process
   server.close(() => {
@@ -165,9 +209,11 @@ process.on('unhandledRejection', (err) => {
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
-  console.error('UNCAUGHT EXCEPTION! 💥 Shutting down...');
-  console.error('Error:', err.name, err.message);
-  console.error('Stack:', err.stack);
+  logger.error('UNCAUGHT EXCEPTION! 💥 Shutting down...', {
+    name: err.name,
+    message: err.message,
+    stack: err.stack
+  });
   
   process.exit(1);
 });

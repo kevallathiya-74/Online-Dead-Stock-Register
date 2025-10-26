@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
@@ -11,7 +11,6 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemIcon,
   Chip,
   Dialog,
   DialogTitle,
@@ -19,40 +18,23 @@ import {
   DialogActions,
   TextField,
   Alert,
-  Divider,
   Avatar,
   MenuItem,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   ListItemAvatar,
+  CircularProgress,
 } from '@mui/material';
 import {
   Laptop as LaptopIcon,
   Smartphone as PhoneIcon,
-  Print as PrinterIcon,
-  Computer as ComputerIcon,
-  QrCodeScanner as QrIcon,
   Inventory as InventoryIcon,
   Person as PersonIcon,
-  LocationOn as LocationIcon,
-  DateRange as DateIcon,
-  Feedback as FeedbackIcon,
   Build as MaintenanceIcon,
   Warning as WarningIcon,
   CheckCircle as CheckIcon,
   Add as AddIcon,
-  Report as ReportIcon,
-  Check as CheckinIcon,
   History as HistoryIcon,
-  Assignment as RequestIcon,
-  Schedule as ReminderIcon,
-  EventAvailable as ReturnIcon,
-  TrendingUp,
+  Help as HelpIcon,
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { useAuth } from '../../context/AuthContext';
@@ -85,8 +67,16 @@ interface MaintenanceRequest {
 
 const EmployeeDashboard = () => {
   const navigate = useNavigate();
-  
-  const [myAssets, setMyAssets] = useState<Asset[]>([
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+  const [requestForm, setRequestForm] = useState({
+    issue_description: '',
+    priority: 'medium',
+  });
+
+  const [myAssets] = useState<Asset[]>([
     {
       id: '1',
       unique_asset_id: 'ASSET-001',
@@ -95,7 +85,7 @@ const EmployeeDashboard = () => {
       serial_number: 'DLL123456789',
       status: 'Active',
       location: 'IT Department - Floor 2',
-      assigned_user: 'Current User',
+      assigned_user: user?.name || 'Current User',
       last_audit_date: '2024-01-01',
       condition: 'Good',
       category: 'Laptop',
@@ -110,26 +100,11 @@ const EmployeeDashboard = () => {
       serial_number: 'APL987654321',
       status: 'Active',
       location: 'IT Department - Floor 2',
-      assigned_user: 'Current User',
+      assigned_user: user?.name || 'Current User',
       last_audit_date: '2024-01-01',
       condition: 'Excellent',
       category: 'Mobile',
       assigned_date: '2023-08-20',
-    },
-    {
-      id: '3',
-      unique_asset_id: 'ASSET-012',
-      manufacturer: 'HP',
-      model: 'Monitor 24"',
-      serial_number: 'HP445566778',
-      status: 'Active',
-      location: 'IT Department - Floor 2',
-      assigned_user: 'Current User',
-      last_audit_date: '2023-12-15',
-      condition: 'Good',
-      category: 'Monitor',
-      assigned_date: '2023-06-15',
-      warranty_expiry: '2024-02-15',
     },
   ]);
 
@@ -145,49 +120,24 @@ const EmployeeDashboard = () => {
     },
   ]);
 
-  const [qrScannerOpen, setQrScannerOpen] = useState(false);
-  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
-  const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
-  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
-  const [requestForm, setRequestForm] = useState({
-    issue_description: '',
-    priority: 'medium',
-  });
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      setLoading(false);
+    };
+    loadData();
+  }, []);
 
-  // Employee statistics
   const employeeStats = {
     total_assets: myAssets.length,
-    active_assets: myAssets.filter(a => a.status === 'Active').length,
-    pending_maintenance: maintenanceRequests.filter(r => r.status === 'pending').length,
-    warranties_expiring: myAssets.filter(a => {
-      if (!a.warranty_expiry) return false;
-      const expiryDate = new Date(a.warranty_expiry);
-      const threeMonthsFromNow = new Date();
-      threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
-      return expiryDate <= threeMonthsFromNow;
-    }).length,
-  };
-
-
-
-  const handleQRScan = (asset: Asset) => {
-    // Verify if this asset is assigned to current user
-    if (asset.assigned_user === 'Current User') {
-      setSelectedAsset(asset);
-      setQrScannerOpen(false);
-      // Could open asset details or quick action menu
-    } else {
-      // Show error that this asset is not assigned to them
-      console.warn('Asset not assigned to current user');
-    }
+    active_assets: myAssets.filter((a) => a.status === 'Active').length,
+    pending_requests: maintenanceRequests.filter((r) => r.status === 'pending').length,
+    warranties_expiring: 0,
   };
 
   const handleMaintenanceRequest = (asset: Asset) => {
     setSelectedAsset(asset);
-    setRequestForm({
-      issue_description: '',
-      priority: 'medium',
-    });
+    setRequestForm({ issue_description: '', priority: 'medium' });
     setRequestDialogOpen(true);
   };
 
@@ -204,28 +154,29 @@ const EmployeeDashboard = () => {
       created_date: new Date().toISOString().split('T')[0],
     };
 
-    setMaintenanceRequests(prev => [newRequest, ...prev]);
+    setMaintenanceRequests([...maintenanceRequests, newRequest]);
     setRequestDialogOpen(false);
-    setSelectedAsset(null);
-    setRequestForm({ issue_description: '', priority: 'medium' });
+    toast.success('Maintenance request submitted successfully!');
   };
 
   const getCategoryIcon = (category: string) => {
     switch (category.toLowerCase()) {
-      case 'laptop': return <LaptopIcon />;
-      case 'mobile': return <PhoneIcon />;
-      case 'monitor': return <ComputerIcon />;
-      case 'printer': return <PrinterIcon />;
-      default: return <InventoryIcon />;
+      case 'laptop':
+        return <LaptopIcon />;
+      case 'mobile':
+      case 'phone':
+        return <PhoneIcon />;
+      default:
+        return <InventoryIcon />;
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'critical': return 'error';
-      case 'high': return 'error';
-      case 'medium': return 'warning';
-      case 'low': return 'info';
+      case 'high': return 'warning';
+      case 'medium': return 'info';
+      case 'low': return 'default';
       default: return 'default';
     }
   };
@@ -233,21 +184,11 @@ const EmployeeDashboard = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'success';
-      case 'in_progress': return 'info';
-      case 'pending': return 'warning';
+      case 'in_progress': return 'warning';
+      case 'pending': return 'default';
       default: return 'default';
     }
   };
-
-  const isWarrantyExpiringSoon = (warrantyExpiry?: string) => {
-    if (!warrantyExpiry) return false;
-    const expiryDate = new Date(warrantyExpiry);
-    const threeMonthsFromNow = new Date();
-    threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
-    return expiryDate <= threeMonthsFromNow;
-  };
-
-  const { user } = useAuth();
 
   const StatCard: React.FC<{
     title: string;
@@ -262,17 +203,11 @@ const EmployeeDashboard = () => {
             <Typography color="textSecondary" gutterBottom variant="overline">
               {title}
             </Typography>
-            <Typography variant="h4" component="h2">
+            <Typography variant="h4" component="div">
               {value}
             </Typography>
           </Box>
-          <Avatar
-            sx={{
-              backgroundColor: `${color}.main`,
-              height: 56,
-              width: 56,
-            }}
-          >
+          <Avatar sx={{ backgroundColor: `${color}.main`, height: 56, width: 56 }}>
             {icon}
           </Avatar>
         </Box>
@@ -280,509 +215,319 @@ const EmployeeDashboard = () => {
     </Card>
   );
 
+  const QuickActionCard: React.FC<{
+    title: string;
+    description: string;
+    icon: React.ReactNode;
+    onClick: () => void;
+    color?: 'primary' | 'secondary' | 'success' | 'warning' | 'error';
+  }> = ({ title, description, icon, onClick, color = 'primary' }) => (
+    <Card sx={{ height: '100%', cursor: 'pointer' }} onClick={onClick}>
+      <CardContent>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+          <Avatar sx={{ backgroundColor: `${color}.main`, mr: 2, mt: 0.5 }}>
+            {icon}
+          </Avatar>
+          <Box sx={{ flexGrow: 1 }}>
+            <Typography variant="h6" gutterBottom>
+              {title}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {description}
+            </Typography>
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+          <CircularProgress size={60} />
+        </Box>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <Box>
-      <Box display="flex" alignItems="center" gap={2} mb={3}>
-        <Avatar sx={{ bgcolor: 'primary.main' }}>
-          <PersonIcon />
-        </Avatar>
-        <Box>
-          <Typography variant="h4">
-            Welcome back, {user?.full_name || 'Employee'}!
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Manage your assigned assets and maintenance requests
-          </Typography>
-        </Box>
-      </Box>
-
-      {/* Quick Actions */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Quick Actions
-          </Typography>
-          <Box display="flex" gap={2} flexWrap="wrap">
-            <Button
-              variant="contained"
-              startIcon={<QrIcon />}
-              onClick={() => setQrScannerOpen(true)}
-              size="large"
-            >
-              Scan My Asset
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<MaintenanceIcon />}
-              size="large"
-              onClick={() => handleMaintenanceRequest(myAssets[0])}
-            >
-              Report Issue
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<FeedbackIcon />}
-              size="large"
-            >
-              Provide Feedback
-            </Button>
+        {/* Header */}
+        <Box display="flex" alignItems="center" gap={2} mb={3}>
+          <Avatar sx={{ bgcolor: 'primary.main', width: 56, height: 56 }}>
+            <PersonIcon />
+          </Avatar>
+          <Box>
+            <Typography variant="h4">
+              Welcome, {user?.name || user?.full_name || 'Employee'}!
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              Manage your assigned assets and maintenance requests
+            </Typography>
           </Box>
-        </CardContent>
-      </Card>
+        </Box>
 
-      {/* Statistics */}
-      <Grid container spacing={3} mb={3}>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Total Assets"
-            value={employeeStats.total_assets}
-            icon={<InventoryIcon />}
-            color="primary"
-          />
+        {/* Statistics Cards */}
+        <Grid container spacing={3} mb={4}>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="Total Assets"
+              value={employeeStats.total_assets}
+              icon={<InventoryIcon />}
+              color="primary"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="Active Assets"
+              value={employeeStats.active_assets}
+              icon={<CheckIcon />}
+              color="success"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="Pending Requests"
+              value={employeeStats.pending_requests}
+              icon={<MaintenanceIcon />}
+              color="warning"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="Warranties Expiring"
+              value={employeeStats.warranties_expiring}
+              icon={<WarningIcon />}
+              color="error"
+            />
+          </Grid>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Active Assets"
-            value={employeeStats.active_assets}
-            icon={<CheckIcon />}
-            color="success"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Pending Maintenance"
-            value={employeeStats.pending_maintenance}
-            icon={<MaintenanceIcon />}
-            color="warning"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Warranties Expiring"
-            value={employeeStats.warranties_expiring}
-            icon={<WarningIcon />}
-            color="error"
-          />
-        </Grid>
-      </Grid>
 
-      {/* Quick Actions */}
-      <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>
-        Quick Actions
-      </Typography>
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <Card 
-            sx={{ height: '100%', cursor: 'pointer' }}
-            onClick={() => {
-              toast.info('Opening asset request form...');
-              navigate('/requests');
-            }}
-          >
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                <Avatar sx={{ backgroundColor: 'primary.main', mr: 2, mt: 0.5 }}>
-                  <AddIcon />
-                </Avatar>
-                <Box sx={{ flexGrow: 1 }}>
-                  <Typography variant="h6" gutterBottom>
-                    Request New Asset
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Submit request for new equipment
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
+        {/* Quick Actions */}
+        <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>
+          Quick Actions
+        </Typography>
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <QuickActionCard
+              title="Request Asset"
+              description="Submit request for new equipment"
+              icon={<AddIcon />}
+              onClick={() => navigate('/employee/requests/new')}
+              color="primary"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <QuickActionCard
+              title="Report Issue"
+              description="Report problems with assets"
+              icon={<MaintenanceIcon />}
+              onClick={() => {
+                if (myAssets.length > 0) {
+                  handleMaintenanceRequest(myAssets[0]);
+                } else {
+                  toast.info('No assets available');
+                }
+              }}
+              color="warning"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <QuickActionCard
+              title="View History"
+              description="Track all asset activities"
+              icon={<HistoryIcon />}
+              onClick={() => navigate('/employee/history')}
+              color="primary"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <QuickActionCard
+              title="Help & Support"
+              description="Get help and documentation"
+              icon={<HelpIcon />}
+              onClick={() => navigate('/employee/help')}
+              color="secondary"
+            />
+          </Grid>
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <Card 
-            sx={{ height: '100%', cursor: 'pointer' }}
-            onClick={() => {
-              toast.info('Opening issue reporting form...');
-              setRequestDialogOpen(true);
-            }}
-          >
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                <Avatar sx={{ backgroundColor: 'error.main', mr: 2, mt: 0.5 }}>
-                  <ReportIcon />
-                </Avatar>
-                <Box sx={{ flexGrow: 1 }}>
-                  <Typography variant="h6" gutterBottom>
-                    Report Issue
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Report problems with assets
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <Card 
-            sx={{ height: '100%', cursor: 'pointer' }}
-            onClick={() => {
-              toast.info('Opening asset check-in form...');
-              setCheckInDialogOpen(true);
-            }}
-          >
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                <Avatar sx={{ backgroundColor: 'success.main', mr: 2, mt: 0.5 }}>
-                  <CheckinIcon />
-                </Avatar>
-                <Box sx={{ flexGrow: 1 }}>
-                  <Typography variant="h6" gutterBottom>
-                    Check-in Asset
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Return assets no longer needed
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <Card 
-            sx={{ height: '100%', cursor: 'pointer' }}
-            onClick={() => {
-              toast.info('Navigating to asset history...');
-              navigate('/history');
-            }}
-          >
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                <Avatar sx={{ backgroundColor: 'info.main', mr: 2, mt: 0.5 }}>
-                  <HistoryIcon />
-                </Avatar>
-                <Box sx={{ flexGrow: 1 }}>
-                  <Typography variant="h6" gutterBottom>
-                    View My History
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Track all asset activities
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
 
-      <Grid container spacing={3}>
-        {/* My Assets */}
-        <Grid item xs={12} md={8}>
-          <Card>
-            <CardContent>
+        {/* Main Content */}
+        <Grid container spacing={3}>
+          {/* My Assets */}
+          <Grid item xs={12} md={8}>
+            <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
                 My Assigned Assets ({myAssets.length})
               </Typography>
-              
               <List>
                 {myAssets.map((asset, index) => (
-                  <Box key={asset.id}>
-                    <ListItem>
-                      <ListItemIcon>
+                  <ListItem
+                    key={asset.id}
+                    divider={index < myAssets.length - 1}
+                    secondaryAction={
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<MaintenanceIcon />}
+                        onClick={() => handleMaintenanceRequest(asset)}
+                      >
+                        Report Issue
+                      </Button>
+                    }
+                  >
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: 'primary.main' }}>
                         {getCategoryIcon(asset.category || 'other')}
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={
-                          <Box display="flex" alignItems="center" gap={1} justifyContent="space-between">
-                            <Typography variant="subtitle1">
-                              {asset.manufacturer} {asset.model}
-                            </Typography>
-                            <Box display="flex" gap={1}>
-                              <Chip
-                                label={asset.status}
-                                size="small"
-                                color="success"
-                              />
-                              {isWarrantyExpiringSoon(asset.warranty_expiry) && (
-                                <Chip
-                                  label="Warranty Expiring"
-                                  size="small"
-                                  color="warning"
-                                />
-                              )}
-                            </Box>
-                          </Box>
-                        }
-                        secondary={
-                          <Box>
-                            <Box display="flex" alignItems="center" gap={2} mt={0.5}>
-                              <Box display="flex" alignItems="center" gap={0.5}>
-                                <InventoryIcon fontSize="small" />
-                                <Typography variant="caption">
-                                  {asset.unique_asset_id}
-                                </Typography>
-                              </Box>
-                              <Box display="flex" alignItems="center" gap={0.5}>
-                                <LocationIcon fontSize="small" />
-                                <Typography variant="caption">
-                                  {asset.location}
-                                </Typography>
-                              </Box>
-                              <Box display="flex" alignItems="center" gap={0.5}>
-                                <DateIcon fontSize="small" />
-                                <Typography variant="caption">
-                                  Assigned: {asset.assigned_date ? new Date(asset.assigned_date).toLocaleDateString() : 'N/A'}
-                                </Typography>
-                              </Box>
-                            </Box>
-                            {asset.warranty_expiry && (
-                              <Box display="flex" alignItems="center" gap={0.5} mt={0.5}>
-                                <WarningIcon fontSize="small" />
-                                <Typography 
-                                  variant="caption"
-                                  color={isWarrantyExpiringSoon(asset.warranty_expiry) ? 'error' : 'text.secondary'}
-                                >
-                                  Warranty expires: {new Date(asset.warranty_expiry).toLocaleDateString()}
-                                </Typography>
-                              </Box>
-                            )}
-                            <Box mt={1}>
-                              <Typography variant="caption" color="text.secondary">
-                                Condition: {asset.condition} | S/N: {asset.serial_number}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        }
-                      />
-                      <Box display="flex" gap={1} ml={2}>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          startIcon={<MaintenanceIcon />}
-                          onClick={() => handleMaintenanceRequest(asset)}
-                        >
-                          Report Issue
-                        </Button>
-                      </Box>
-                    </ListItem>
-                    {index < myAssets.length - 1 && <Divider />}
-                  </Box>
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <Typography variant="subtitle1">
+                            {asset.manufacturer} {asset.model}
+                          </Typography>
+                          <Chip label={asset.status} size="small" color="success" />
+                        </Box>
+                      }
+                      secondary={
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            ID: {asset.unique_asset_id} | S/N: {asset.serial_number}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Location: {asset.location} | Condition: {asset.condition}
+                          </Typography>
+                        </Box>
+                      }
+                    />
+                  </ListItem>
                 ))}
               </List>
-            </CardContent>
-          </Card>
-        </Grid>
+            </Paper>
+          </Grid>
 
-        {/* Maintenance Requests */}
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent>
+          {/* Maintenance Requests */}
+          <Grid item xs={12} md={4}>
+            <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
-                Maintenance Requests
+                My Maintenance Requests
               </Typography>
-              
               {maintenanceRequests.length === 0 ? (
                 <Box textAlign="center" py={4}>
                   <MaintenanceIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
                   <Typography variant="body2" color="text.secondary">
-                    No maintenance requests
+                    No maintenance requests yet
                   </Typography>
                 </Box>
               ) : (
                 <List>
                   {maintenanceRequests.map((request, index) => (
-                    <Box key={request.id}>
-                      <ListItem sx={{ px: 0 }}>
-                        <ListItemText
-                          primary={
-                            <Box display="flex" alignItems="center" gap={1}>
-                              <Typography variant="subtitle2">
-                                {request.asset_name}
-                              </Typography>
+                    <ListItem key={request.id} divider={index < maintenanceRequests.length - 1}>
+                      <ListItemText
+                        primary={
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Typography variant="subtitle2">{request.asset_name}</Typography>
+                            <Chip
+                              label={request.priority.toUpperCase()}
+                              size="small"
+                              color={getPriorityColor(request.priority) as any}
+                            />
+                          </Box>
+                        }
+                        secondary={
+                          <Box>
+                            <Typography variant="caption" display="block">
+                              {request.issue_description}
+                            </Typography>
+                            <Box display="flex" alignItems="center" gap={1} mt={0.5}>
                               <Chip
-                                label={request.priority.toUpperCase()}
+                                label={request.status.replace('_', ' ')}
                                 size="small"
-                                color={getPriorityColor(request.priority) as any}
+                                color={getStatusColor(request.status) as any}
                               />
-                            </Box>
-                          }
-                          secondary={
-                            <Box>
-                              <Typography variant="caption" display="block">
-                                {request.issue_description}
+                              <Typography variant="caption" color="text.secondary">
+                                {new Date(request.created_date).toLocaleDateString()}
                               </Typography>
-                              <Box display="flex" alignItems="center" gap={1} mt={0.5}>
-                                <Chip
-                                  label={request.status.replace('_', ' ')}
-                                  size="small"
-                                  color={getStatusColor(request.status) as any}
-                                />
-                                <Typography variant="caption" color="text.secondary">
-                                  {new Date(request.created_date).toLocaleDateString()}
-                                </Typography>
-                              </Box>
                             </Box>
-                          }
-                        />
-                      </ListItem>
-                      {index < maintenanceRequests.length - 1 && <Divider />}
-                    </Box>
+                          </Box>
+                        }
+                      />
+                    </ListItem>
                   ))}
                 </List>
               )}
-            </CardContent>
-          </Card>
-
-          {/* Warranty Alerts */}
-          <Card sx={{ mt: 2 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Warranty Alerts
-              </Typography>
-              
-              {employeeStats.warranties_expiring === 0 ? (
-                <Box textAlign="center" py={2}>
-                  <CheckIcon sx={{ fontSize: 32, color: 'success.main', mb: 1 }} />
-                  <Typography variant="body2" color="text.secondary">
-                    All warranties are up to date
-                  </Typography>
-                </Box>
-              ) : (
-                <List dense>
-                  {myAssets
-                    .filter(asset => isWarrantyExpiringSoon(asset.warranty_expiry))
-                    .map((asset) => (
-                      <ListItem key={asset.id} sx={{ px: 0 }}>
-                        <ListItemIcon>
-                          <WarningIcon color="warning" />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={`${asset.manufacturer} ${asset.model}`}
-                          secondary={`Expires: ${new Date(asset.warranty_expiry!).toLocaleDateString()}`}
-                        />
-                      </ListItem>
-                    ))}
-                </List>
-              )}
-            </CardContent>
-          </Card>
+              <Button
+                fullWidth
+                variant="outlined"
+                sx={{ mt: 2 }}
+                onClick={() => navigate('/employee/requests')}
+              >
+                View All Requests
+              </Button>
+            </Paper>
+          </Grid>
         </Grid>
-      </Grid>
 
-      {/* QR Scanner Dialog - Would be implemented with camera library */}
-      <Dialog open={qrScannerOpen} onClose={() => setQrScannerOpen(false)}>
-        <DialogTitle>QR Code Scanner</DialogTitle>
-        <DialogContent>
-          <Typography>QR Scanner would be implemented here with camera access</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setQrScannerOpen(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Maintenance Request Dialog */}
-      <Dialog
-        open={requestDialogOpen}
-        onClose={() => setRequestDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          Report Maintenance Issue
-        </DialogTitle>
-        <DialogContent>
-          {selectedAsset && (
-            <Box>
-              <Alert severity="info" sx={{ mb: 2 }}>
-                Reporting issue for: {selectedAsset.manufacturer} {selectedAsset.model} ({selectedAsset.unique_asset_id})
-              </Alert>
-              
-              <TextField
-                fullWidth
-                label="Issue Description"
-                multiline
-                rows={4}
-                value={requestForm.issue_description}
-                onChange={(e) => setRequestForm(prev => ({ ...prev, issue_description: e.target.value }))}
-                margin="normal"
-                placeholder="Describe the issue you're experiencing with this asset..."
-                required
-              />
-
-              <TextField
-                fullWidth
-                select
-                label="Priority"
-                value={requestForm.priority}
-                onChange={(e) => setRequestForm(prev => ({ ...prev, priority: e.target.value }))}
-                margin="normal"
-              >
-                <MenuItem value="low">Low</MenuItem>
-                <MenuItem value="medium">Medium</MenuItem>
-                <MenuItem value="high">High</MenuItem>
-                <MenuItem value="critical">Critical</MenuItem>
-              </TextField>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setRequestDialogOpen(false)}>
-            Cancel
-          </Button>
-          <Button 
-            variant="contained" 
-            onClick={submitMaintenanceRequest}
-            disabled={!requestForm.issue_description.trim()}
-          >
-            Submit Request
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Check-in Asset Dialog */}
-      <Dialog 
-        open={checkInDialogOpen} 
-        onClose={() => setCheckInDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Check-in Asset</DialogTitle>
-        <DialogContent>
-          <Alert severity="info" sx={{ mb: 2 }}>
-            Select an asset to return to inventory
-          </Alert>
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Choose from your assigned assets:
-            </Typography>
-            {myAssets.map((asset) => (
-              <Card 
-                key={asset.id} 
-                sx={{ 
-                  mb: 1, 
-                  cursor: 'pointer',
-                  '&:hover': { backgroundColor: 'action.hover' }
-                }}
-                onClick={() => {
-                  toast.success(`Asset ${asset.model} has been checked-in successfully!`);
-                  setCheckInDialogOpen(false);
-                }}
-              >
-                <CardContent sx={{ py: 1 }}>
-                  <Typography variant="subtitle2">{asset.model}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {asset.category} - {asset.location}
-                  </Typography>
-                </CardContent>
-              </Card>
-            ))}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCheckInDialogOpen(false)}>
-            Cancel
-          </Button>
-        </DialogActions>
-      </Dialog>
+        {/* Maintenance Request Dialog */}
+        <Dialog
+          open={requestDialogOpen}
+          onClose={() => setRequestDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Report Maintenance Issue</DialogTitle>
+          <DialogContent>
+            {selectedAsset && (
+              <Box>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Reporting issue for: {selectedAsset.manufacturer} {selectedAsset.model} (
+                  {selectedAsset.unique_asset_id})
+                </Alert>
+                <TextField
+                  fullWidth
+                  label="Issue Description"
+                  multiline
+                  rows={4}
+                  value={requestForm.issue_description}
+                  onChange={(e) =>
+                    setRequestForm((prev) => ({ ...prev, issue_description: e.target.value }))
+                  }
+                  margin="normal"
+                  placeholder="Describe the issue you're experiencing..."
+                  required
+                />
+                <TextField
+                  fullWidth
+                  select
+                  label="Priority"
+                  value={requestForm.priority}
+                  onChange={(e) =>
+                    setRequestForm((prev) => ({ ...prev, priority: e.target.value }))
+                  }
+                  margin="normal"
+                >
+                  <MenuItem value="low">Low - Can wait</MenuItem>
+                  <MenuItem value="medium">Medium - Normal priority</MenuItem>
+                  <MenuItem value="high">High - Needs attention soon</MenuItem>
+                  <MenuItem value="critical">Critical - Urgent</MenuItem>
+                </TextField>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setRequestDialogOpen(false)}>Cancel</Button>
+            <Button
+              variant="contained"
+              onClick={submitMaintenanceRequest}
+              disabled={!requestForm.issue_description.trim()}
+            >
+              Submit Request
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </DashboardLayout>
   );

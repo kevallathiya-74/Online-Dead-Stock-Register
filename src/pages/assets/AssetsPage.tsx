@@ -45,6 +45,7 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
+import api from '../../services/api';
 
 interface Asset {
   id: string;
@@ -154,11 +155,23 @@ const AssetsPage = () => {
     toast.info(`Opening editor for: ${asset.name} (${asset.unique_asset_id})`);
   };
 
-  const handleDeleteAsset = (asset: Asset) => {
+  const handleDeleteAsset = async (asset: Asset) => {
     if (window.confirm(`Are you sure you want to delete asset: ${asset.name}?`)) {
-      setAssets(prevAssets => prevAssets.filter(a => a.id !== asset.id));
-      console.log('Deleted asset:', asset);
-      toast.success(`Asset "${asset.name}" has been successfully deleted.`);
+      try {
+        console.log('Deleting asset via API:', asset.id);
+        
+        // Call API to delete asset
+        await api.delete(`/assets/${asset.id}`);
+        
+        // Update local state
+        setAssets(prevAssets => prevAssets.filter(a => a.id !== asset.id));
+        
+        toast.success(`Asset "${asset.name}" has been successfully deleted.`);
+      } catch (error: any) {
+        console.error('Failed to delete asset:', error);
+        const errorMsg = error.response?.data?.message || error.message || 'Failed to delete asset';
+        toast.error(errorMsg);
+      }
     }
     handleMenuClose();
   };

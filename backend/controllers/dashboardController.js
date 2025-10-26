@@ -670,7 +670,7 @@ const getTopVendorsDetailed = async (req, res) => {
         value: assetsCount * 50000, // Estimated value
         rating: vendor.performance_rating || 3,
         categories: vendor.categories || [],
-        activeContracts: Math.floor(Math.random() * 5) + 1 // Mock data
+        activeContracts: maintenanceCount
       };
     }));
 
@@ -906,6 +906,7 @@ const getTopVendorsData = async () => {
 
   return Promise.all(vendors.map(async (vendor) => {
     const assetsCount = await Asset.countDocuments({ vendor: vendor._id });
+    const maintenanceCount = await Maintenance.countDocuments({ vendor_id: vendor._id });
     return {
       id: vendor._id,
       name: vendor.name,
@@ -913,7 +914,7 @@ const getTopVendorsData = async () => {
       value: assetsCount * 45000,
       rating: vendor.performance_rating || 3,
       categories: vendor.categories || [],
-      activeContracts: 2
+      activeContracts: maintenanceCount
     };
   }));
 };
@@ -1044,7 +1045,7 @@ const getAuditProgressChart = async (req, res) => {
       const monthName = date.toLocaleDateString('en-US', { month: 'short' });
       months.push(monthName);
       
-      // Get audit count for this month (simulated for demo)
+  // Get audit count for this month
       const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
       const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
       
@@ -1205,7 +1206,7 @@ const getComplianceMetrics = async (req, res) => {
     
     const overallScore = totalAssets > 0 ? Math.round((compliantAssets / totalAssets) * 100) : 0;
     
-    // Category scores (simulated for demo)
+  // Category scores derived from overallScore
     const categoryScores = {
       'Physical Condition': Math.round(overallScore * 0.9),
       'Documentation': Math.round(overallScore * 0.85),
@@ -1213,14 +1214,14 @@ const getComplianceMetrics = async (req, res) => {
       'Audit Compliance': Math.round(overallScore * 0.8)
     };
     
-    // Trends (simulated for demo)
+    // Trends derived from current overallScore (flat, no randomization)
     const trends = [];
     for (let i = 11; i >= 0; i--) {
       const date = new Date();
       date.setMonth(date.getMonth() - i);
       trends.push({
         date: date.toISOString().split('T')[0],
-        score: overallScore + (Math.random() - 0.5) * 10
+        score: overallScore
       });
     }
     

@@ -48,6 +48,7 @@ import {
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface Document {
   id: string;
@@ -81,82 +82,11 @@ const AdminDocumentsPage: React.FC = () => {
 
   const loadDocuments = async () => {
     try {
-      // Generate mock documents data
-      const mockDocuments: Document[] = [
-        {
-          id: '1',
-          name: 'Asset Management Policy',
-          type: 'PDF',
-          category: 'Policies',
-          size: '2.5 MB',
-          uploadedBy: 'John Smith',
-          uploadedAt: '2024-01-15',
-          lastModified: '2024-01-20',
-          status: 'Active',
-          fileType: 'application/pdf',
-          tags: ['policy', 'assets', 'management'],
-          description: 'Comprehensive asset management policy document'
-        },
-        {
-          id: '2',
-          name: 'Q4 Asset Report',
-          type: 'Excel',
-          category: 'Reports',
-          size: '1.8 MB',
-          uploadedBy: 'Jane Doe',
-          uploadedAt: '2024-01-10',
-          lastModified: '2024-01-18',
-          status: 'Active',
-          fileType: 'application/vnd.ms-excel',
-          tags: ['report', 'quarterly', 'assets'],
-          description: 'Fourth quarter asset utilization report'
-        },
-        {
-          id: '3',
-          name: 'Vendor Agreement Template',
-          type: 'Word',
-          category: 'Templates',
-          size: '0.5 MB',
-          uploadedBy: 'Mike Johnson',
-          uploadedAt: '2024-01-08',
-          lastModified: '2024-01-12',
-          status: 'Active',
-          fileType: 'application/msword',
-          tags: ['template', 'vendor', 'agreement'],
-          description: 'Standard vendor agreement template'
-        },
-        {
-          id: '4',
-          name: 'IT Equipment Inventory',
-          type: 'PDF',
-          category: 'Inventory',
-          size: '3.2 MB',
-          uploadedBy: 'Sarah Wilson',
-          uploadedAt: '2024-01-05',
-          lastModified: '2024-01-15',
-          status: 'Archived',
-          fileType: 'application/pdf',
-          tags: ['inventory', 'IT', 'equipment'],
-          description: 'Complete IT equipment inventory listing'
-        },
-        {
-          id: '5',
-          name: 'Maintenance Schedule 2024',
-          type: 'Excel',
-          category: 'Schedules',
-          size: '1.2 MB',
-          uploadedBy: 'David Brown',
-          uploadedAt: '2023-12-28',
-          lastModified: '2024-01-10',
-          status: 'Active',
-          fileType: 'application/vnd.ms-excel',
-          tags: ['maintenance', 'schedule', '2024'],
-          description: 'Annual maintenance schedule for all assets'
-        }
-      ];
-      
-      setDocuments(mockDocuments);
+      const response = await api.get('/documents');
+      const documentsData = response.data.data || response.data;
+      setDocuments(documentsData);
     } catch (error) {
+      console.error('Failed to load documents:', error);
       toast.error('Failed to load documents');
     }
   };
@@ -203,10 +133,26 @@ const AdminDocumentsPage: React.FC = () => {
     handleMenuClose();
   };
 
-  const handleDelete = (document: Document) => {
-    toast.success(`${document.name} deleted successfully`);
-    setDocuments(prev => prev.filter(d => d.id !== document.id));
-    handleMenuClose();
+  const handleDelete = async (document: Document) => {
+    try {
+      console.log('Deleting document via API:', document.id);
+      
+      // Call API to delete document
+      await api.delete(`/documents/${document.id}`);
+      
+      // Reload documents from server
+      const response = await api.get('/documents');
+      const documentData = response.data.data || response.data;
+      setDocuments(documentData);
+      
+      toast.success(`${document.name} deleted successfully`);
+      handleMenuClose();
+    } catch (error: any) {
+      console.error('Failed to delete document:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to delete document';
+      toast.error(errorMsg);
+      handleMenuClose();
+    }
   };
 
   const handleViewDocument = (document: Document) => {

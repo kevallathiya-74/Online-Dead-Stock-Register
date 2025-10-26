@@ -37,6 +37,7 @@ import {
   Description as FileIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface BulkImportFormProps {
   open: boolean;
@@ -143,37 +144,44 @@ const BulkImportForm: React.FC<BulkImportFormProps> = ({ open, onClose, onSubmit
     }
   };
 
-  const simulateImport = async () => {
+  const performImport = async () => {
     setImporting(true);
     setImportStatus('processing');
     setImportProgress(0);
 
-    // Simulate file processing
-    for (let i = 0; i <= 100; i += 10) {
-      setImportProgress(i);
-      await new Promise(resolve => setTimeout(resolve, 200));
+    try {
+      // Upload file to backend
+      const formData = new FormData();
+      formData.append('file', selectedFile!);
+
+      const response = await api.post('/assets/bulk-import', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          const progress = progressEvent.total
+            ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
+            : 0;
+          setImportProgress(progress);
+        },
+      });
+
+      const results = response.data.data?.results || response.data.results || [];
+      setImportResults(results);
+      setImporting(false);
+      setImportStatus('completed');
+
+      const successCount = results.filter((r: any) => r.status === 'success').length;
+      const errorCount = results.filter((r: any) => r.status === 'error').length;
+      const warningCount = results.filter((r: any) => r.status === 'warning').length;
+
+      toast.success(`Import completed: ${successCount} successful, ${warningCount} warnings, ${errorCount} errors`);
+    } catch (error) {
+      console.error('Import failed:', error);
+      setImporting(false);
+      setImportStatus('error');
+      toast.error('Failed to import assets');
     }
-
-    // Simulate import results
-    const mockResults = [
-      { row: 1, status: 'success', message: 'Asset "Dell XPS 15" imported successfully', assetId: 'AST-1001' },
-      { row: 2, status: 'success', message: 'Asset "HP LaserJet Printer" imported successfully', assetId: 'AST-1002' },
-      { row: 3, status: 'error', message: 'Missing required field: category', assetId: null },
-      { row: 4, status: 'success', message: 'Asset "iPhone 14 Pro" imported successfully', assetId: 'AST-1003' },
-      { row: 5, status: 'warning', message: 'Asset "Office Chair" imported with warnings: invalid warranty date', assetId: 'AST-1004' },
-      { row: 6, status: 'success', message: 'Asset "MacBook Pro" imported successfully', assetId: 'AST-1005' },
-      { row: 7, status: 'error', message: 'Duplicate serial number found', assetId: null },
-    ];
-
-    setImportResults(mockResults);
-    setImporting(false);
-    setImportStatus('completed');
-
-    const successCount = mockResults.filter(r => r.status === 'success').length;
-    const errorCount = mockResults.filter(r => r.status === 'error').length;
-    const warningCount = mockResults.filter(r => r.status === 'warning').length;
-
-    toast.success(`Import completed: ${successCount} successful, ${warningCount} warnings, ${errorCount} errors`);
   };
 
   const handleSubmit = () => {
@@ -182,7 +190,7 @@ const BulkImportForm: React.FC<BulkImportFormProps> = ({ open, onClose, onSubmit
       return;
     }
 
-    simulateImport();
+    performImport();
   };
 
   const downloadTemplate = () => {

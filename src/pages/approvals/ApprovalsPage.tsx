@@ -38,6 +38,7 @@ import {
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface Approval {
   _id: string;
@@ -75,62 +76,16 @@ const ApprovalsPage: React.FC = () => {
   const [selectedApproval, setSelectedApproval] = useState<Approval | null>(null);
   const [approvalComments, setApprovalComments] = useState('');
 
-  // Generate dynamic approval data
-  const generateApprovalData = (): Approval[] => {
-    const requestTypes = ['ASSET_TRANSFER', 'MAINTENANCE', 'PURCHASE', 'DISPOSAL'] as const;
-    const priorities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
-    const statuses = ['PENDING', 'APPROVED', 'REJECTED'] as const;
-    const names = ['John Doe', 'Jane Smith', 'Mike Johnson', 'Sarah Wilson', 'David Brown', 'Lisa Davis'];
-    const assetNames = ['MacBook Pro', 'Dell Monitor', 'Office Chair', 'Printer HP', 'iPhone 14', 'Surface Pro'];
-    
-    return Array.from({ length: 25 }, (_, index) => {
-      const requestType = requestTypes[index % requestTypes.length];
-      const status = index < 15 ? 'PENDING' : statuses[Math.floor(Math.random() * statuses.length)];
-      const createdDate = new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000);
-      
-      return {
-        _id: `approval_${String(index + 1).padStart(3, '0')}`,
-        request_type: requestType,
-        requested_by: {
-          _id: `user_${index + 1}`,
-          name: names[index % names.length],
-          email: `user${index + 1}@company.com`,
-          employee_id: `EMP${String(index + 1).padStart(3, '0')}`
-        },
-        asset_id: {
-          _id: `asset_${index + 1}`,
-          name: assetNames[index % assetNames.length],
-          unique_asset_id: `AST-${String(index + 1).padStart(4, '0')}`
-        },
-        status,
-        priority: priorities[Math.floor(Math.random() * priorities.length)],
-        request_details: {
-          reason: requestType === 'ASSET_TRANSFER' ? 'Employee relocation to new office' :
-                  requestType === 'MAINTENANCE' ? 'Equipment requires regular maintenance' :
-                  requestType === 'PURCHASE' ? 'New equipment needed for project' :
-                  'Asset reached end of life',
-          from_location: requestType === 'ASSET_TRANSFER' ? 'Office Floor 2' : undefined,
-          to_location: requestType === 'ASSET_TRANSFER' ? 'Office Floor 5' : undefined,
-          estimated_cost: requestType === 'MAINTENANCE' ? Math.floor(Math.random() * 5000) + 1000 :
-                         requestType === 'PURCHASE' ? Math.floor(Math.random() * 50000) + 10000 : undefined,
-          maintenance_type: requestType === 'MAINTENANCE' ? 'Preventive Maintenance' : undefined
-        },
-        created_at: createdDate.toISOString(),
-        approved_at: status !== 'PENDING' ? new Date(createdDate.getTime() + Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString() : undefined,
-        comments: status !== 'PENDING' ? 'Request processed as per company policy' : undefined
-      };
-    });
-  };
-
   useEffect(() => {
     const fetchApprovals = async () => {
       setLoading(true);
       try {
-        await new Promise(resolve => setTimeout(resolve, 1200));
-        const approvalData = generateApprovalData();
+        const response = await api.get('/approvals');
+        const approvalData = response.data.data || response.data;
         setApprovals(approvalData);
         toast.success('Approvals loaded successfully');
       } catch (error) {
+        console.error('Failed to load approvals:', error);
         toast.error('Failed to load approvals');
       } finally {
         setLoading(false);

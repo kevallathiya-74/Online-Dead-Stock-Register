@@ -40,6 +40,7 @@ import {
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface VendorReport {
   id: string;
@@ -95,109 +96,16 @@ const VendorReportsPage: React.FC = () => {
     loadVendorReports();
   }, []);
 
-  const loadVendorReports = () => {
-    // Demo vendor reports data
-    const vendorReportsData: VendorReport[] = [
-      {
-        id: 'VR-001',
-        name: 'Vendor Performance Dashboard',
-        category: 'Performance',
-        description: 'Comprehensive analysis of vendor performance metrics and KPIs',
-        type: 'Analytics',
-        frequency: 'Monthly',
-        lastGenerated: '2024-01-20',
-        parameters: ['Date Range', 'Vendor Category', 'Performance Metrics'],
-        size: '4.2 MB',
-        icon: <PerformanceIcon />,
-      },
-      {
-        id: 'VR-002',
-        name: 'Purchase Order Analysis',
-        category: 'Procurement',
-        description: 'Detailed breakdown of purchase orders by vendor and category',
-        type: 'Summary',
-        frequency: 'Weekly',
-        lastGenerated: '2024-01-19',
-        parameters: ['Date Range', 'PO Status', 'Vendor Type'],
-        size: '2.8 MB',
-        icon: <OrderIcon />,
-      },
-      {
-        id: 'VR-003',
-        name: 'Vendor Compliance Report',
-        category: 'Compliance',
-        description: 'Track vendor compliance with contracts, certifications, and standards',
-        type: 'Compliance',
-        frequency: 'Quarterly',
-        lastGenerated: '2024-01-15',
-        parameters: ['Compliance Type', 'Vendor Category', 'Status'],
-        size: '1.9 MB',
-        icon: <ComplianceIcon />,
-      },
-      {
-        id: 'VR-004',
-        name: 'Cost Comparison Analysis',
-        category: 'Financial',
-        description: 'Compare costs across vendors for similar products and services',
-        type: 'Analytics',
-        frequency: 'Monthly',
-        lastGenerated: '2024-01-18',
-        parameters: ['Product Category', 'Date Range', 'Vendor List'],
-        size: '3.5 MB',
-        icon: <CostIcon />,
-      },
-      {
-        id: 'VR-005',
-        name: 'Vendor Rating & Feedback',
-        category: 'Quality',
-        description: 'Consolidated vendor ratings and feedback from different departments',
-        type: 'Summary',
-        frequency: 'Monthly',
-        lastGenerated: '2024-01-17',
-        parameters: ['Rating Period', 'Department', 'Vendor Category'],
-        size: '1.4 MB',
-        icon: <RatingIcon />,
-      },
-      {
-        id: 'VR-006',
-        name: 'Issue Tracking Report',
-        category: 'Quality',
-        description: 'Track and analyze vendor-related issues and resolution times',
-        type: 'Operational',
-        frequency: 'Weekly',
-        lastGenerated: '2024-01-19',
-        parameters: ['Issue Type', 'Severity', 'Status'],
-        size: '2.1 MB',
-        icon: <IssueIcon />,
-      },
-      {
-        id: 'VR-007',
-        name: 'Vendor Onboarding Report',
-        category: 'Operations',
-        description: 'Status and progress of new vendor onboarding processes',
-        type: 'Process',
-        frequency: 'Weekly',
-        lastGenerated: '2024-01-18',
-        parameters: ['Onboarding Stage', 'Date Range', 'Vendor Type'],
-        size: '1.6 MB',
-        icon: <VendorIcon />,
-      },
-      {
-        id: 'VR-008',
-        name: 'Payment Terms Analysis',
-        category: 'Financial',
-        description: 'Analysis of payment terms, delays, and cash flow impact',
-        type: 'Financial',
-        frequency: 'Monthly',
-        lastGenerated: '2024-01-16',
-        parameters: ['Payment Terms', 'Vendor Category', 'Amount Range'],
-        size: '2.3 MB',
-        icon: <CostIcon />,
-      },
-    ];
-
-    setReports(vendorReportsData);
-    setFilteredReports(vendorReportsData);
+  const loadVendorReports = async () => {
+    try {
+      const response = await api.get('/reports/vendor-reports');
+      const vendorReportsData = response.data.data || response.data;
+      setReports(vendorReportsData);
+      setFilteredReports(vendorReportsData);
+    } catch (error) {
+      console.error('Error loading vendor reports:', error);
+      toast.error('Failed to load vendor reports');
+    }
   };
 
   useEffect(() => {

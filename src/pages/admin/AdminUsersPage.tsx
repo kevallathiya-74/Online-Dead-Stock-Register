@@ -46,7 +46,23 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import AdminDataService, { AdminUser } from '../../data/adminDataService';
+import api from '../../services/api';
+
+interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  department: string;
+  employee_id: string;
+  is_active: boolean;
+  phone: string;
+  location: string;
+  manager: string;
+  created_at: string;
+  last_login?: string;
+  permissions?: string[];
+}
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -102,10 +118,11 @@ const AdminUsersPage: React.FC = () => {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const userData = AdminDataService.getUsers();
+      const response = await api.get('/users');
+      const userData = response.data.data || response.data;
       setUsers(userData);
     } catch (error) {
+      console.error('Failed to load users:', error);
       toast.error('Failed to load users');
     } finally {
       setLoading(false);
@@ -137,23 +154,27 @@ const AdminUsersPage: React.FC = () => {
     }
 
     try {
-      const user: AdminUser = {
-        id: `user_${Date.now()}`,
+      const userData = {
         name: newUser.name,
         email: newUser.email,
-        role: newUser.role as AdminUser['role'],
+        role: newUser.role,
         department: newUser.department,
-        employee_id: `EMP-${String(users.length + 1001).padStart(4, '0')}`,
-        is_active: true,
-        created_at: new Date().toISOString(),
-        last_login: new Date().toISOString(),
         phone: newUser.phone,
         location: newUser.location,
         manager: newUser.manager,
-        permissions: ['read', 'write']
+        is_active: true,
+        password: 'Password@123' // Default password
       };
 
-      setUsers(prev => [user, ...prev]);
+      console.log('Creating user via API:', userData);
+      
+      // Call API to create user
+      const response = await api.post('/users', userData);
+      console.log('User created successfully:', response.data);
+      
+      // Reload users from server
+      await loadUsers();
+      
       setAddUserDialogOpen(false);
       setNewUser({
         name: '',
@@ -164,9 +185,12 @@ const AdminUsersPage: React.FC = () => {
         location: '',
         manager: ''
       });
-      toast.success('User added successfully');
-    } catch (error) {
-      toast.error('Failed to add user');
+      
+      toast.success(`User added successfully! Employee ID: ${response.data.data.employee_id}`);
+    } catch (error: any) {
+      console.error('Failed to add user:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to add user';
+      toast.error(errorMsg);
     }
   };
 
@@ -191,49 +215,74 @@ const AdminUsersPage: React.FC = () => {
     }
 
     try {
-      setUsers(prev => prev.map(user => 
-        user.id === selectedUser.id 
-          ? { 
-              ...user, 
-              name: newUser.name,
-              email: newUser.email,
-              role: newUser.role as AdminUser['role'],
-              department: newUser.department,
-              phone: newUser.phone,
-              location: newUser.location,
-              manager: newUser.manager
-            }
-          : user
-      ));
+      const userData = {
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        department: newUser.department,
+        phone: newUser.phone,
+        location: newUser.location,
+        manager: newUser.manager
+      };
+
+      console.log('Updating user via API:', selectedUser.id, userData);
+      
+      // Call API to update user
+      await api.put(`/users/${selectedUser.id}`, userData);
+      
+      // Reload users from server
+      await loadUsers();
+      
       setEditUserDialogOpen(false);
       setSelectedUser(null);
       toast.success('User updated successfully');
-    } catch (error) {
-      toast.error('Failed to update user');
+    } catch (error: any) {
+      console.error('Failed to update user:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to update user';
+      toast.error(errorMsg);
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
-        setUsers(prev => prev.filter(user => user.id !== userId));
+        console.log('Deleting user via API:', userId);
+        
+        // Call API to delete user
+        await api.delete(`/users/${userId}`);
+        
+        // Reload users from server
+        await loadUsers();
+        
         toast.success('User deleted successfully');
-      } catch (error) {
-        toast.error('Failed to delete user');
+      } catch (error: any) {
+        console.error('Failed to delete user:', error);
+        const errorMsg = error.response?.data?.message || error.message || 'Failed to delete user';
+        toast.error(errorMsg);
       }
     }
   };
 
   const toggleUserStatus = async (userId: string) => {
     try {
-      setUsers(prev => prev.map(user => 
-        user.id === userId 
-          ? { ...user, is_active: !user.is_active }
-          : user
-      ));
+      const user = users.find(u => u.id === userId);
+      if (!user) return;
+
+      console.log('Toggling user status via API:', userId);
+      
+      // Call API to update user status
+      await api.put(`/users/${userId}`, {
+        is_active: !user.is_active
+      });
+      
+      // Reload users from server
+      await loadUsers();
+      
       toast.success('User status updated');
-    } catch (error) {
-      toast.error('Failed to update user status');
+    } catch (error: any) {
+      console.error('Failed to update user status:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to update user status';
+      toast.error(errorMsg);
     }
   };
 
@@ -479,7 +528,7 @@ const AdminUsersPage: React.FC = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          {new Date(user.last_login).toLocaleDateString()}
+                          {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
                         </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', gap: 1 }}>
@@ -588,11 +637,9 @@ const AdminUsersPage: React.FC = () => {
                       onChange={(e) => setNewUser(prev => ({ ...prev, department: e.target.value }))}
                     >
                       <MenuItem value="IT">IT</MenuItem>
-                      <MenuItem value="HR">HR</MenuItem>
-                      <MenuItem value="Finance">Finance</MenuItem>
-                      <MenuItem value="Operations">Operations</MenuItem>
-                      <MenuItem value="Marketing">Marketing</MenuItem>
-                      <MenuItem value="Legal">Legal</MenuItem>
+                      <MenuItem value="INVENTORY">Inventory</MenuItem>
+                      <MenuItem value="ADMIN">Admin</MenuItem>
+                      <MenuItem value="VENDOR">Vendor</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -684,11 +731,9 @@ const AdminUsersPage: React.FC = () => {
                       onChange={(e) => setNewUser(prev => ({ ...prev, department: e.target.value }))}
                     >
                       <MenuItem value="IT">IT</MenuItem>
-                      <MenuItem value="HR">HR</MenuItem>
-                      <MenuItem value="Finance">Finance</MenuItem>
-                      <MenuItem value="Operations">Operations</MenuItem>
-                      <MenuItem value="Marketing">Marketing</MenuItem>
-                      <MenuItem value="Legal">Legal</MenuItem>
+                      <MenuItem value="INVENTORY">Inventory</MenuItem>
+                      <MenuItem value="ADMIN">Admin</MenuItem>
+                      <MenuItem value="VENDOR">Vendor</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>

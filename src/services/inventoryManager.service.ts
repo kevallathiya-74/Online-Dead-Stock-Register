@@ -73,32 +73,8 @@ export interface PendingApprovalItem {
 }
 
 class InventoryManagerService {
-  // DEVELOPMENT FLAG - Set to true to disable API calls and use mock data
-  private readonly DISABLE_API = true;
-
   // Get inventory manager dashboard statistics
   async getInventoryStats(): Promise<InventoryStats> {
-    if (this.DISABLE_API) {
-      // Return mock data for development
-      console.log('🔧 Inventory Manager API disabled - Using mock stats data');
-      return {
-        totalAssets: 1547,
-        activeAssets: 1234,
-        inMaintenanceAssets: 89,
-        disposedAssets: 79,
-        totalValue: 25890000,
-        locationCount: 8,
-        warrantyExpiring: 23,
-        maintenanceDue: 12,
-        monthlyPurchases: 145,
-        topVendorsCount: 15,
-        trends: {
-          assets: { value: 5.2, isPositive: true },
-          purchases: { value: 8.7, isPositive: true }
-        }
-      };
-    }
-
     try {
       const response = await api.get<ApiResponse<InventoryStats>>('/dashboard/inventory-stats');
       if (response.data.success && response.data.data) {
@@ -113,49 +89,6 @@ class InventoryManagerService {
 
   // Get assets grouped by location
   async getAssetsByLocation(): Promise<AssetByLocation[]> {
-    if (this.DISABLE_API) {
-      // Return mock data for development
-      console.log('🔧 Inventory Manager API disabled - Using mock location data');
-      return [
-        {
-          location: 'Head Office',
-          count: 456,
-          percentage: 29.5,
-          assets: ['Laptops', 'Desktops', 'Printers', 'Servers']
-        },
-        {
-          location: 'Branch Office A',
-          count: 324,
-          percentage: 20.9,
-          assets: ['Laptops', 'Monitors', 'Furniture']
-        },
-        {
-          location: 'Warehouse',
-          count: 298,
-          percentage: 19.3,
-          assets: ['Equipment', 'Machinery', 'Tools']
-        },
-        {
-          location: 'Branch Office B',
-          count: 234,
-          percentage: 15.1,
-          assets: ['Computers', 'Printers']
-        },
-        {
-          location: 'Data Center',
-          count: 156,
-          percentage: 10.1,
-          assets: ['Servers', 'Network Equipment']
-        },
-        {
-          location: 'Training Center',
-          count: 79,
-          percentage: 5.1,
-          assets: ['Projectors', 'Audio Equipment']
-        }
-      ];
-    }
-
     try {
       const response = await api.get<ApiResponse<AssetByLocation[]>>('/dashboard/assets-by-location');
       if (response.data.success && response.data.data) {
@@ -170,42 +103,6 @@ class InventoryManagerService {
 
   // Get assets with expiring warranties
   async getWarrantyExpiringAssets(): Promise<WarrantyExpiringAsset[]> {
-    if (this.DISABLE_API) {
-      // Return mock data for development
-      console.log('🔧 Inventory Manager API disabled - Using mock warranty data');
-      return [
-        {
-          id: 'warranty_1',
-          asset: 'Dell Laptop Inspiron 15',
-          assetId: 'AST-10101',
-          category: 'Computing',
-          expiryDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(), // 15 days from now
-          daysLeft: 15,
-          priority: 'high',
-          assignedUser: 'John Smith'
-        },
-        {
-          id: 'warranty_2',
-          asset: 'HP Printer LaserJet Pro',
-          assetId: 'AST-10102',
-          category: 'Office Equipment',
-          expiryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString(), // 45 days from now
-          daysLeft: 45,
-          priority: 'medium',
-          assignedUser: 'Sarah Johnson'
-        },
-        {
-          id: 'warranty_3',
-          asset: 'Network Switch Cisco',
-          assetId: 'AST-10103',
-          category: 'Network Equipment',
-          expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
-          daysLeft: 30,
-          priority: 'high'
-        }
-      ];
-    }
-
     try {
       const response = await api.get<ApiResponse<WarrantyExpiringAsset[]>>('/dashboard/warranty-expiring');
       if (response.data.success && response.data.data) {
@@ -220,46 +117,6 @@ class InventoryManagerService {
 
   // Get maintenance schedule
   async getMaintenanceSchedule(): Promise<MaintenanceScheduleItem[]> {
-    if (this.DISABLE_API) {
-      // Return mock data for development
-      console.log('🔧 Inventory Manager API disabled - Using mock maintenance data');
-      return [
-        {
-          id: 'maint_1',
-          asset: 'Air Conditioning Unit',
-          assetId: 'AST-20001',
-          type: 'Preventive',
-          scheduledDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days from now
-          technician: 'Mike Wilson',
-          status: 'Scheduled',
-          cost: 5000,
-          description: 'Quarterly maintenance and filter replacement'
-        },
-        {
-          id: 'maint_2',
-          asset: 'Generator Backup',
-          assetId: 'AST-20002',
-          type: 'Inspection',
-          scheduledDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
-          technician: 'David Brown',
-          status: 'Pending',
-          cost: 8000,
-          description: 'Monthly generator inspection and oil change'
-        },
-        {
-          id: 'maint_3',
-          asset: 'Elevator System',
-          assetId: 'AST-20003',
-          type: 'Corrective',
-          scheduledDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
-          technician: 'Lisa Anderson',
-          status: 'In Progress',
-          cost: 12000,
-          description: 'Repair elevator door mechanism'
-        }
-      ];
-    }
-
     try {
       const response = await api.get<ApiResponse<MaintenanceScheduleItem[]>>('/dashboard/maintenance-schedule');
       if (response.data.success && response.data.data) {
@@ -274,58 +131,6 @@ class InventoryManagerService {
 
   // Get top vendors by performance
   async getTopVendors(): Promise<TopVendor[]> {
-    if (this.DISABLE_API) {
-      // Return mock data for development
-      console.log('🔧 Inventory Manager API disabled - Using mock vendors data');
-      return [
-        {
-          id: 'vendor_1',
-          name: 'Dell Technologies',
-          orders: 12,
-          value: 8500000,
-          rating: 4.8,
-          categories: ['Computing Equipment', 'Laptops'],
-          activeContracts: 12
-        },
-        {
-          id: 'vendor_2',
-          name: 'HP Inc.',
-          orders: 8,
-          value: 5200000,
-          rating: 4.6,
-          categories: ['Printers', 'Accessories'],
-          activeContracts: 8
-        },
-        {
-          id: 'vendor_3',
-          name: 'Cisco Systems',
-          orders: 6,
-          value: 4100000,
-          rating: 4.9,
-          categories: ['Network Equipment', 'Security'],
-          activeContracts: 6
-        },
-        {
-          id: 'vendor_4',
-          name: 'Microsoft Corporation',
-          orders: 4,
-          value: 3300000,
-          rating: 4.7,
-          categories: ['Software', 'Licenses'],
-          activeContracts: 4
-        },
-        {
-          id: 'vendor_5',
-          name: 'Lenovo Group',
-          orders: 5,
-          value: 2800000,
-          rating: 4.5,
-          categories: ['Laptops', 'Tablets'],
-          activeContracts: 5
-        }
-      ];
-    }
-
     try {
       const response = await api.get<ApiResponse<TopVendor[]>>('/dashboard/top-vendors');
       if (response.data.success && response.data.data) {
@@ -340,46 +145,6 @@ class InventoryManagerService {
 
   // Get pending approvals for inventory manager
   async getPendingApprovals(): Promise<PendingApprovalItem[]> {
-    if (this.DISABLE_API) {
-      // Return mock data for development
-      console.log('🔧 Inventory Manager API disabled - Using mock approvals data');
-      return [
-        {
-          id: 'approval_inv_1',
-          type: 'Purchase Request',
-          requestor: 'IT Department',
-          requestorId: 'dept_it',
-          priority: 'High',
-          daysAgo: 2,
-          amount: 150000,
-          description: 'New laptops for development team',
-          assetId: 'PO-2024-001'
-        },
-        {
-          id: 'approval_inv_2',
-          type: 'Asset Transfer',
-          requestor: 'HR Department',
-          requestorId: 'dept_hr',
-          priority: 'Medium',
-          daysAgo: 5,
-          amount: 25000,
-          description: 'Transfer furniture to new branch',
-          assetId: 'AST-TR-001'
-        },
-        {
-          id: 'approval_inv_3',
-          type: 'Maintenance Budget',
-          requestor: 'Operations Team',
-          requestorId: 'dept_ops',
-          priority: 'Low',
-          daysAgo: 1,
-          amount: 45000,
-          description: 'Annual HVAC system maintenance',
-          assetId: 'MAINT-2024-Q4'
-        }
-      ];
-    }
-
     try {
       const response = await api.get<ApiResponse<PendingApprovalItem[]>>('/dashboard/inventory-approvals');
       if (response.data.success && response.data.data) {

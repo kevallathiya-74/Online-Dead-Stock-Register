@@ -60,6 +60,7 @@ import {
 import { Line, Bar, Pie } from 'react-chartjs-2';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
+import api from '../../services/api';
 
 ChartJS.register(
   CategoryScale,
@@ -118,86 +119,28 @@ const AdminAnalyticsPage: React.FC = () => {
   const loadAnalyticsData = async () => {
     setLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Fetch analytics data from API
+      const response = await api.get('/dashboard/analytics', {
+        params: { dateRange }
+      });
       
-      // Generate comprehensive analytics data
-      const mockAssetTrends = [
-        { month: 'Jan', active: 120, maintenance: 15, damaged: 8, purchased: 25, retired: 5 },
-        { month: 'Feb', active: 125, maintenance: 12, damaged: 6, purchased: 18, retired: 3 },
-        { month: 'Mar', active: 130, maintenance: 18, damaged: 10, purchased: 22, retired: 7 },
-        { month: 'Apr', active: 135, maintenance: 14, damaged: 5, purchased: 20, retired: 4 },
-        { month: 'May', active: 140, maintenance: 16, damaged: 9, purchased: 28, retired: 6 },
-        { month: 'Jun', active: 145, maintenance: 11, damaged: 7, purchased: 15, retired: 2 },
-        { month: 'Jul', active: 148, maintenance: 20, damaged: 12, purchased: 24, retired: 8 },
-        { month: 'Aug', active: 150, maintenance: 19, damaged: 11, purchased: 19, retired: 5 },
-        { month: 'Sep', active: 152, maintenance: 17, damaged: 8, purchased: 21, retired: 4 },
-        { month: 'Oct', active: 150, maintenance: 28, damaged: 14, purchased: 16, retired: 9 }
-      ];
-
-      const mockUserActivity = [
-        { day: 'Mon', logins: 45, actions: 230, errors: 3 },
-        { day: 'Tue', logins: 52, actions: 280, errors: 1 },
-        { day: 'Wed', logins: 48, actions: 250, errors: 2 },
-        { day: 'Thu', logins: 55, actions: 320, errors: 4 },
-        { day: 'Fri', logins: 60, actions: 340, errors: 2 },
-        { day: 'Sat', logins: 25, actions: 120, errors: 1 },
-        { day: 'Sun', logins: 20, actions: 90, errors: 0 }
-      ];
-
-      const mockFinancialMetrics = [
-        { quarter: 'Q1', purchases: 125000, maintenance: 25000, depreciation: 15000, savings: 8000 },
-        { quarter: 'Q2', purchases: 98000, maintenance: 32000, depreciation: 18000, savings: 12000 },
-        { quarter: 'Q3', purchases: 145000, maintenance: 28000, depreciation: 22000, savings: 15000 },
-        { quarter: 'Q4', purchases: 110000, maintenance: 35000, depreciation: 20000, savings: 10000 }
-      ];
-
-      const mockSystemPerformance = [
-        { time: '00:00', cpu: 25, memory: 45, disk: 60, network: 30 },
-        { time: '04:00', cpu: 20, memory: 40, disk: 58, network: 25 },
-        { time: '08:00', cpu: 65, memory: 70, disk: 62, network: 80 },
-        { time: '12:00', cpu: 80, memory: 75, disk: 65, network: 90 },
-        { time: '16:00', cpu: 85, memory: 80, disk: 68, network: 95 },
-        { time: '20:00', cpu: 45, memory: 55, disk: 63, network: 40 },
-        { time: '24:00', cpu: 30, memory: 48, disk: 61, network: 35 }
-      ];
-
-      const mockDepartmentStats = [
-        { name: 'IT', assets: 45, value: 180000, utilization: 92 },
-        { name: 'Finance', assets: 25, value: 95000, utilization: 78 },
-        { name: 'HR', assets: 15, value: 65000, utilization: 85 },
-        { name: 'Operations', assets: 35, value: 140000, utilization: 88 },
-        { name: 'Marketing', assets: 20, value: 75000, utilization: 72 },
-        { name: 'Security', assets: 10, value: 45000, utilization: 95 }
-      ];
-
-      const mockAlerts = [
-        { type: 'critical', count: 3, trend: 'up' },
-        { type: 'warning', count: 8, trend: 'down' },
-        { type: 'info', count: 15, trend: 'stable' }
-      ];
-
-      const mockTopAssets = [
-        { id: 'AST-10001', name: 'Dell Laptop XPS', value: 1200, utilization: 95, status: 'Active' },
-        { id: 'AST-10005', name: 'HP Server ProLiant', value: 5500, utilization: 88, status: 'Active' },
-        { id: 'AST-10012', name: 'Canon Printer MX', value: 450, utilization: 76, status: 'Active' },
-        { id: 'AST-10008', name: 'Apple MacBook Pro', value: 2200, utilization: 92, status: 'Active' },
-        { id: 'AST-10015', name: 'Cisco Router 2900', value: 800, utilization: 85, status: 'Active' }
-      ];
-
-      setAssetTrends(mockAssetTrends);
-      setUserActivity(mockUserActivity);
-      setFinancialMetrics(mockFinancialMetrics);
-      setSystemPerformance(mockSystemPerformance);
-      setDepartmentStats(mockDepartmentStats);
-      setAlertsData(mockAlerts);
-      setTopAssets(mockTopAssets);
+      const data = response.data.data || response.data;
+      
+      // Set analytics data from API response
+      setAssetTrends(data.assetTrends || []);
+      setUserActivity(data.userActivity || []);
+      setFinancialMetrics(data.financialMetrics || []);
+      setSystemPerformance(data.systemPerformance || []);
+      setDepartmentStats(data.departmentStats || []);
+      setAlertsData(data.alerts || []);
+      setTopAssets(data.topAssets || []);
       
       setKpis({
-        totalAssets: 150,
-        totalValue: 578000,
-        avgUtilization: 86,
-        monthlyGrowth: 5.2,
-        costSavings: 45000,
+        totalAssets: data.kpis?.totalAssets || 0,
+        totalValue: data.kpis?.totalValue || 0,
+        avgUtilization: data.kpis?.avgUtilization || 0,
+        monthlyGrowth: data.kpis?.monthlyGrowth || 0,
+        costSavings: data.kpis?.costSavings || 0,
         maintenanceCost: 120000,
         activeUsers: 24,
         systemUptime: 99.8

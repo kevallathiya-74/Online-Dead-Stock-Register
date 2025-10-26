@@ -55,4 +55,7 @@ const authMiddleware = async (req, res, next) => {
     };
   };
   
-  module.exports = { authMiddleware, requireRole }; 
+  // Alias for compatibility with different route files
+  const authenticateToken = authMiddleware;
+  
+  module.exports = { authMiddleware, requireRole, authenticateToken }; 

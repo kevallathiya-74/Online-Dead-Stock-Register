@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import api from '../../services/api';
 import {
   Dialog,
   DialogTitle,
@@ -142,22 +143,6 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSubmit }) =>
     return '';
   };
 
-  const simulateReportGeneration = () => {
-    return new Promise<void>((resolve) => {
-      let currentProgress = 0;
-      const interval = setInterval(() => {
-        currentProgress += Math.random() * 30;
-        if (currentProgress >= 100) {
-          setProgress(100);
-          clearInterval(interval);
-          setTimeout(() => resolve(), 500);
-        } else {
-          setProgress(Math.min(currentProgress, 90));
-        }
-      }, 300);
-    });
-  };
-
   const handleSubmit = async () => {
     if (!formData.report_type) {
       toast.error('Please select a report type');
@@ -168,27 +153,24 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSubmit }) =>
     setProgress(0);
 
     try {
-      await simulateReportGeneration();
-
-      const reportId = `RPT-${Date.now().toString().slice(-6)}`;
-      const reportData = {
-        ...formData,
-        id: Date.now().toString(),
-        report_id: reportId,
+      // Call real API to generate report
+      const response = await api.post('/reports/generate', {
+        report_type: formData.report_type,
+        date_range: formData.date_range,
+        custom_start_date: formData.custom_start_date,
+        custom_end_date: formData.custom_end_date,
+        format: formData.format,
         title: formData.title || generateReportTitle(),
-        generated_date: new Date().toISOString().split('T')[0],
-        status: 'completed',
-        file_size: Math.floor(Math.random() * 5000) + 1000, // KB
-      };
+        include_charts: formData.include_charts,
+        include_summary: formData.include_summary,
+        filters: formData.filters
+      });
 
+      const reportData = response.data.data;
       onSubmit(reportData);
       
       toast.success(`Report "${reportData.title}" generated successfully!`);
-      
-      // Simulate download
-      setTimeout(() => {
-        toast.info(`Downloading ${reportData.title}.${formData.format}...`);
-      }, 1000);
+      toast.info(`Downloading ${reportData.title}.${formData.format}...`);
 
       // Reset form
       setFormData({

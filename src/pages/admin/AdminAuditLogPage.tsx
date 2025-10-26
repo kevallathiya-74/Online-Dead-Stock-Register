@@ -42,7 +42,25 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import AdminDataService, { AdminAuditLog } from '../../data/adminDataService';
+import api from '../../services/api';
+
+interface AdminAuditLog {
+  id: string;
+  user_id?: string;
+  user_name?: string;
+  user?: { id: string; name: string; email: string };
+  action: string;
+  entity_type: string;
+  entity_id?: string;
+  description: string;
+  timestamp: string;
+  severity: 'info' | 'warning' | 'error' | 'critical';
+  ip_address?: string;
+  changes?: any;
+  user_agent?: string;
+  old_values?: any;
+  new_values?: any;
+}
 
 const AdminAuditLogPage: React.FC = () => {
   const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
@@ -62,10 +80,11 @@ const AdminAuditLogPage: React.FC = () => {
   const loadAuditLogs = async () => {
     setLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      const logData = AdminDataService.getAuditLogs();
+      const response = await api.get('/audit-logs');
+      const logData = response.data.data || response.data;
       setAuditLogs(logData);
     } catch (error) {
+      console.error('Failed to load audit logs:', error);
       toast.error('Failed to load audit logs');
     } finally {
       setLoading(false);
@@ -73,12 +92,14 @@ const AdminAuditLogPage: React.FC = () => {
   };
 
   const filteredLogs = auditLogs.filter((log) => {
+    const userName = log.user?.name || log.user_name || '';
+    
     const matchesSearch = 
-      log.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.entity_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.ip_address.includes(searchTerm);
+      log.ip_address?.includes(searchTerm) || false;
     
     const matchesSeverity = selectedSeverity === 'all' || log.severity === selectedSeverity;
     const matchesEntityType = selectedEntityType === 'all' || log.entity_type === selectedEntityType;
@@ -90,14 +111,14 @@ const AdminAuditLogPage: React.FC = () => {
   const paginatedLogs = filteredLogs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   const getSeverityColor = (severity: AdminAuditLog['severity']) => {
-    switch (severity) {
-      case 'Critical':
+    switch (severity.toLowerCase()) {
+      case 'critical':
         return 'error';
-      case 'Error':
+      case 'error':
         return 'error';
-      case 'Warning':
+      case 'warning':
         return 'warning';
-      case 'Info':
+      case 'info':
         return 'info';
       default:
         return 'default';
@@ -105,14 +126,14 @@ const AdminAuditLogPage: React.FC = () => {
   };
 
   const getSeverityIcon = (severity: AdminAuditLog['severity']) => {
-    switch (severity) {
-      case 'Critical':
+    switch (severity.toLowerCase()) {
+      case 'critical':
         return <ErrorIcon color="error" />;
-      case 'Error':
+      case 'error':
         return <ErrorIcon color="error" />;
-      case 'Warning':
+      case 'warning':
         return <WarningIcon color="warning" />;
-      case 'Info':
+      case 'info':
         return <InfoIcon color="info" />;
       default:
         return <CheckCircleIcon />;
@@ -144,15 +165,15 @@ const AdminAuditLogPage: React.FC = () => {
   };
 
   const severityStats = {
-    critical: auditLogs.filter(l => l.severity === 'Critical').length,
-    error: auditLogs.filter(l => l.severity === 'Error').length,
-    warning: auditLogs.filter(l => l.severity === 'Warning').length,
-    info: auditLogs.filter(l => l.severity === 'Info').length
+    critical: auditLogs.filter(l => l.severity === 'critical').length,
+    error: auditLogs.filter(l => l.severity === 'error').length,
+    warning: auditLogs.filter(l => l.severity === 'warning').length,
+    info: auditLogs.filter(l => l.severity === 'info').length
   };
 
   const entityTypes = Array.from(new Set(auditLogs.map(l => l.entity_type)));
   const actions = Array.from(new Set(auditLogs.map(l => l.action)));
-  const severities = ['Info', 'Warning', 'Error', 'Critical'];
+  const severities = ['info', 'warning', 'error', 'critical'];
 
   if (loading) {
     return (
@@ -432,11 +453,11 @@ const AdminAuditLogPage: React.FC = () => {
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                           <Avatar sx={{ mr: 2, bgcolor: 'primary.main', width: 32, height: 32 }}>
-                            {log.user.name.charAt(0)}
+                            {(log.user?.name || log.user_name || 'U').charAt(0)}
                           </Avatar>
                           <Box>
                             <Typography variant="subtitle2" fontWeight="medium">
-                              {log.user.name}
+                              {log.user?.name || log.user_name || 'Unknown'}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
                               {log.action}
@@ -472,17 +493,19 @@ const AdminAuditLogPage: React.FC = () => {
                           <Typography variant="body2" fontWeight="medium" sx={{ fontFamily: 'monospace' }}>
                             {log.ip_address}
                           </Typography>
-                          <Tooltip title={log.user_agent}>
-                            <Typography variant="caption" color="text.secondary" sx={{ 
-                              maxWidth: 150, 
-                              overflow: 'hidden', 
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              display: 'block'
-                            }}>
-                              {log.user_agent.split(' ')[0]}...
-                            </Typography>
-                          </Tooltip>
+                          {log.user_agent && (
+                            <Tooltip title={log.user_agent}>
+                              <Typography variant="caption" color="text.secondary" sx={{ 
+                                maxWidth: 150, 
+                                overflow: 'hidden', 
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                display: 'block'
+                              }}>
+                                {log.user_agent.split(' ')[0]}...
+                              </Typography>
+                            </Tooltip>
+                          )}
                         </Box>
                       </TableCell>
                       <TableCell>

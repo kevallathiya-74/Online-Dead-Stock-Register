@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import api from '../../services/api';
 import {
   Box,
   Typography,
@@ -229,12 +230,14 @@ const ReportsPage = () => {
     const loadData = async () => {
       setLoading(true);
       try {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const templates = generateReportTemplates();
-        const history = generateReportHistory();
-        setReportTemplates(templates);
-        setGeneratedReports(history);
+        const [templatesRes, historyRes] = await Promise.all([
+          api.get('/reports/templates'),
+          api.get('/reports/history')
+        ]);
+        setReportTemplates(templatesRes.data.data || []);
+        setGeneratedReports(historyRes.data.data || []);
       } catch (error) {
+        console.error('Error loading reports:', error);
         toast.error('Failed to load reports data');
       } finally {
         setLoading(false);

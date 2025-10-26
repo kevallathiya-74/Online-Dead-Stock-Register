@@ -36,6 +36,7 @@ import {
   Check as CheckIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface AssetTransferModalProps {
   open: boolean;
@@ -166,16 +167,15 @@ const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, 
       const transferId = generateTransferId();
       const transferData = {
         ...formData,
-        id: Date.now().toString(),
         transfer_id: transferId,
         status: formData.requires_approval ? 'pending_approval' : 'completed',
-        created_date: new Date().toISOString().split('T')[0],
         transfer_date: formData.transfer_date,
       };
 
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+      const response = await api.post('/asset-transfers', transferData);
+      const createdTransfer = response.data.data || response.data;
       
-      onSubmit(transferData);
+      onSubmit(createdTransfer);
       
       const statusMessage = formData.requires_approval 
         ? `Asset transfer request submitted for approval! ID: ${transferId}`

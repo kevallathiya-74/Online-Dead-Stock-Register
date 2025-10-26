@@ -42,7 +42,4 @@ export default defineConfig({
   define: {
     'process.env': {}
   },
-  esbuild: {
-    jsxInject: `import React from 'react'` // Automatically inject React
-  }
 })

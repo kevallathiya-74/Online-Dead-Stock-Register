@@ -122,19 +122,12 @@ exports.signup = async (req, res) => {
       { expiresIn: '8h' }
     );
     
-    // Map backend role back to frontend format for response
-    const reverseRoleMap = {
-      'Admin': 'admin',
-      'Inventory_Manager': 'inventory_manager',
-      'Auditor': 'auditor',
-      'Employee': 'employee'
-    };
-    
     res.status(201).json({ 
       user: {
         id: saved._id,
         email: saved.email,
-        role: reverseRoleMap[saved.role] || 'employee',
+        role: saved.role, // Send role in uppercase format: ADMIN, INVENTORY_MANAGER, EMPLOYEE
+        name: saved.name,
         full_name: saved.name,
         department: saved.department
       },
@@ -169,18 +162,12 @@ exports.login = async (req, res) => {
       { expiresIn: '8h' }
     );
     
-    // Map backend role back to frontend format for response
-    const reverseRoleMap = {
-      'ADMIN': 'admin',
-      'INVENTORY_MANAGER': 'inventory_manager',
-      'EMPLOYEE': 'employee'
-    };
-    
     res.json({ 
       user: {
         id: user._id,
         email: user.email,
-        role: reverseRoleMap[user.role] || 'employee',
+        role: user.role, // Send role in uppercase format: ADMIN, INVENTORY_MANAGER, EMPLOYEE
+        name: user.name,
         full_name: user.name,
         department: user.department
       },

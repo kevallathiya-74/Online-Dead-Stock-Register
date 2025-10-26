@@ -41,6 +41,7 @@ import {
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface AssetLocation {
   _id: string;
@@ -73,53 +74,16 @@ const LocationsPage: React.FC = () => {
   const [filterType, setFilterType] = useState<string>('all');
   const [addLocationDialog, setAddLocationDialog] = useState(false);
 
-  // Generate dynamic location data
-  const generateLocationData = (): AssetLocation[] => {
-    const locationTypes = ['Office', 'Warehouse', 'Branch', 'Data Center'] as const;
-    const buildings = ['Main Building', 'Annexe A', 'Annexe B', 'Storage Complex', 'IT Center'];
-    const cities = ['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Hyderabad', 'Pune', 'Kolkata'];
-    
-    return Array.from({ length: 15 }, (_, index) => {
-      const type = locationTypes[index % locationTypes.length];
-      const building = buildings[index % buildings.length];
-      const capacity = Math.floor(Math.random() * 200) + 50;
-      const currentAssets = Math.floor(Math.random() * capacity * 0.8);
-      
-      return {
-        _id: `loc_${String(index + 1).padStart(3, '0')}`,
-        name: `${type} - ${building}`,
-        building,
-        floor: `Floor ${Math.floor(Math.random() * 10) + 1}`,
-        room: `Room ${Math.floor(Math.random() * 50) + 100}`,
-        address: {
-          street: `${Math.floor(Math.random() * 999) + 1} Business Street`,
-          city: cities[index % cities.length],
-          state: 'Maharashtra',
-          zipCode: `4${String(Math.floor(Math.random() * 9000) + 1000)}`
-        },
-        manager: {
-          _id: `mgr_${index + 1}`,
-          name: `Manager ${index + 1}`,
-          email: `manager${index + 1}@company.com`
-        },
-        capacity,
-        current_assets: currentAssets,
-        location_type: type,
-        is_active: Math.random() > 0.1,
-        created_at: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString()
-      };
-    });
-  };
-
   useEffect(() => {
     const fetchLocations = async () => {
       setLoading(true);
       try {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const locationData = generateLocationData();
+        const response = await api.get('/assets/locations');
+        const locationData = response.data.data || response.data;
         setLocations(locationData);
         toast.success('Locations loaded successfully');
       } catch (error) {
+        console.error('Failed to load locations:', error);
         toast.error('Failed to load locations');
       } finally {
         setLoading(false);

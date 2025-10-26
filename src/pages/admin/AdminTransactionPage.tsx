@@ -63,7 +63,36 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import AdminDataService, { AdminTransaction } from '../../data/adminDataService';
+import api from '../../services/api';
+
+interface AdminTransaction {
+  id: string;
+  asset_name: string;
+  asset_id: string;
+  type: 'Assignment' | 'Transfer' | 'Return' | 'Maintenance' | 'Disposal' | 'Purchase';
+  from_user?: string | { name: string };
+  to_user?: string | { name: string };
+  from_location?: string;
+  to_location?: string;
+  date: string;
+  status: 'Completed' | 'Pending' | 'Cancelled';
+  created_by: string;
+  created_at: string;
+  notes?: string;
+  priority: 'High' | 'Medium' | 'Low';
+  asset?: {
+    unique_asset_id: string;
+    manufacturer: string;
+    model: string;
+    serial_number?: string;
+    location?: string;
+  };
+  transaction_type?: string;
+  transaction_date?: string;
+  quantity?: number;
+  approved_by?: { name: string };
+  estimated_completion?: string;
+}
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -123,14 +152,28 @@ const AdminTransactionPage: React.FC = () => {
   const loadTransactions = async () => {
     setLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const transactionData = AdminDataService.getTransactions();
+      const response = await api.get('/transactions');
+      const transactionData = response.data.data || response.data;
       setTransactions(transactionData);
     } catch (error) {
+      console.error('Failed to load transactions:', error);
       toast.error('Failed to load transactions');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Calculate statistics from loaded transactions
+  const stats = {
+    total: transactions.length,
+    pending: transactions.filter(t => t.status === 'Pending').length,
+    approved: transactions.filter(t => t.status === 'Completed').length,
+    completed: transactions.filter(t => t.status === 'Completed').length,
+    recentTransactions: transactions.filter(t => {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return new Date(t.created_at || t.date) >= weekAgo;
+    }).length
   };
 
   const getTransactionsForTab = (tabIndex: number) => {
@@ -139,118 +182,36 @@ const AdminTransactionPage: React.FC = () => {
         return transactions;
       case 1: // Pending
         return transactions.filter(t => t.status === 'Pending');
-      case 2: // Approved
-        return transactions.filter(t => t.status === 'Approved');
-      case 3: // Completed
+      case 2: // Completed
         return transactions.filter(t => t.status === 'Completed');
-      case 4: // Rejected
-        return transactions.filter(t => t.status === 'Rejected');
+      case 3: // Cancelled
+        return transactions.filter(t => t.status === 'Cancelled');
       default:
         return transactions;
     }
   };
 
   const filteredTransactions = getTransactionsForTab(tabValue).filter((transaction) => {
+    const fromUserName = typeof transaction.from_user === 'object' ? transaction.from_user?.name : transaction.from_user;
+    const toUserName = typeof transaction.to_user === 'object' ? transaction.to_user?.name : transaction.to_user;
+    
     const matchesSearch = 
-      transaction.asset.unique_asset_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.asset.manufacturer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.asset.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.from_user?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.to_user?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (transaction.asset?.unique_asset_id?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (transaction.asset?.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (transaction.asset?.model?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      transaction.asset_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      fromUserName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      toUserName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       transaction.notes?.toLowerCase().includes(searchTerm.toLowerCase()) || '';
     
     const matchesStatus = selectedStatus === 'all' || transaction.status === selectedStatus;
-    const matchesType = selectedType === 'all' || transaction.transaction_type === selectedType;
+    const matchesType = selectedType === 'all' || (transaction.transaction_type || transaction.type) === selectedType;
     const matchesPriority = selectedPriority === 'all' || transaction.priority === selectedPriority;
     
     return matchesSearch && matchesStatus && matchesType && matchesPriority;
   });
 
   const paginatedTransactions = filteredTransactions.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-
-  const handleApproveTransaction = (transactionId: string) => {
-    setTransactions(prev => 
-      prev.map(txn => 
-        txn.id === transactionId 
-          ? { ...txn, status: 'Approved', approved_by: { name: 'Current Admin' } as any }
-          : txn
-      )
-    );
-    toast.success('Transaction approved');
-  };
-
-  const handleRejectTransaction = (transactionId: string) => {
-    setTransactions(prev => 
-      prev.map(txn => 
-        txn.id === transactionId 
-          ? { ...txn, status: 'Rejected' }
-          : txn
-      )
-    );
-    toast.success('Transaction rejected');
-  };
-
-  const handleAddTransaction = async () => {
-    if (!newTransaction.type || !newTransaction.asset_id || !newTransaction.assigned_user) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-
-    try {
-      const transaction: AdminTransaction = {
-        id: `txn_${Date.now()}`,
-        transaction_type: newTransaction.type as AdminTransaction['transaction_type'],
-        asset: {
-          id: newTransaction.asset_id,
-          unique_asset_id: `AST-${String(Math.floor(Math.random() * 10000) + 10000).padStart(5, '0')}`,
-          manufacturer: 'Generic',
-          model: 'Model-X',
-          serial_number: 'SN-' + Date.now(),
-          asset_type: 'Laptop',
-          location: 'Office',
-          status: 'Active' as const,
-          purchase_date: new Date().toISOString(),
-          purchase_cost: 1200,
-          warranty_expiry: addDays(new Date(), 365).toISOString(),
-          last_audit_date: new Date().toISOString(),
-          condition: 'Good',
-          expected_lifespan: 3
-        },
-        to_user: {
-          id: 'user_001',
-          name: newTransaction.assigned_user,
-          email: `${newTransaction.assigned_user.toLowerCase().replace(' ', '.')}@company.com`,
-          role: 'Employee' as const,
-          department: newTransaction.assigned_department || 'IT',
-          employee_id: 'EMP-001',
-          is_active: true,
-          created_at: new Date().toISOString(),
-          last_login: new Date().toISOString(),
-          permissions: ['read']
-        },
-        quantity: 1,
-        status: 'Pending',
-        priority: newTransaction.priority as 'Low' | 'Medium' | 'High' | 'Critical',
-        transaction_date: new Date().toISOString(),
-        notes: `${newTransaction.description}. ${newTransaction.notes}`.trim()
-      };
-
-      setTransactions(prev => [transaction, ...prev]);
-      setAddTransactionDialogOpen(false);
-      setNewTransaction({
-        type: '',
-        asset_id: '',
-        assigned_user: '',
-        assigned_department: '',
-        priority: 'Medium',
-        description: '',
-        notes: ''
-      });
-      toast.success('Transaction created successfully');
-    } catch (error) {
-      toast.error('Failed to create transaction');
-    }
-  };
 
   const handleCompleteTransaction = (transactionId: string) => {
     setTransactions(prev => 
@@ -263,46 +224,123 @@ const AdminTransactionPage: React.FC = () => {
     toast.success('Transaction completed');
   };
 
-  const handleBulkAction = (action: string) => {
+  const handleCancelTransaction = (transactionId: string) => {
+    setTransactions(prev => 
+      prev.map(txn => 
+        txn.id === transactionId 
+          ? { ...txn, status: 'Cancelled' }
+          : txn
+      )
+    );
+    toast.success('Transaction cancelled');
+  };
+
+  const handleAddTransaction = async () => {
+    if (!newTransaction.type || !newTransaction.asset_id || !newTransaction.assigned_user) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      const transactionData = {
+        asset_id: newTransaction.asset_id,
+        type: newTransaction.type,
+        to_user: newTransaction.assigned_user,
+        department: newTransaction.assigned_department,
+        priority: newTransaction.priority,
+        notes: `${newTransaction.description}. ${newTransaction.notes}`.trim()
+      };
+
+      console.log('Creating transaction via API:', transactionData);
+      
+      // Call API to create transaction
+      const response = await api.post('/transactions', transactionData);
+      console.log('Transaction created successfully:', response.data);
+      
+      // Reload transactions from server
+      await loadTransactions();
+      
+      setAddTransactionDialogOpen(false);
+      setNewTransaction({
+        type: '',
+        asset_id: '',
+        assigned_user: '',
+        assigned_department: '',
+        priority: 'Medium',
+        description: '',
+        notes: ''
+      });
+      toast.success('Transaction created successfully');
+    } catch (error: any) {
+      console.error('Failed to create transaction:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to create transaction';
+      toast.error(errorMsg);
+    }
+  };
+
+  const handleBulkAction = async (action: string) => {
     
     switch (action) {
-      case 'approve':
-        setTransactions(prev => 
-          prev.map(txn => 
-            bulkSelected.includes(txn.id) 
-              ? { ...txn, status: 'Approved', approved_by: { name: 'Current Admin' } as any }
-              : txn
-          )
-        );
-        toast.success(`${bulkSelected.length} transactions approved`);
-        break;
-      case 'reject':
-        setTransactions(prev => 
-          prev.map(txn => 
-            bulkSelected.includes(txn.id) 
-              ? { ...txn, status: 'Rejected' }
-              : txn
-          )
-        );
-        toast.success(`${bulkSelected.length} transactions rejected`);
-        break;
       case 'complete':
-        setTransactions(prev => 
-          prev.map(txn => 
-            bulkSelected.includes(txn.id) 
-              ? { ...txn, status: 'Completed' }
-              : txn
-          )
-        );
-        toast.success(`${bulkSelected.length} transactions completed`);
+        try {
+          console.log('Bulk completing transactions via API:', bulkSelected);
+          
+          // Call API to bulk update transaction status
+          await api.post('/transactions/bulk-update', { 
+            transactionIds: bulkSelected,
+            status: 'Completed'
+          });
+          
+          // Reload transactions from server
+          await loadTransactions();
+          
+          toast.success(`${bulkSelected.length} transactions completed`);
+        } catch (error: any) {
+          console.error('Failed to complete transactions:', error);
+          const errorMsg = error.response?.data?.message || error.message || 'Failed to complete transactions';
+          toast.error(errorMsg);
+        }
+        break;
+      case 'cancel':
+        try {
+          console.log('Bulk cancelling transactions via API:', bulkSelected);
+          
+          // Call API to bulk update transaction status
+          await api.post('/transactions/bulk-update', { 
+            transactionIds: bulkSelected,
+            status: 'Cancelled'
+          });
+          
+          // Reload transactions from server
+          await loadTransactions();
+          
+          toast.success(`${bulkSelected.length} transactions cancelled`);
+        } catch (error: any) {
+          console.error('Failed to cancel transactions:', error);
+          const errorMsg = error.response?.data?.message || error.message || 'Failed to cancel transactions';
+          toast.error(errorMsg);
+        }
         break;
       case 'export':
         toast.info(`Exporting ${bulkSelected.length} transactions`);
         break;
       case 'delete':
         if (window.confirm(`Are you sure you want to delete ${bulkSelected.length} transactions?`)) {
-          setTransactions(prev => prev.filter(txn => !bulkSelected.includes(txn.id)));
-          toast.success(`${bulkSelected.length} transactions deleted`);
+          try {
+            console.log('Bulk deleting transactions via API:', bulkSelected);
+            
+            // Call API to bulk delete transactions
+            await api.post('/transactions/bulk-delete', { transactionIds: bulkSelected });
+            
+            // Reload transactions from server
+            await loadTransactions();
+            
+            toast.success(`${bulkSelected.length} transactions deleted`);
+          } catch (error: any) {
+            console.error('Failed to delete transactions:', error);
+            const errorMsg = error.response?.data?.message || error.message || 'Failed to delete transactions';
+            toast.error(errorMsg);
+          }
         }
         break;
     }
@@ -314,11 +352,9 @@ const AdminTransactionPage: React.FC = () => {
     switch (status) {
       case 'Pending':
         return 'warning';
-      case 'Approved':
-        return 'info';
       case 'Completed':
         return 'success';
-      case 'Rejected':
+      case 'Cancelled':
         return 'error';
       default:
         return 'default';
@@ -327,8 +363,6 @@ const AdminTransactionPage: React.FC = () => {
 
   const getPriorityColor = (priority: AdminTransaction['priority']) => {
     switch (priority) {
-      case 'Critical':
-        return 'error';
       case 'High':
         return 'warning';
       case 'Medium':
@@ -344,18 +378,15 @@ const AdminTransactionPage: React.FC = () => {
     switch (status) {
       case 'Pending':
         return <PendingIcon />;
-      case 'Approved':
-        return <ApproveIcon />;
       case 'Completed':
         return <ApproveIcon />;
-      case 'Rejected':
+      case 'Cancelled':
         return <RejectIcon />;
       default:
         return <InfoIcon />;
     }
   };
 
-  const stats = AdminDataService.getTransactionStatistics();
   const transactionTypes = ['Asset Assignment', 'Asset Transfer', 'Check-out', 'Check-in', 'Maintenance', 'Return'];
   const priorities = ['Low', 'Medium', 'High', 'Critical'];
   const statuses = ['Pending', 'Approved', 'Completed', 'Rejected'];
@@ -492,18 +523,13 @@ const AdminTransactionPage: React.FC = () => {
                 </Badge>
               } />
               <Tab label={
-                <Badge badgeContent={transactions.filter(t => t.status === 'Approved').length} color="info" max={999}>
-                  Approved
-                </Badge>
-              } />
-              <Tab label={
                 <Badge badgeContent={transactions.filter(t => t.status === 'Completed').length} color="success" max={999}>
                   Completed
                 </Badge>
               } />
               <Tab label={
-                <Badge badgeContent={transactions.filter(t => t.status === 'Rejected').length} color="error" max={999}>
-                  Rejected
+                <Badge badgeContent={transactions.filter(t => t.status === 'Cancelled').length} color="error" max={999}>
+                  Cancelled
                 </Badge>
               } />
             </Tabs>
@@ -663,14 +689,14 @@ const AdminTransactionPage: React.FC = () => {
                           <Box>
                             <Typography variant="body2" fontWeight="medium" display="flex" alignItems="center" gap={0.5}>
                               <AssetIcon fontSize="small" />
-                              {transaction.asset.unique_asset_id}
+                              {transaction.asset?.unique_asset_id || transaction.asset_id}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                              {transaction.asset.manufacturer} {transaction.asset.model}
+                              {transaction.asset?.manufacturer || 'N/A'} {transaction.asset?.model || ''}
                             </Typography>
                             <Typography variant="caption" color="text.secondary" display="flex" alignItems="center" gap={0.5}>
                               <LocationIcon fontSize="inherit" />
-                              {transaction.from_location || transaction.asset.location} → {transaction.to_location || 'N/A'}
+                              {transaction.from_location || transaction.asset?.location || 'N/A'} → {transaction.to_location || 'N/A'}
                             </Typography>
                           </Box>
                         </TableCell>
@@ -679,13 +705,13 @@ const AdminTransactionPage: React.FC = () => {
                             {transaction.from_user && (
                               <Typography variant="body2" color="text.secondary" display="flex" alignItems="center" gap={0.5}>
                                 <PersonIcon fontSize="small" />
-                                From: {transaction.from_user.name}
+                                From: {typeof transaction.from_user === 'object' ? transaction.from_user.name : transaction.from_user}
                               </Typography>
                             )}
                             {transaction.to_user && (
                               <Typography variant="body2" color="text.secondary" display="flex" alignItems="center" gap={0.5}>
                                 <PersonIcon fontSize="small" />
-                                To: {transaction.to_user.name}
+                                To: {typeof transaction.to_user === 'object' ? transaction.to_user.name : transaction.to_user}
                               </Typography>
                             )}
                             {transaction.approved_by && (
@@ -718,10 +744,10 @@ const AdminTransactionPage: React.FC = () => {
                           <Box>
                             <Typography variant="body2" display="flex" alignItems="center" gap={0.5}>
                               <ScheduleIcon fontSize="small" />
-                              {new Date(transaction.transaction_date).toLocaleDateString()}
+                              {transaction.transaction_date ? new Date(transaction.transaction_date).toLocaleDateString() : new Date(transaction.date).toLocaleDateString()}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                              {new Date(transaction.transaction_date).toLocaleTimeString()}
+                              {transaction.transaction_date ? new Date(transaction.transaction_date).toLocaleTimeString() : new Date(transaction.date).toLocaleTimeString()}
                             </Typography>
                             {transaction.estimated_completion && (
                               <Typography variant="caption" color="text.secondary">
@@ -746,36 +772,25 @@ const AdminTransactionPage: React.FC = () => {
                             </Tooltip>
                             {transaction.status === 'Pending' && (
                               <>
-                                <Tooltip title="Approve">
+                                <Tooltip title="Complete">
                                   <IconButton 
                                     size="small" 
                                     color="success"
-                                    onClick={() => handleApproveTransaction(transaction.id)}
+                                    onClick={() => handleCompleteTransaction(transaction.id)}
                                   >
                                     <ApproveIcon />
                                   </IconButton>
                                 </Tooltip>
-                                <Tooltip title="Reject">
+                                <Tooltip title="Cancel">
                                   <IconButton 
                                     size="small" 
                                     color="error"
-                                    onClick={() => handleRejectTransaction(transaction.id)}
+                                    onClick={() => handleCancelTransaction(transaction.id)}
                                   >
                                     <RejectIcon />
                                   </IconButton>
                                 </Tooltip>
                               </>
-                            )}
-                            {transaction.status === 'Approved' && (
-                              <Tooltip title="Mark Complete">
-                                <IconButton 
-                                  size="small" 
-                                  color="success"
-                                  onClick={() => handleCompleteTransaction(transaction.id)}
-                                >
-                                  <ApproveIcon />
-                                </IconButton>
-                              </Tooltip>
                             )}
                             <Tooltip title="Edit">
                               <IconButton 
@@ -878,7 +893,7 @@ const AdminTransactionPage: React.FC = () => {
                         />
                       </Typography>
                       <Typography><strong>Quantity:</strong> {selectedTransaction.quantity}</Typography>
-                      <Typography><strong>Date:</strong> {new Date(selectedTransaction.transaction_date).toLocaleString()}</Typography>
+                      <Typography><strong>Date:</strong> {selectedTransaction.transaction_date ? new Date(selectedTransaction.transaction_date).toLocaleString() : new Date(selectedTransaction.date).toLocaleString()}</Typography>
                     </CardContent>
                   </Card>
                 </Grid>
@@ -886,11 +901,15 @@ const AdminTransactionPage: React.FC = () => {
                   <Card variant="outlined">
                     <CardContent>
                       <Typography variant="h6" gutterBottom>Asset Details</Typography>
-                      <Typography><strong>Asset ID:</strong> {selectedTransaction.asset.unique_asset_id}</Typography>
-                      <Typography><strong>Manufacturer:</strong> {selectedTransaction.asset.manufacturer}</Typography>
-                      <Typography><strong>Model:</strong> {selectedTransaction.asset.model}</Typography>
-                      <Typography><strong>Serial Number:</strong> {selectedTransaction.asset.serial_number}</Typography>
-                      <Typography><strong>Current Location:</strong> {selectedTransaction.asset.location}</Typography>
+                      <Typography><strong>Asset ID:</strong> {selectedTransaction.asset?.unique_asset_id || selectedTransaction.asset_id}</Typography>
+                      <Typography><strong>Manufacturer:</strong> {selectedTransaction.asset?.manufacturer || 'N/A'}</Typography>
+                      <Typography><strong>Model:</strong> {selectedTransaction.asset?.model || 'N/A'}</Typography>
+                      {selectedTransaction.asset?.serial_number && (
+                        <Typography><strong>Serial Number:</strong> {selectedTransaction.asset.serial_number}</Typography>
+                      )}
+                      {selectedTransaction.asset?.location && (
+                        <Typography><strong>Current Location:</strong> {selectedTransaction.asset.location}</Typography>
+                      )}
                     </CardContent>
                   </Card>
                 </Grid>
@@ -899,10 +918,10 @@ const AdminTransactionPage: React.FC = () => {
                     <CardContent>
                       <Typography variant="h6" gutterBottom>Participants</Typography>
                       {selectedTransaction.from_user && (
-                        <Typography><strong>From User:</strong> {selectedTransaction.from_user.name}</Typography>
+                        <Typography><strong>From User:</strong> {typeof selectedTransaction.from_user === 'object' ? selectedTransaction.from_user.name : selectedTransaction.from_user}</Typography>
                       )}
                       {selectedTransaction.to_user && (
-                        <Typography><strong>To User:</strong> {selectedTransaction.to_user.name}</Typography>
+                        <Typography><strong>To User:</strong> {typeof selectedTransaction.to_user === 'object' ? selectedTransaction.to_user.name : selectedTransaction.to_user}</Typography>
                       )}
                       {selectedTransaction.approved_by && (
                         <Typography><strong>Approved By:</strong> {selectedTransaction.approved_by.name}</Typography>
@@ -926,14 +945,14 @@ const AdminTransactionPage: React.FC = () => {
                       {selectedTransaction.estimated_completion && (
                         <Typography><strong>Estimated Completion:</strong> {new Date(selectedTransaction.estimated_completion).toLocaleDateString()}</Typography>
                       )}
-                      <Typography><strong>Created:</strong> {new Date(selectedTransaction.transaction_date).toLocaleString()}</Typography>
+                      <Typography><strong>Created:</strong> {selectedTransaction.transaction_date ? new Date(selectedTransaction.transaction_date).toLocaleString() : new Date(selectedTransaction.date).toLocaleString()}</Typography>
                     </CardContent>
                   </Card>
                 </Grid>
                 {selectedTransaction.status === 'Pending' && (
                   <Grid item xs={12}>
                     <Alert severity="info">
-                      This transaction is pending approval. Use the action buttons to approve or reject it.
+                      This transaction is pending. Use the action buttons to complete or cancel it.
                     </Alert>
                   </Grid>
                 )}
@@ -951,40 +970,26 @@ const AdminTransactionPage: React.FC = () => {
                   color="error"
                   onClick={() => {
                     if (selectedTransaction) {
-                      handleRejectTransaction(selectedTransaction.id);
+                      handleCancelTransaction(selectedTransaction.id);
                       setViewTransactionDialogOpen(false);
                     }
                   }}
                 >
-                  Reject
+                  Cancel
                 </Button>
                 <Button 
                   variant="contained" 
                   color="success"
                   onClick={() => {
                     if (selectedTransaction) {
-                      handleApproveTransaction(selectedTransaction.id);
+                      handleCompleteTransaction(selectedTransaction.id);
                       setViewTransactionDialogOpen(false);
                     }
                   }}
                 >
-                  Approve
+                  Complete
                 </Button>
               </ButtonGroup>
-            )}
-            {selectedTransaction?.status === 'Approved' && (
-              <Button 
-                variant="contained" 
-                color="success"
-                onClick={() => {
-                  if (selectedTransaction) {
-                    handleCompleteTransaction(selectedTransaction.id);
-                    setViewTransactionDialogOpen(false);
-                  }
-                }}
-              >
-                Mark Complete
-              </Button>
             )}
           </DialogActions>
         </Dialog>

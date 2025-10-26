@@ -28,6 +28,7 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { BrowserQRCodeReader } from '@zxing/library';
+import api from '../../services/api';
 
 interface Asset {
   id: string;
@@ -70,32 +71,24 @@ const QRScanner = ({ open, onClose, onAssetFound, mode = 'lookup' }: QRScannerPr
       
       setLoading(true);
       
-      // Mock API call to fetch asset by QR code
-      // In real implementation, this would call your backend API
-      const mockAsset: Asset = {
-        id: '1',
-        unique_asset_id: qrText,
-        manufacturer: 'Dell',
-        model: 'XPS 15',
-        serial_number: 'DLL123456789',
-        status: 'Active',
-        location: 'IT Department - Floor 2',
-        assigned_user: 'John Smith',
-        last_audit_date: '2024-01-01',
-        condition: 'Good',
-      };
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setScannedAsset(mockAsset);
-      onAssetFound(mockAsset);
-      
-      // Auto-close after successful scan in lookup mode
-      if (mode === 'lookup') {
-        setTimeout(() => {
-          onClose();
-        }, 2000);
+      try {
+        // Fetch asset by QR code from backend API
+        const response = await api.get(`/assets/qr/${encodeURIComponent(qrText)}`);
+        const asset = response.data.data || response.data;
+        
+        setScannedAsset(asset);
+        onAssetFound(asset);
+        
+        // Auto-close after successful scan in lookup mode
+        if (mode === 'lookup') {
+          setTimeout(() => {
+            onClose();
+          }, 2000);
+        }
+      } catch (error) {
+        console.error('Error fetching asset:', error);
+        setError('Asset not found');
+        setScanning(true);
       }
       
     } catch (err: any) {

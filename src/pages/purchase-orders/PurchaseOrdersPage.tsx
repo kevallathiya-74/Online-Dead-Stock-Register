@@ -57,6 +57,7 @@ import {
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface PurchaseOrder {
   id: string;
@@ -99,71 +100,15 @@ const PurchaseOrdersPage = () => {
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [viewPOOpen, setViewPOOpen] = useState(false);
 
-  // Generate dynamic PO data
-  const generatePurchaseOrders = (): PurchaseOrder[] => {
-    const vendors = [
-      { name: 'TechCorp Solutions Pvt Ltd', id: 'VND-001' },
-      { name: 'Office Plus Supplies', id: 'VND-002' },
-      { name: 'Global IT Hardware', id: 'VND-003' },
-      { name: 'Premium Furniture Co.', id: 'VND-004' },
-      { name: 'Industrial Equipment Ltd', id: 'VND-005' },
-      { name: 'Digital Solutions Inc', id: 'VND-006' },
-      { name: 'Smart Systems International', id: 'VND-007' },
-    ];
-
-    const statuses: ('Draft' | 'Pending Approval' | 'Approved' | 'Ordered' | 'Delivered' | 'Cancelled' | 'Invoiced')[] = 
-      ['Draft', 'Pending Approval', 'Approved', 'Ordered', 'Delivered', 'Cancelled', 'Invoiced'];
-    const priorities: ('Low' | 'Medium' | 'High' | 'Urgent')[] = ['Low', 'Medium', 'High', 'Urgent'];
-    const paymentTerms = ['Net 15', 'Net 30', 'Net 45', 'COD', '2/10 Net 30'];
-    const users = ['John Smith', 'Sarah Johnson', 'Mike Chen', 'Lisa Brown', 'David Wilson'];
-
-    return Array.from({ length: 50 }, (_, index) => {
-      const vendor = vendors[index % vendors.length];
-      const orderDate = new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1);
-      const expectedDelivery = new Date(orderDate.getTime() + (7 + Math.random() * 14) * 24 * 60 * 60 * 1000);
-      const status = statuses[Math.floor(Math.random() * statuses.length)];
-      const isDelivered = status === 'Delivered';
-      const baseAmount = Math.floor(Math.random() * 500000) + 50000;
-      const discountPercent = Math.floor(Math.random() * 10);
-      const discountAmount = (baseAmount * discountPercent) / 100;
-      const taxableAmount = baseAmount - discountAmount;
-      const taxAmount = Math.floor(taxableAmount * 0.18); // 18% GST
-      const totalAmount = taxableAmount + taxAmount;
-
-      return {
-        id: `PO-${(index + 1).toString().padStart(4, '0')}`,
-        vendor_name: vendor.name,
-        vendor_id: vendor.id,
-        order_date: orderDate.toISOString().split('T')[0],
-        expected_delivery: expectedDelivery.toISOString().split('T')[0],
-        actual_delivery: isDelivered ? 
-          new Date(expectedDelivery.getTime() + (Math.random() - 0.5) * 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : 
-          undefined,
-        status,
-        priority: priorities[Math.floor(Math.random() * priorities.length)],
-        total_amount: totalAmount,
-        currency: 'INR',
-        items_count: Math.floor(Math.random() * 10) + 1,
-        created_by: users[Math.floor(Math.random() * users.length)],
-        approved_by: ['Approved', 'Ordered', 'Delivered', 'Invoiced'].includes(status) ? 
-          users[Math.floor(Math.random() * users.length)] : undefined,
-        notes: Math.random() > 0.6 ? 'Special delivery instructions or additional requirements' : undefined,
-        payment_terms: paymentTerms[Math.floor(Math.random() * paymentTerms.length)],
-        delivery_address: 'Main Office, Business District, Mumbai - 400001',
-        discount_percent: discountPercent,
-        tax_amount: taxAmount,
-      };
-    });
-  };
-
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const poData = generatePurchaseOrders();
+        const response = await api.get('/purchase-management/purchase-orders');
+        const poData = response.data.data || response.data;
         setPurchaseOrders(poData);
       } catch (error) {
+        console.error('Failed to load purchase orders:', error);
         toast.error('Failed to load purchase orders');
       } finally {
         setLoading(false);

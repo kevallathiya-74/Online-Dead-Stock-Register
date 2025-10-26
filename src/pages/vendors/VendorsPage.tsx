@@ -51,6 +51,7 @@ import {
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface Vendor {
   id: string;
@@ -81,70 +82,15 @@ const VendorsPage = () => {
   console.log('Selected vendor for menu:', selectedVendor?.name); // Use to avoid warning
   const [addVendorOpen, setAddVendorOpen] = useState(false);
 
-  // Generate dynamic vendor data
-  const generateVendorData = (): Vendor[] => {
-    const vendorNames = [
-      'TechCorp Solutions Pvt Ltd',
-      'Office Plus Supplies',
-      'Global IT Hardware',
-      'Premium Furniture Co.',
-      'Industrial Equipment Ltd',
-      'Digital Solutions Inc',
-      'Smart Systems International',
-      'Advanced Technology Partners',
-      'Quality Office Solutions',
-      'Modern Equipment Suppliers',
-      'Elite Business Systems',
-      'Professional IT Services',
-      'Superior Hardware Co.',
-      'Innovative Tech Solutions',
-      'Corporate Supply Chain',
-    ];
-
-    const specializations = [
-      ['IT Equipment', 'Computers', 'Networking'],
-      ['Office Supplies', 'Stationery', 'Furniture'],
-      ['Hardware', 'Components', 'Accessories'],
-      ['Furniture', 'Ergonomic', 'Office Design'],
-      ['Industrial', 'Machinery', 'Tools'],
-      ['Software', 'Licenses', 'Support'],
-      ['Smart Devices', 'IoT', 'Automation'],
-      ['Networking', 'Security', 'Infrastructure'],
-      ['Office Management', 'Supplies', 'Services'],
-      ['Equipment', 'Maintenance', 'Support'],
-    ];
-
-    const paymentTerms = ['Net 15', 'Net 30', 'Net 45', 'Net 60', 'COD', '2/10 Net 30'];
-    const statuses: ('Active' | 'Inactive' | 'Suspended')[] = ['Active', 'Active', 'Active', 'Inactive', 'Suspended'];
-
-    return vendorNames.map((name, index) => ({
-      id: `VND-${(index + 1).toString().padStart(3, '0')}`,
-      name,
-      contact_person: ['Rajesh Kumar', 'Priya Singh', 'Amit Sharma', 'Neha Patel', 'Vikram Joshi'][index % 5],
-      email: `contact@${name.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
-      phone: `+91 ${Math.floor(Math.random() * 9000000000) + 1000000000}`,
-      address: `${Math.floor(Math.random() * 999) + 1}, Business District, ${['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Pune'][index % 5]}`,
-      specialization: specializations[index % specializations.length],
-      rating: Math.round((Math.random() * 2 + 3) * 10) / 10, // 3.0 to 5.0
-      total_orders: Math.floor(Math.random() * 100) + 10,
-      total_value: Math.floor(Math.random() * 5000000) + 500000, // 5L to 50L
-      payment_terms: paymentTerms[index % paymentTerms.length],
-      status: statuses[index % statuses.length],
-      registration_date: new Date(2020 + Math.floor(Math.random() * 4), Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString().split('T')[0],
-      last_order_date: new Date(2024, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString().split('T')[0],
-      performance_score: Math.floor(Math.random() * 30) + 70, // 70-100
-    }));
-  };
-
   useEffect(() => {
     const loadVendors = async () => {
       setLoading(true);
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const vendorData = generateVendorData();
+        const response = await api.get('/vendors');
+        const vendorData = response.data.data || response.data;
         setVendors(vendorData);
       } catch (error) {
+        console.error('Failed to load vendors:', error);
         toast.error('Failed to load vendors');
       } finally {
         setLoading(false);

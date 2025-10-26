@@ -17,7 +17,10 @@ import {
   Security as SecurityIcon,
   Assessment as ReportIcon,
   History as HistoryIcon,
-  Backup as BackupIcon
+  Backup as BackupIcon,
+  FactCheck as AuditIcon,
+  CheckCircle as ComplianceIcon,
+  PlaylistAddCheck as AuditListIcon
 } from '@mui/icons-material';
 
 export interface NavigationItem {
@@ -93,59 +96,28 @@ export const inventoryManagerNavigation: NavigationItem[] = [
     icon: DashboardIcon,
   },
   {
-    id: 'inventory',
-    title: 'Dead Stock Management',
-    path: '/inventory',
-    icon: InventoryIcon,
-    children: [
-      { id: 'dead-stock', title: 'Dead Stock Items', path: '/inventory/dead-stock', icon: InventoryIcon },
-      { id: 'add-item', title: 'Add Dead Stock', path: '/inventory/add', icon: InventoryIcon },
-      { id: 'disposal', title: 'Disposal Records', path: '/inventory/disposal', icon: InventoryIcon },
-    ],
-  },
-  {
     id: 'assets',
-    title: 'Assets',
+    title: 'Asset Management',
     path: '/assets',
     icon: InventoryIcon,
     children: [
       { id: 'all-assets', title: 'View Assets', path: '/assets', icon: InventoryIcon },
-      { id: 'maintenance', title: 'Maintenance', path: '/assets/maintenance', icon: MaintenanceIcon },
-    ],
-  },
-  {
-    id: 'reports',
-    title: 'Reports',
-    path: '/reports',
-    icon: ReportIcon,
-    children: [
-      { id: 'inventory-reports', title: 'Inventory Reports', path: '/reports/inventory', icon: ReportIcon },
-      { id: 'disposal-reports', title: 'Disposal Reports', path: '/reports/disposal', icon: ReportIcon },
-    ],
-  },
-  {
-    id: 'assets',
-    title: 'Assets',
-    path: '/assets',
-    icon: InventoryIcon,
-    children: [
-      { id: 'inventory', title: 'Inventory', path: '/assets', icon: InventoryIcon },
       { id: 'add-asset', title: 'Add Asset', path: '/assets/add', icon: InventoryIcon },
       { id: 'transfers', title: 'Transfers', path: '/assets/transfers', icon: InventoryIcon },
       { id: 'labels', title: 'Labels', path: '/assets/labels', icon: InventoryIcon },
       { id: 'bulk-import', title: 'Bulk Import', path: '/assets/import', icon: InventoryIcon },
+      { id: 'maintenance', title: 'Maintenance', path: '/assets/maintenance', icon: MaintenanceIcon },
     ],
   },
   {
     id: 'purchases',
-    title: 'Purchases',
+    title: 'Purchase Orders',
     path: '/purchase-orders',
     icon: PurchaseIcon,
     children: [
       { id: 'orders', title: 'Orders', path: '/purchase-orders', icon: PurchaseIcon },
       { id: 'vendors', title: 'Vendors', path: '/vendors', icon: VendorIcon },
       { id: 'invoices', title: 'Invoices', path: '/purchase-orders/invoices', icon: DocumentIcon },
-      { id: 'budget-tracking', title: 'Budget Tracking', path: '/purchase-orders/budget', icon: AnalyticsIcon },
     ],
   },
   {
@@ -156,15 +128,8 @@ export const inventoryManagerNavigation: NavigationItem[] = [
     children: [
       { id: 'schedule', title: 'Schedule', path: '/maintenance', icon: MaintenanceIcon },
       { id: 'warranty', title: 'Warranty', path: '/maintenance/warranty', icon: SecurityIcon },
-      { id: 'amc', title: 'AMC', path: '/maintenance/amc', icon: MaintenanceIcon },
       { id: 'scrap', title: 'Scrap Management', path: '/maintenance/scrap', icon: MaintenanceIcon },
     ],
-  },
-  {
-    id: 'locations',
-    title: 'Locations',
-    path: '/locations',
-    icon: LocationIcon,
   },
   {
     id: 'reports',
@@ -179,7 +144,7 @@ export const inventoryManagerNavigation: NavigationItem[] = [
     ],
   },
   {
-    id: 'my-approvals',
+    id: 'approvals',
     title: 'My Approvals',
     path: '/approvals',
     icon: ApprovalIcon,
@@ -194,31 +159,105 @@ export const employeeNavigation: NavigationItem[] = [
     icon: DashboardIcon,
   },
   {
-    id: 'assets',
-    title: 'Dead Stock Items',
-    path: '/assets',
+    id: 'my-assets',
+    title: 'My Assets',
+    path: '/employee/my-assets',
     icon: InventoryIcon,
-    children: [
-      { id: 'view-items', title: 'View Items', path: '/assets/view', icon: InventoryIcon },
-      { id: 'my-items', title: 'My Items', path: '/assets/my-items', icon: InventoryIcon },
-    ]
   },
   {
     id: 'requests',
-    title: 'Requests',
-    path: '/requests',
+    title: 'My Requests',
+    path: '/employee/requests',
     icon: RequestIcon,
     children: [
-      { id: 'new-request', title: 'New Request', path: '/requests/new', icon: RequestIcon },
-      { id: 'my-requests', title: 'My Requests', path: '/requests', icon: RequestIcon },
+      { id: 'new-request', title: 'New Request', path: '/employee/requests/new', icon: RequestIcon },
+      { id: 'my-requests', title: 'View Requests', path: '/employee/requests', icon: RequestIcon },
     ],
   },
   {
     id: 'profile',
-    title: 'Profile',
-    path: '/profile',
+    title: 'My Profile',
+    path: '/employee/profile',
     icon: ProfileIcon,
-  }
+  },
+  {
+    id: 'help',
+    title: 'Help & Support',
+    path: '/employee/help',
+    icon: HelpIcon,
+  },
+];
+
+export const auditorNavigation: NavigationItem[] = [
+  {
+    id: 'dashboard',
+    title: 'Dashboard',
+    path: '/auditor/dashboard',
+    icon: DashboardIcon,
+  },
+  {
+    id: 'audit-list',
+    title: 'Audit List',
+    path: '/auditor/audit-list',
+    icon: AuditListIcon,
+  },
+  {
+    id: 'compliance',
+    title: 'Compliance Metrics',
+    path: '/auditor/compliance',
+    icon: ComplianceIcon,
+  },
+  {
+    id: 'reports',
+    title: 'Audit Reports',
+    path: '/reports',
+    icon: ReportIcon,
+  },
+  {
+    id: 'help',
+    title: 'Help & Support',
+    path: '/employee/help',
+    icon: HelpIcon,
+  },
+];
+
+export const vendorNavigation: NavigationItem[] = [
+  {
+    id: 'dashboard',
+    title: 'Dashboard',
+    path: '/vendor/dashboard',
+    icon: DashboardIcon,
+  },
+  {
+    id: 'orders',
+    title: 'My Orders',
+    path: '/vendor/orders',
+    icon: PurchaseIcon,
+  },
+  {
+    id: 'products',
+    title: 'My Products',
+    path: '/vendor/products',
+    icon: InventoryIcon,
+  },
+  {
+    id: 'invoices',
+    title: 'Invoices',
+    path: '/vendor/invoices',
+    icon: DocumentIcon,
+  },
+  {
+    id: 'profile',
+    title: 'Profile',
+    path: '/vendor/profile',
+    icon: ProfileIcon,
+  },
+  {
+    id: 'help',
+    title: 'Help & Support',
+    path: '/help',
+    icon: HelpIcon,
+  },
 ];
 
 export const getNavigationForRole = (role: UserRole): NavigationItem[] => {
@@ -229,6 +268,10 @@ export const getNavigationForRole = (role: UserRole): NavigationItem[] => {
       return inventoryManagerNavigation;
     case UserRole.EMPLOYEE:
       return employeeNavigation;
+    case UserRole.AUDITOR:
+      return auditorNavigation;
+    case UserRole.VENDOR:
+      return vendorNavigation;
     default:
       return employeeNavigation;
   }

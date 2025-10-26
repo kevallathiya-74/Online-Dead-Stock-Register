@@ -13,7 +13,7 @@ router.get('/:id', authMiddleware, approvalCtrl.getApprovalById);
 router.post('/', authMiddleware, approvalCtrl.createApproval);
 
 // Approver role only: PUT approve/reject
-router.put('/:id/approve', authMiddleware, requireRole(['Admin', 'Inventory_Manager']), approvalCtrl.approveRequest);
-router.put('/:id/reject', authMiddleware, requireRole(['Admin', 'Inventory_Manager']), approvalCtrl.rejectRequest);
+router.put('/:id/approve', authMiddleware, requireRole(['ADMIN', 'INVENTORY_MANAGER']), approvalCtrl.approveRequest);
+router.put('/:id/reject', authMiddleware, requireRole(['ADMIN', 'INVENTORY_MANAGER']), approvalCtrl.rejectRequest);
 
 module.exports = router;

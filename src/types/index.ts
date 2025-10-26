@@ -12,13 +12,16 @@ export interface User {
 export enum UserRole {
   ADMIN = 'ADMIN',
   INVENTORY_MANAGER = 'INVENTORY_MANAGER',
-  EMPLOYEE = 'EMPLOYEE'
+  EMPLOYEE = 'EMPLOYEE',
+  AUDITOR = 'AUDITOR',
+  VENDOR = 'VENDOR'
 }
 
 export enum Department {
   INVENTORY = 'INVENTORY',
   IT = 'IT',
-  ADMIN = 'ADMIN'
+  ADMIN = 'ADMIN',
+  VENDOR = 'VENDOR'
 }
 
 // Asset Types
@@ -165,4 +168,166 @@ export interface PaginatedResponse<T> {
   page: number;
   limit: number;
   hasMore: boolean;
+}
+
+// Auditor Types
+export interface AuditorStats {
+  total_assigned: number;
+  completed: number;
+  pending: number;
+  discrepancies: number;
+  missing: number;
+  completion_rate: number;
+}
+
+export interface AuditItem {
+  id: string;
+  asset_id: string;
+  asset_name: string;
+  location: string;
+  assigned_user: string;
+  last_audit_date: string;
+  status: 'verified' | 'pending' | 'discrepancy' | 'missing';
+  condition: string;
+  notes?: string;
+}
+
+export interface AuditActivity {
+  id: string;
+  type: 'audit_completed' | 'asset_missing' | 'discrepancy_found' | 'compliance_check';
+  title: string;
+  description: string;
+  timestamp: string;
+  asset_id: string;
+  location: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+}
+
+export interface ComplianceMetrics {
+  overallScore: number;
+  categoryScores: {
+    [key: string]: number;
+  };
+  trends: Array<{
+    date: string;
+    score: number;
+  }>;
+}
+
+export interface ChartData {
+  labels: string[];
+  datasets: Array<{
+    label: string;
+    data: number[];
+    backgroundColor?: string | string[];
+    borderColor?: string;
+    borderWidth?: number;
+  }>;
+}
+
+// Vendor Portal Types
+export interface VendorStats {
+  totalOrders: number;
+  pendingOrders: number;
+  completedOrders: number;
+  totalRevenue: string;
+  currency: string;
+  activeProducts: number;
+  pendingInvoices: number;
+  onTimeDeliveryRate: number;
+  performanceScore: number;
+}
+
+export interface VendorOrder {
+  _id: string;
+  po_number: string;
+  status: string;
+  priority: string;
+  total_amount: number;
+  currency: string;
+  expected_delivery_date: string;
+  actual_delivery_date?: string;
+  order_date: string;
+  items_count: number;
+  requested_by: {
+    name: string;
+    email: string;
+    department: string;
+  } | null;
+  approved_by: {
+    name: string;
+    email: string;
+  } | null;
+  payment_terms?: string;
+  payment_method?: string;
+}
+
+export interface VendorProduct {
+  _id: string;
+  asset_id: string;
+  name: string;
+  description: string;
+  category: string;
+  status: string;
+  condition: string;
+  purchase_price: number;
+  current_value: number;
+  purchase_date: string;
+  warranty_expiry?: string;
+  assigned_to: {
+    name: string;
+    email: string;
+    department: string;
+  } | null;
+  location: any;
+  quantity: number;
+  serial_number?: string;
+  model_number?: string;
+}
+
+export interface VendorInvoice {
+  _id: string;
+  invoice_number: string;
+  order_number: string;
+  invoice_date: string;
+  due_date: string;
+  amount: number;
+  currency: string;
+  status: 'paid' | 'pending' | 'overdue';
+  payment_method: string;
+  payment_terms: string;
+  items_count: number;
+  requested_by: string;
+}
+
+export interface VendorProfile {
+  _id: string;
+  company_name: string;
+  contact_person: string;
+  email: string;
+  phone: string;
+  address: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zip_code?: string;
+    country?: string;
+  };
+  category: string[];
+  gst_number?: string;
+  pan_number?: string;
+  bank_details?: {
+    bank_name?: string;
+    account_number?: string;
+    ifsc_code?: string;
+  };
+  rating?: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  performance?: {
+    total_orders: number;
+    on_time_delivery_rate: number;
+    rating: number;
+  };
 }

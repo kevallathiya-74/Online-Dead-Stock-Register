@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 30
+    },
+    "auditLog": "D:\\Online-Dead-Stock-Register\\backend\\logs\\.9e61922c60aa968574d0cf694adceac76a606e8d-audit.json",
+    "files": [
+        {
+            "date": 1761513250174,
+            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\exceptions-2025-10-27.log",
+            "hash": "e7b17dd615dc67562bd53d23ad23c6c03572fe58275f87319aeea15469dc8eb9"
+        }
+    ],
+    "hashType": "sha256"
+}

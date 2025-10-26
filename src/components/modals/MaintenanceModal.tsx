@@ -28,6 +28,7 @@ import {
   Person as PersonIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface MaintenanceModalProps {
   open: boolean;
@@ -152,16 +153,15 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({ open, onClose, onSu
       const maintenanceId = generateMaintenanceId();
       const maintenanceData = {
         ...formData,
-        id: Date.now().toString(),
         maintenance_id: maintenanceId,
         status: 'scheduled',
-        created_date: new Date().toISOString().split('T')[0],
         cost_estimate: parseFloat(formData.cost_estimate) || 0,
       };
 
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+      const response = await api.post('/maintenance', maintenanceData);
+      const createdMaintenance = response.data.data || response.data;
       
-      onSubmit(maintenanceData);
+      onSubmit(createdMaintenance);
       toast.success(`Maintenance scheduled successfully! ID: ${maintenanceId}`);
       
       // Reset form

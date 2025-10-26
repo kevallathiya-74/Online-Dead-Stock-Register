@@ -63,7 +63,29 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import AdminDataService, { AdminAsset } from '../../data/adminDataService';
+import api from '../../services/api';
+
+interface AdminAsset {
+  id: string;
+  unique_asset_id: string;
+  manufacturer: string;
+  model: string;
+  serial_number: string;
+  asset_type: string;
+  location: string;
+  assigned_user?: string | { name: string; department: string };
+  purchase_cost: number;
+  purchase_date: string;
+  warranty_expiry?: string;
+  condition: string;
+  status: string;
+  created_at: string;
+  current_value?: number;
+  depreciation_rate?: number;
+  last_audit_date?: string;
+  expected_lifespan?: number;
+  qr_code?: string;
+}
 
 const AdminAssetPage: React.FC = () => {
   const [assets, setAssets] = useState<AdminAsset[]>([]);
@@ -113,24 +135,36 @@ const AdminAssetPage: React.FC = () => {
   const loadAssets = async () => {
     setLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const assetData = AdminDataService.getAssets();
+      const response = await api.get('/assets');
+      const assetData = response.data.data || response.data;
       setAssets(assetData);
     } catch (error) {
+      console.error('Failed to load assets:', error);
       toast.error('Failed to load assets');
     } finally {
       setLoading(false);
     }
   };
 
+  // Calculate statistics from loaded assets
+  const stats = {
+    total: assets.length,
+    active: assets.filter(a => a.status === 'Active').length,
+    maintenance: assets.filter(a => a.status === 'Under Maintenance').length,
+    available: assets.filter(a => a.status === 'Available').length,
+    totalValue: assets.reduce((sum, a) => sum + (a.current_value || a.purchase_cost || 0), 0)
+  };
+
   const filteredAssets = assets.filter((asset) => {
+    const assignedUserName = typeof asset.assigned_user === 'object' ? asset.assigned_user?.name : asset.assigned_user;
+    
     const matchesSearch = 
       asset.unique_asset_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       asset.manufacturer.toLowerCase().includes(searchTerm.toLowerCase()) ||
       asset.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
       asset.serial_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       asset.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      asset.assigned_user?.name.toLowerCase().includes(searchTerm.toLowerCase()) || '';
+      assignedUserName?.toLowerCase().includes(searchTerm.toLowerCase()) || '';
     
     const matchesStatus = selectedStatus === 'all' || asset.status === selectedStatus;
     const matchesType = selectedType === 'all' || asset.asset_type === selectedType;
@@ -148,33 +182,36 @@ const AdminAssetPage: React.FC = () => {
     }
 
     try {
-      const asset: AdminAsset = {
-        id: `asset_${Date.now()}`,
-        unique_asset_id: `AST-${String(assets.length + 10001).padStart(5, '0')}`,
+      const assetData = {
+        name: `${newAsset.manufacturer} ${newAsset.model}`,
         manufacturer: newAsset.manufacturer,
         model: newAsset.model,
         serial_number: newAsset.serial_number,
-        asset_type: newAsset.asset_type,
+        category: newAsset.asset_type,
         location: newAsset.location,
-        status: 'Available',
         purchase_date: new Date().toISOString().split('T')[0],
-        purchase_cost: parseFloat(newAsset.purchase_cost) || 0,
+        purchase_value: parseFloat(newAsset.purchase_cost) || 0,
         warranty_expiry: newAsset.warranty_expiry,
-        last_audit_date: new Date().toISOString().split('T')[0],
-        condition: newAsset.condition as any,
-        expected_lifespan: 5,
-        qr_code: `QR-${assets.length + 10001}`,
-        vendor: newAsset.manufacturer,
-        depreciation_rate: 15,
-        current_value: parseFloat(newAsset.purchase_cost) || 0
+        condition: newAsset.condition,
+        status: 'Active'
       };
 
-      setAssets(prev => [...prev, asset]);
+      console.log('Creating asset via API:', assetData);
+      
+      // Call API to create asset
+      const response = await api.post('/assets', assetData);
+      console.log('Asset created successfully:', response.data);
+      
+      // Reload assets from server
+      await loadAssets();
+      
       setAddAssetDialogOpen(false);
       resetNewAsset();
-      toast.success('Asset created successfully');
-    } catch (error) {
-      toast.error('Failed to create asset');
+      toast.success(`Asset created successfully! ID: ${response.data.data?.unique_asset_id || ''}`);
+    } catch (error: any) {
+      console.error('Failed to create asset:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to create asset';
+      toast.error(errorMsg);
     }
   };
 
@@ -186,12 +223,26 @@ const AdminAssetPage: React.FC = () => {
     }
   };
 
-  const confirmDeleteAsset = () => {
-    if (selectedAsset) {
-      setAssets(prev => prev.filter(asset => asset.id !== selectedAsset.id));
+  const confirmDeleteAsset = async () => {
+    if (!selectedAsset) return;
+    
+    try {
+      console.log('Deleting asset via API:', selectedAsset.id);
+      
+      // Call API to delete asset
+      await api.delete(`/assets/${selectedAsset.id}`);
+      
+      // Reload assets from server
+      await loadAssets();
+      
       toast.success('Asset deleted successfully');
       setDeleteConfirmOpen(false);
       setSelectedAsset(null);
+    } catch (error: any) {
+      console.error('Failed to delete asset:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to delete asset';
+      toast.error(errorMsg);
+      setDeleteConfirmOpen(false);
     }
   };
 
@@ -204,7 +255,7 @@ const AdminAssetPage: React.FC = () => {
       asset_type: asset.asset_type,
       location: asset.location,
       purchase_cost: asset.purchase_cost.toString(),
-      warranty_expiry: asset.warranty_expiry.split('T')[0],
+      warranty_expiry: asset.warranty_expiry ? asset.warranty_expiry.split('T')[0] : '',
       condition: asset.condition,
       status: asset.status
     });
@@ -215,29 +266,33 @@ const AdminAssetPage: React.FC = () => {
     if (!selectedAsset) return;
     
     try {
-      const updatedAsset: AdminAsset = {
-        ...selectedAsset,
+      const assetData = {
         manufacturer: editAsset.manufacturer,
         model: editAsset.model,
         serial_number: editAsset.serial_number,
-        asset_type: editAsset.asset_type,
+        category: editAsset.asset_type,
         location: editAsset.location,
-        purchase_cost: parseFloat(editAsset.purchase_cost) || 0,
+        purchase_value: parseFloat(editAsset.purchase_cost) || 0,
         warranty_expiry: editAsset.warranty_expiry,
         condition: editAsset.condition,
-        status: editAsset.status as AdminAsset['status'],
-        current_value: parseFloat(editAsset.purchase_cost) * (1 - (selectedAsset.depreciation_rate || 0) / 100)
+        status: editAsset.status
       };
 
-      setAssets(prev => prev.map(asset => 
-        asset.id === selectedAsset.id ? updatedAsset : asset
-      ));
+      console.log('Updating asset via API:', selectedAsset.id, assetData);
+      
+      // Call API to update asset
+      await api.put(`/assets/${selectedAsset.id}`, assetData);
+      
+      // Reload assets from server
+      await loadAssets();
       
       setEditAssetDialogOpen(false);
       setSelectedAsset(null);
       toast.success('Asset updated successfully');
-    } catch (error) {
-      toast.error('Failed to update asset');
+    } catch (error: any) {
+      console.error('Failed to update asset:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to update asset';
+      toast.error(errorMsg);
     }
   };
 
@@ -261,13 +316,26 @@ const AdminAssetPage: React.FC = () => {
     }
   };
 
-  const handleBulkAction = (action: string) => {
+  const handleBulkAction = async (action: string) => {
     switch (action) {
       case 'delete':
         if (window.confirm(`Are you sure you want to delete ${bulkSelected.length} assets?`)) {
-          setAssets(prev => prev.filter(asset => !bulkSelected.includes(asset.id)));
-          setBulkSelected([]);
-          toast.success(`${bulkSelected.length} assets deleted`);
+          try {
+            console.log('Bulk deleting assets via API:', bulkSelected);
+            
+            // Call API to bulk delete assets
+            await api.post('/assets/bulk-delete', { assetIds: bulkSelected });
+            
+            // Reload assets from server
+            await loadAssets();
+            
+            setBulkSelected([]);
+            toast.success(`${bulkSelected.length} assets deleted`);
+          } catch (error: any) {
+            console.error('Failed to bulk delete assets:', error);
+            const errorMsg = error.response?.data?.message || error.message || 'Failed to delete assets';
+            toast.error(errorMsg);
+          }
         }
         break;
       case 'maintenance':
@@ -345,7 +413,6 @@ const AdminAssetPage: React.FC = () => {
     }
   };
 
-  const stats = AdminDataService.getAssetStatistics();
   const assetTypes = Array.from(new Set(assets.map(a => a.asset_type)));
   const locations = Array.from(new Set(assets.map(a => a.location)));
   const statuses = ['Active', 'Available', 'Under Maintenance', 'Damaged', 'Ready for Scrap'];
@@ -437,7 +504,7 @@ const AdminAssetPage: React.FC = () => {
                     <Typography variant="overline" sx={{ opacity: 0.8 }}>
                       Assigned
                     </Typography>
-                    <Typography variant="h4">{stats.assigned}</Typography>
+                    <Typography variant="h4">{assets.filter(a => a.assigned_user).length}</Typography>
                     <Typography variant="caption" sx={{ opacity: 0.8 }}>
                       In active use
                     </Typography>
@@ -455,7 +522,7 @@ const AdminAssetPage: React.FC = () => {
                     <Typography variant="overline" sx={{ opacity: 0.8 }}>
                       Maintenance
                     </Typography>
-                    <Typography variant="h4">{stats.underMaintenance}</Typography>
+                    <Typography variant="h4">{stats.maintenance}</Typography>
                     <Typography variant="caption" sx={{ opacity: 0.8 }}>
                       Needs attention
                     </Typography>
@@ -673,11 +740,13 @@ const AdminAssetPage: React.FC = () => {
                         {asset.assigned_user ? (
                           <Box>
                             <Typography variant="body2" fontWeight="medium">
-                              {asset.assigned_user.name}
+                              {typeof asset.assigned_user === 'object' ? asset.assigned_user.name : asset.assigned_user}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {asset.assigned_user.department}
-                            </Typography>
+                            {typeof asset.assigned_user === 'object' && asset.assigned_user.department && (
+                              <Typography variant="caption" color="text.secondary">
+                                {asset.assigned_user.department}
+                              </Typography>
+                            )}
                           </Box>
                         ) : (
                           <Typography variant="body2" color="text.secondary">
@@ -705,10 +774,10 @@ const AdminAssetPage: React.FC = () => {
                         <Box>
                           <Typography variant="caption" color="text.secondary" display="flex" alignItems="center" gap={0.5}>
                             <ScheduleIcon fontSize="inherit" />
-                            Last: {new Date(asset.last_audit_date).toLocaleDateString()}
+                            Last: {asset.last_audit_date ? new Date(asset.last_audit_date).toLocaleDateString() : 'N/A'}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            Warranty: {new Date(asset.warranty_expiry).toLocaleDateString()}
+                            Warranty: {asset.warranty_expiry ? new Date(asset.warranty_expiry).toLocaleDateString() : 'N/A'}
                           </Typography>
                         </Box>
                       </TableCell>
@@ -958,7 +1027,7 @@ const AdminAssetPage: React.FC = () => {
                         />
                       </Typography>
                       <Typography sx={{ mt: 1 }}><strong>Condition:</strong> {selectedAsset.condition}</Typography>
-                      <Typography><strong>Assigned User:</strong> {selectedAsset.assigned_user?.name || 'Unassigned'}</Typography>
+                      <Typography><strong>Assigned User:</strong> {typeof selectedAsset.assigned_user === 'object' ? selectedAsset.assigned_user?.name : selectedAsset.assigned_user || 'Unassigned'}</Typography>
                     </CardContent>
                   </Card>
                 </Grid>
@@ -967,8 +1036,10 @@ const AdminAssetPage: React.FC = () => {
                     <CardContent>
                       <Typography variant="h6" gutterBottom>Financial Information</Typography>
                       <Typography><strong>Purchase Cost:</strong> ${selectedAsset.purchase_cost.toLocaleString()}</Typography>
-                      <Typography><strong>Current Value:</strong> ${(selectedAsset.current_value || 0).toLocaleString()}</Typography>
-                      <Typography><strong>Depreciation Rate:</strong> {selectedAsset.depreciation_rate}%</Typography>
+                      <Typography><strong>Current Value:</strong> ${(selectedAsset.current_value || selectedAsset.purchase_cost).toLocaleString()}</Typography>
+                      {selectedAsset.depreciation_rate && (
+                        <Typography><strong>Depreciation Rate:</strong> {selectedAsset.depreciation_rate}%</Typography>
+                      )}
                       <Typography><strong>Purchase Date:</strong> {new Date(selectedAsset.purchase_date).toLocaleDateString()}</Typography>
                     </CardContent>
                   </Card>
@@ -977,9 +1048,11 @@ const AdminAssetPage: React.FC = () => {
                   <Card variant="outlined">
                     <CardContent>
                       <Typography variant="h6" gutterBottom>Maintenance</Typography>
-                      <Typography><strong>Last Audit:</strong> {new Date(selectedAsset.last_audit_date).toLocaleDateString()}</Typography>
-                      <Typography><strong>Warranty Expiry:</strong> {new Date(selectedAsset.warranty_expiry).toLocaleDateString()}</Typography>
-                      <Typography><strong>Expected Lifespan:</strong> {selectedAsset.expected_lifespan} years</Typography>
+                      <Typography><strong>Last Audit:</strong> {selectedAsset.last_audit_date ? new Date(selectedAsset.last_audit_date).toLocaleDateString() : 'N/A'}</Typography>
+                      <Typography><strong>Warranty Expiry:</strong> {selectedAsset.warranty_expiry ? new Date(selectedAsset.warranty_expiry).toLocaleDateString() : 'N/A'}</Typography>
+                      {selectedAsset.expected_lifespan && (
+                        <Typography><strong>Expected Lifespan:</strong> {selectedAsset.expected_lifespan} years</Typography>
+                      )}
                       <Typography><strong>QR Code:</strong> {selectedAsset.qr_code}</Typography>
                     </CardContent>
                   </Card>
@@ -1152,9 +1225,11 @@ const AdminAssetPage: React.FC = () => {
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Location: {selectedAsset?.location}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                QR Code: {selectedAsset?.qr_code}
-              </Typography>
+              {selectedAsset?.qr_code && (
+                <Typography variant="body2" color="text.secondary">
+                  QR Code: {selectedAsset.qr_code}
+                </Typography>
+              )}
             </Box>
           </DialogContent>
           <DialogActions>

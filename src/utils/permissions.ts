@@ -23,11 +23,11 @@ export const rolePermissions: Record<UserRole, RolePermissions> = {
     vendors: ['create', 'read', 'update', 'delete']
   },
   [UserRole.INVENTORY_MANAGER]: {
-    users: ['read'], // View only
-    assets: ['create', 'read', 'update'], // No delete
-    approvals: ['create', 'read', 'update'], // Limited approval types
-    reports: ['read', 'export'], // Generate inventory reports
-    system: [], // No system admin access
+    users: ['read'], 
+    assets: ['create', 'read', 'update'], 
+    approvals: ['create', 'read', 'update'],
+    reports: ['read', 'export'],
+    system: [], 
     documents: ['create', 'read', 'update'],
     vendors: ['create', 'read', 'update', 'delete']
   },
@@ -41,13 +41,22 @@ export const rolePermissions: Record<UserRole, RolePermissions> = {
     vendors: ['read']
   },
   [UserRole.EMPLOYEE]: {
-    users: [], // No user management
-    assets: ['read'], // Own assets only
-    approvals: ['create', 'read'], // Own requests only
-    reports: [], // No report access
-    system: [], // No system access
-    documents: ['read'], // View own documents only
-    vendors: ['read'] // View vendor info only
+    users: [], 
+    assets: ['read'], 
+    approvals: ['create', 'read'], 
+    reports: [], 
+    system: [], 
+    documents: ['read'], 
+    vendors: ['read'] 
+  },
+  [UserRole.VENDOR]: {
+    users: [],
+    assets: ['read'], 
+    approvals: [],
+    reports: [],
+    system: [],
+    documents: ['read'], 
+    vendors: ['read'] 
   }
 };
 

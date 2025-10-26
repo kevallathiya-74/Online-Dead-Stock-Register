@@ -2,17 +2,17 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { toast } from 'react-toastify';
 import { authService } from '../services/auth.service';
 import { UserRole } from '../types';
-
 import { Department } from '../types';
 
 interface JWTUser {
   id: string;
   email: string;
   role: UserRole;
+  name?: string;
   full_name?: string;
-  department: Department;  // Making department required
-  created_at: string;
-  updated_at: string;
+  department: Department;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface AuthContextType {

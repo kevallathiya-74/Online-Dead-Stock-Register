@@ -43,6 +43,7 @@ import {
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface Invoice {
   id: string;
@@ -87,111 +88,9 @@ const InvoicesPage = () => {
   const loadInvoiceData = async () => {
     try {
       setLoading(true);
-      // Simulate API call - replace with actual API call
-      const demoInvoices: Invoice[] = [
-        {
-          id: '1',
-          invoiceNumber: 'INV-2024-001',
-          purchaseOrderId: 'PO-2024-001',
-          vendorName: 'TechCorp Solutions',
-          vendorGSTIN: '27AABCT1234K1Z2',
-          invoiceDate: '2024-10-01',
-          dueDate: '2024-10-31',
-          status: 'Approved',
-          totalAmount: 118000,
-          taxAmount: 18000,
-          netAmount: 100000,
-          paymentMethod: 'Bank Transfer',
-          items: [
-            {
-              id: '1',
-              description: 'Dell Laptop XPS 15',
-              quantity: 2,
-              unitPrice: 50000,
-              taxRate: 18,
-              totalAmount: 118000,
-            },
-          ],
-          notes: 'Standard payment terms apply',
-        },
-        {
-          id: '2',
-          invoiceNumber: 'INV-2024-002',
-          purchaseOrderId: 'PO-2024-002',
-          vendorName: 'Office Supplies Ltd',
-          vendorGSTIN: '27AABCO5678M1N3',
-          invoiceDate: '2024-09-28',
-          dueDate: '2024-10-28',
-          status: 'Paid',
-          totalAmount: 23600,
-          taxAmount: 3600,
-          netAmount: 20000,
-          paymentMethod: 'UPI',
-          paymentDate: '2024-10-15',
-          paymentReference: 'TXN123456789',
-          items: [
-            {
-              id: '1',
-              description: 'Office Chairs',
-              quantity: 10,
-              unitPrice: 2000,
-              taxRate: 18,
-              totalAmount: 23600,
-            },
-          ],
-        },
-        {
-          id: '3',
-          invoiceNumber: 'INV-2024-003',
-          purchaseOrderId: 'PO-2024-003',
-          vendorName: 'IT Services Inc',
-          vendorGSTIN: '27AABIT9876P5Q4',
-          invoiceDate: '2024-10-05',
-          dueDate: '2024-11-05',
-          status: 'Received',
-          totalAmount: 59000,
-          taxAmount: 9000,
-          netAmount: 50000,
-          paymentMethod: 'Bank Transfer',
-          items: [
-            {
-              id: '1',
-              description: 'Software License - Annual',
-              quantity: 1,
-              unitPrice: 50000,
-              taxRate: 18,
-              totalAmount: 59000,
-            },
-          ],
-          notes: 'License key to be provided after payment',
-        },
-        {
-          id: '4',
-          invoiceNumber: 'INV-2024-004',
-          purchaseOrderId: 'PO-2024-004',
-          vendorName: 'Hardware Mart',
-          vendorGSTIN: '27AABHM4321X7Y8',
-          invoiceDate: '2024-09-15',
-          dueDate: '2024-10-15',
-          status: 'Overdue',
-          totalAmount: 35400,
-          taxAmount: 5400,
-          netAmount: 30000,
-          paymentMethod: 'Cheque',
-          items: [
-            {
-              id: '1',
-              description: 'Network Switches',
-              quantity: 3,
-              unitPrice: 10000,
-              taxRate: 18,
-              totalAmount: 35400,
-            },
-          ],
-        },
-      ];
-
-      setInvoices(demoInvoices);
+      const response = await api.get('/purchase-management/invoices');
+      const data = response.data.data || response.data;
+      setInvoices(data);
     } catch (error) {
       console.error('Error loading invoice data:', error);
       toast.error('Failed to load invoice data');

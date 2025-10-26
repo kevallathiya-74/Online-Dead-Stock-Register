@@ -37,6 +37,7 @@ import {
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface MaintenanceReport {
   id: string;
@@ -92,85 +93,16 @@ const MaintenanceReportsPage: React.FC = () => {
     loadMaintenanceReports();
   }, []);
 
-  const loadMaintenanceReports = () => {
-    // Demo maintenance reports data
-    const maintenanceReportsData: MaintenanceReport[] = [
-      {
-        id: 'MR-001',
-        name: 'Preventive Maintenance Schedule',
-        category: 'Scheduled',
-        description: 'Comprehensive list of upcoming preventive maintenance activities',
-        type: 'Operational',
-        frequency: 'Weekly',
-        lastGenerated: '2024-01-20',
-        parameters: ['Asset Category', 'Location', 'Date Range'],
-        size: '2.3 MB',
-        icon: <ScheduleIcon />,
-      },
-      {
-        id: 'MR-002',
-        name: 'Maintenance Cost Analysis',
-        category: 'Financial',
-        description: 'Breakdown of maintenance expenses by asset type and category',
-        type: 'Analytics',
-        frequency: 'Monthly',
-        lastGenerated: '2024-01-18',
-        parameters: ['Date Range', 'Asset Category', 'Cost Type'],
-        size: '3.1 MB',
-        icon: <CostIcon />,
-      },
-      {
-        id: 'MR-003',
-        name: 'Equipment Downtime Report',
-        category: 'Performance',
-        description: 'Analysis of equipment downtime and its impact on operations',
-        type: 'Analytics',
-        frequency: 'Weekly',
-        lastGenerated: '2024-01-19',
-        parameters: ['Date Range', 'Equipment Type', 'Department'],
-        size: '1.8 MB',
-        icon: <WarningIcon />,
-      },
-      {
-        id: 'MR-004',
-        name: 'Maintenance Completion Report',
-        category: 'Performance',
-        description: 'Status and completion rate of maintenance activities',
-        type: 'Summary',
-        frequency: 'Weekly',
-        lastGenerated: '2024-01-17',
-        parameters: ['Date Range', 'Maintenance Type', 'Technician'],
-        size: '1.2 MB',
-        icon: <CompletedIcon />,
-      },
-      {
-        id: 'MR-005',
-        name: 'Warranty Expiration Tracker',
-        category: 'Compliance',
-        description: 'Track assets with expiring warranties and maintenance contracts',
-        type: 'Alert',
-        frequency: 'Monthly',
-        lastGenerated: '2024-01-15',
-        parameters: ['Date Range', 'Warranty Type', 'Asset Category'],
-        size: '0.8 MB',
-        icon: <WarningIcon />,
-      },
-      {
-        id: 'MR-006',
-        name: 'Service Provider Performance',
-        category: 'Vendor',
-        description: 'Evaluation of external maintenance service providers',
-        type: 'Analytics',
-        frequency: 'Quarterly',
-        lastGenerated: '2024-01-10',
-        parameters: ['Date Range', 'Service Provider', 'Service Type'],
-        size: '2.5 MB',
-        icon: <ReportIcon />,
-      },
-    ];
-
-    setReports(maintenanceReportsData);
-    setFilteredReports(maintenanceReportsData);
+  const loadMaintenanceReports = async () => {
+    try {
+      const response = await api.get('/reports/maintenance-reports');
+      const maintenanceReportsData = response.data.data || response.data;
+      setReports(maintenanceReportsData);
+      setFilteredReports(maintenanceReportsData);
+    } catch (error) {
+      console.error('Error loading maintenance reports:', error);
+      toast.error('Failed to load maintenance reports');
+    }
   };
 
   useEffect(() => {

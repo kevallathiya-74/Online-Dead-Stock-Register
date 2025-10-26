@@ -45,6 +45,7 @@ import {
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface ScrapItem {
   id: string;
@@ -86,88 +87,9 @@ const ScrapPage = () => {
   const loadScrapData = async () => {
     try {
       setLoading(true);
-      // Simulate API call - replace with actual API call
-      const demoScrapItems: ScrapItem[] = [
-        {
-          id: '1',
-          assetId: 'AST-001',
-          assetName: 'Old Desktop Computer',
-          category: 'IT Equipment',
-          manufacturer: 'Dell',
-          model: 'OptiPlex 3060',
-          serialNumber: 'DELL12345',
-          currentLocation: 'IT Store Room',
-          scrapReason: 'End of Life',
-          scrapDate: '2024-10-01',
-          approvalDate: '2024-10-05',
-          status: 'Approved for Scrap',
-          originalValue: 45000,
-          scrapValue: 5000,
-          disposalMethod: 'Recycle',
-          approvedBy: 'IT Manager',
-          environmentalCompliance: true,
-        },
-        {
-          id: '2',
-          assetId: 'AST-002',
-          assetName: 'Damaged Printer',
-          category: 'Office Equipment',
-          manufacturer: 'HP',
-          model: 'LaserJet 1020',
-          serialNumber: 'HP67890',
-          currentLocation: 'Maintenance Room',
-          scrapReason: 'Beyond Repair',
-          scrapDate: '2024-09-28',
-          status: 'Pending Approval',
-          originalValue: 12000,
-          scrapValue: 1000,
-          disposalMethod: 'Recycle',
-          environmentalCompliance: true,
-        },
-        {
-          id: '3',
-          assetId: 'AST-003',
-          assetName: 'Obsolete Server',
-          category: 'IT Equipment',
-          manufacturer: 'IBM',
-          model: 'x3650 M3',
-          serialNumber: 'IBM11111',
-          currentLocation: 'Data Center',
-          scrapReason: 'Obsolete',
-          scrapDate: '2024-09-15',
-          approvalDate: '2024-09-20',
-          disposalDate: '2024-10-10',
-          status: 'Disposed',
-          originalValue: 250000,
-          scrapValue: 25000,
-          disposalMethod: 'Sell',
-          approvedBy: 'CTO',
-          vendorName: 'Tech Recyclers Ltd',
-          documentReference: 'DOC-2024-001',
-          environmentalCompliance: true,
-        },
-        {
-          id: '4',
-          assetId: 'AST-004',
-          assetName: 'Faulty Laptop',
-          category: 'IT Equipment',
-          manufacturer: 'Lenovo',
-          model: 'ThinkPad E14',
-          serialNumber: 'LEN22222',
-          currentLocation: 'IT Department',
-          scrapReason: 'Accident Damage',
-          scrapDate: '2024-10-08',
-          status: 'In Disposal Process',
-          originalValue: 55000,
-          scrapValue: 8000,
-          disposalMethod: 'Recycle',
-          approvedBy: 'Operations Manager',
-          vendorName: 'Green Disposal Co',
-          environmentalCompliance: true,
-        },
-      ];
-
-      setScrapItems(demoScrapItems);
+      const response = await api.get('/assets/scrap');
+      const data = response.data.data || response.data;
+      setScrapItems(data);
     } catch (error) {
       console.error('Error loading scrap data:', error);
       toast.error('Failed to load scrap data');
@@ -252,7 +174,6 @@ const ScrapPage = () => {
   };
 
   const handleApproveScrap = (item: ScrapItem) => {
-    // Simulate scrap approval
     toast.success(`Scrap request approved for ${item.assetName}`);
     setScrapItems(prev => prev.map(i => 
       i.id === item.id 

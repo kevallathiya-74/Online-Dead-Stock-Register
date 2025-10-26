@@ -84,10 +84,32 @@ export class DashboardDataService {
     if (cached) return cached;
 
     try {
-      const response = await api.get(API_ENDPOINTS.DASHBOARD.STATS(userRole));
-      return this.setCachedData(cacheKey, response.data);
-    } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
+      // Use role-specific endpoints
+      let endpoint = API_ENDPOINTS.DASHBOARD.STATS;
+      if (userRole === UserRole.ADMIN) {
+        endpoint = API_ENDPOINTS.DASHBOARD.ADMIN_STATS;
+      } else if (userRole === UserRole.INVENTORY_MANAGER) {
+        endpoint = API_ENDPOINTS.DASHBOARD.INVENTORY_STATS;
+      } else if (userRole === UserRole.AUDITOR) {
+        endpoint = API_ENDPOINTS.DASHBOARD.AUDITOR_STATS;
+      } else if (userRole === UserRole.EMPLOYEE) {
+        endpoint = API_ENDPOINTS.DASHBOARD.EMPLOYEE_STATS;
+      }
+      
+      console.log('DashboardDataService: Fetching stats from endpoint:', endpoint);
+      const response = await api.get(endpoint);
+      console.log('DashboardDataService: Response received:', response.data);
+      
+      // Extract data from the response (backend returns { success: true, data: {...} })
+      const statsData = response.data.data || response.data;
+      return this.setCachedData(cacheKey, statsData);
+    } catch (error: any) {
+      console.error('DashboardDataService: Error fetching dashboard stats:', error);
+      console.error('DashboardDataService: Error details:', {
+        status: error.response?.status,
+        message: error.response?.data?.message || error.message,
+        endpoint: error.config?.url
+      });
       throw error;
     }
   }

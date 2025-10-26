@@ -30,6 +30,7 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import { QRCodeSVG } from 'qrcode.react';
+import api from '../../services/api';
 
 interface AddAssetModalProps {
   open: boolean;
@@ -217,17 +218,17 @@ const AddAssetModal: React.FC<AddAssetModalProps> = ({ open, onClose, onSubmit }
       const assetId = generatedAssetId || generateAssetId();
       const newAsset = {
         ...formData,
-        id: Date.now().toString(),
         unique_asset_id: assetId,
-        status: 'Active' as const,
-        condition: 'Excellent' as const,
+        status: 'Active',
+        condition: 'Excellent',
         purchase_value: parseFloat(formData.purchase_value) || 0,
-        last_audit_date: new Date().toISOString().split('T')[0],
       };
 
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+      // Submit to API
+      const response = await api.post('/assets', newAsset);
+      const createdAsset = response.data.data || response.data;
       
-      onSubmit(newAsset);
+      onSubmit(createdAsset);
       toast.success(`Asset "${formData.name}" added successfully with ID: ${assetId}`);
       
       // Reset form

@@ -33,6 +33,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
+import api from '../../services/api';
 
 const steps = ['Basic Information', 'Role & Department', 'Permissions & Access'];
 
@@ -138,23 +139,31 @@ const AdminAddUserPage: React.FC = () => {
     if (!validateStep(2)) return;
 
     try {
-      // Generate employee ID if not provided
-      const employeeId = newUser.employee_id || `EMP-${Date.now().toString().slice(-4)}`;
-      
       const userData = {
-        ...newUser,
-        employee_id: employeeId,
-        created_at: new Date().toISOString(),
-        last_login: new Date().toISOString()
+        name: newUser.name,
+        email: newUser.email,
+        phone: newUser.phone,
+        employee_id: newUser.employee_id || undefined, // Let backend auto-generate if empty
+        role: newUser.role,
+        department: newUser.department,
+        location: newUser.location,
+        manager: newUser.manager,
+        is_active: newUser.is_active,
+        password: 'Password@123' // Default password
       };
 
-      // Here you would typically make an API call to create the user
-      console.log('Creating user:', userData);
+      console.log('Creating user via API:', userData);
       
-      toast.success('User created successfully!');
+      // Call API to create user
+      const response = await api.post('/users', userData);
+      
+      console.log('User created successfully:', response.data);
+      toast.success(`User created successfully! Employee ID: ${response.data.data.employee_id}`);
       navigate('/users');
-    } catch (error) {
-      toast.error('Failed to create user');
+    } catch (error: any) {
+      console.error('Failed to create user:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to create user';
+      toast.error(errorMsg);
     }
   };
 
@@ -263,13 +272,10 @@ const AdminAddUserPage: React.FC = () => {
                   label="Department"
                   onChange={(e) => setNewUser(prev => ({ ...prev, department: e.target.value }))}
                 >
+                  <MenuItem value="INVENTORY">Inventory</MenuItem>
                   <MenuItem value="IT">IT</MenuItem>
-                  <MenuItem value="HR">HR</MenuItem>
-                  <MenuItem value="Finance">Finance</MenuItem>
-                  <MenuItem value="Operations">Operations</MenuItem>
-                  <MenuItem value="Marketing">Marketing</MenuItem>
-                  <MenuItem value="Legal">Legal</MenuItem>
-                  <MenuItem value="Administration">Administration</MenuItem>
+                  <MenuItem value="ADMIN">Admin</MenuItem>
+                  <MenuItem value="VENDOR">Vendor</MenuItem>
                 </Select>
               </FormControl>
             </Grid>

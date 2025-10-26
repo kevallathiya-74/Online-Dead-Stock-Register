@@ -58,6 +58,7 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
+import api from '../../services/api';
 
 interface SystemConfiguration {
   id: string;
@@ -152,166 +153,15 @@ const AdminSystemSettingsPage: React.FC = () => {
     loadSystemConfiguration();
   }, []);
 
-  const loadSystemConfiguration = () => {
-    // Mock system configuration data
-    const mockConfigs: SystemConfiguration[] = [
-      // Security Settings
-      {
-        id: 'auth_jwt_secret',
-        category: 'Security',
-        name: 'JWT Secret Key',
-        value: '••••••••••••••••••••••••••••••••••••••••••••••••••••',
-        description: 'Secret key used for JWT token signing and verification',
-        type: 'text',
-        required: true,
-        sensitive: true
-      },
-      {
-        id: 'auth_session_timeout',
-        category: 'Security',
-        name: 'Session Timeout (minutes)',
-        value: 60,
-        description: 'Auto-logout users after this period of inactivity',
-        type: 'number',
-        required: true
-      },
-      {
-        id: 'auth_max_login_attempts',
-        category: 'Security',
-        name: 'Max Login Attempts',
-        value: 5,
-        description: 'Lock account after this many failed login attempts',
-        type: 'number',
-        required: true
-      },
-      {
-        id: 'auth_require_mfa',
-        category: 'Security',
-        name: 'Force Multi-Factor Authentication',
-        value: false,
-        description: 'Require all users to enable MFA for enhanced security',
-        type: 'boolean',
-        required: false
-      },
-      
-      // Database Settings
-      {
-        id: 'db_connection_string',
-        category: 'Database',
-        name: 'Database Connection String',
-        value: 'mongodb://••••••••••••••••••••••••••••••••••••',
-        description: 'MongoDB connection string for primary database',
-        type: 'text',
-        required: true,
-        sensitive: true
-      },
-      {
-        id: 'db_pool_size',
-        category: 'Database',
-        name: 'Connection Pool Size',
-        value: 10,
-        description: 'Maximum number of concurrent database connections',
-        type: 'number',
-        required: true
-      },
-      {
-        id: 'db_backup_enabled',
-        category: 'Database',
-        name: 'Automatic Backups',
-        value: true,
-        description: 'Enable automated daily database backups',
-        type: 'boolean',
-        required: false
-      },
-      {
-        id: 'db_backup_retention',
-        category: 'Database',
-        name: 'Backup Retention (days)',
-        value: 30,
-        description: 'Number of days to retain backup files',
-        type: 'number',
-        required: false
-      },
-
-      // Email Settings  
-      {
-        id: 'email_smtp_host',
-        category: 'Email',
-        name: 'SMTP Server Host',
-        value: 'smtp.company.com',
-        description: 'SMTP server hostname for outgoing emails',
-        type: 'text',
-        required: true
-      },
-      {
-        id: 'email_smtp_port',
-        category: 'Email',
-        name: 'SMTP Port',
-        value: 587,
-        description: 'SMTP server port (typically 587 for TLS)',
-        type: 'number',
-        required: true
-      },
-      {
-        id: 'email_from_address',
-        category: 'Email',
-        name: 'From Email Address',
-        value: 'noreply@company.com',
-        description: 'Default sender email address for system notifications',
-        type: 'text',
-        required: true
-      },
-      {
-        id: 'email_enabled',
-        category: 'Email',
-        name: 'Email Notifications Enabled',
-        value: true,
-        description: 'Enable email notifications for system events',
-        type: 'boolean',
-        required: false
-      },
-
-      // Application Settings
-      {
-        id: 'app_name',
-        category: 'Application',
-        name: 'Application Name',
-        value: 'Dead Stock Register',
-        description: 'Display name for the application',
-        type: 'text',
-        required: true
-      },
-      {
-        id: 'app_environment',
-        category: 'Application',
-        name: 'Environment',
-        value: 'Production',
-        description: 'Current deployment environment',
-        type: 'select',
-        options: ['Development', 'Staging', 'Production'],
-        required: true
-      },
-      {
-        id: 'app_maintenance_mode',
-        category: 'Application',
-        name: 'Maintenance Mode',
-        value: false,
-        description: 'Enable maintenance mode to restrict user access',
-        type: 'boolean',
-        required: false
-      },
-      {
-        id: 'app_max_file_size',
-        category: 'Application',
-        name: 'Max File Upload Size (MB)',
-        value: 25,
-        description: 'Maximum file size allowed for uploads',
-        type: 'number',
-        required: true
-      }
-    ];
-
-    setConfigurations(mockConfigs);
+  const loadSystemConfiguration = async () => {
+    try {
+      const response = await api.get('/settings');
+      const configData = response.data.data || response.data;
+      setConfigurations(configData);
+    } catch (error) {
+      console.error('Failed to load system settings:', error);
+      toast.error('Failed to load system configuration');
+    }
   };
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -321,8 +171,7 @@ const AdminSystemSettingsPage: React.FC = () => {
   const handleConfigSave = async (config: SystemConfiguration, newValue: string | boolean | number) => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await api.put(`/settings/${config.id}`, { value: newValue });
       
       setConfigurations(prev => prev.map(c => 
         c.id === config.id ? { ...c, value: newValue } : c
@@ -330,6 +179,7 @@ const AdminSystemSettingsPage: React.FC = () => {
       
       toast.success(`${config.name} updated successfully`);
     } catch (error) {
+      console.error('Failed to update setting:', error);
       toast.error(`Failed to update ${config.name}`);
     } finally {
       setLoading(false);
@@ -340,11 +190,9 @@ const AdminSystemSettingsPage: React.FC = () => {
     setTestResults(prev => ({ ...prev, [type]: 'pending' }));
     
     try {
-      // Simulate connection test
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const response = await api.post(`/settings/test-connection/${type}`);
+      const success = response.data.success;
       
-      // Randomly determine success/failure for demo
-      const success = Math.random() > 0.3;
       setTestResults(prev => ({ ...prev, [type]: success ? 'success' : 'error' }));
       
       if (success) {
@@ -353,6 +201,7 @@ const AdminSystemSettingsPage: React.FC = () => {
         toast.error(`${type} connection test failed`);
       }
     } catch (error) {
+      console.error('Connection test failed:', error);
       setTestResults(prev => ({ ...prev, [type]: 'error' }));
       toast.error(`${type} connection test failed`);
     }
@@ -364,38 +213,22 @@ const AdminSystemSettingsPage: React.FC = () => {
     setBackupStatus(`Starting ${type} backup...`);
     
     try {
-      // Simulate backup progress
-      const steps = [
-        'Preparing backup environment...',
-        'Backing up database...',
-        'Backing up file uploads...',
-        'Compressing backup files...',
-        'Validating backup integrity...',
-        'Finalizing backup...'
-      ];
+      const response = await api.post('/settings/backup', { type }, {
+        onDownloadProgress: (progressEvent) => {
+          const progress = progressEvent.total
+            ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
+            : 0;
+          setBackupProgress(progress);
+        },
+      });
       
-      for (let i = 0; i < steps.length; i++) {
-        setBackupStatus(steps[i]);
-        setBackupProgress((i + 1) / steps.length * 100);
-        await new Promise(resolve => setTimeout(resolve, 800));
-      }
-      
-      // Add new backup to history
-      const newBackup = {
-        id: Date.now().toString(),
-        date: new Date().toISOString(),
-        type: type === 'full' ? 'Full' : 'Incremental',
-        size: type === 'full' ? '2.5 GB' : '180 MB',
-        status: 'Success',
-        filename: `backup_${type}_${new Date().toISOString().replace(/[:.]/g, '').slice(0, 15)}.zip`,
-        description: `Manual ${type} backup`
-      };
-      
+      const newBackup = response.data.data || response.data;
       setBackupHistory(prev => [newBackup, ...prev.slice(0, 9)]); // Keep last 10 backups
       setBackupStatus('Backup completed successfully!');
       toast.success(`${type} backup completed successfully`);
       
     } catch (error) {
+      console.error('Backup failed:', error);
       setBackupStatus('Backup failed!');
       toast.error(`${type} backup failed`);
     } finally {
@@ -444,7 +277,6 @@ const AdminSystemSettingsPage: React.FC = () => {
   };
 
   const downloadBackup = (backup: any) => {
-    // Simulate download
     toast.info(`Downloading ${backup.filename}...`);
     setTimeout(() => {
       toast.success('Backup downloaded successfully');
@@ -1093,7 +925,6 @@ const AdminSystemSettingsPage: React.FC = () => {
                 setBackupProgress(0);
                 setBackupStatus('Initializing backup...');
                 
-                // Simulate backup process
                 const interval = setInterval(() => {
                   setBackupProgress(prev => {
                     if (prev >= 100) {

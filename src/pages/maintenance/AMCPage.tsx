@@ -43,6 +43,7 @@ import {
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface AMCContract {
   id: string;
@@ -80,90 +81,9 @@ const AMCPage = () => {
   const loadAMCData = async () => {
     try {
       setLoading(true);
-      // Simulate API call - replace with actual API call
-      const demoContracts: AMCContract[] = [
-        {
-          id: '1',
-          contractNumber: 'AMC-2024-001',
-          assetId: 'AST-001',
-          assetName: 'Dell XPS 15 Laptop',
-          vendor: 'Dell Technologies',
-          contractType: 'Comprehensive',
-          startDate: '2024-01-01',
-          endDate: '2024-12-31',
-          renewalDate: '2024-11-01',
-          status: 'Active',
-          annualCost: 25000,
-          coverage: 'Hardware repair, software support, preventive maintenance',
-          serviceLevel: 'Premium',
-          responseTime: '4 hours',
-          lastServiceDate: '2024-08-15',
-          serviceCallsUsed: 2,
-          serviceCallsLimit: 12,
-          paymentStatus: 'Paid',
-        },
-        {
-          id: '2',
-          contractNumber: 'AMC-2024-002',
-          assetId: 'AST-002',
-          assetName: 'HP LaserJet Printer',
-          vendor: 'HP Inc.',
-          contractType: 'Parts Only',
-          startDate: '2024-03-01',
-          endDate: '2025-02-28',
-          renewalDate: '2025-01-01',
-          status: 'Expiring Soon',
-          annualCost: 15000,
-          coverage: 'Parts replacement, toner included',
-          serviceLevel: 'Standard',
-          responseTime: '24 hours',
-          lastServiceDate: '2024-09-22',
-          serviceCallsUsed: 1,
-          serviceCallsLimit: 6,
-          paymentStatus: 'Paid',
-        },
-        {
-          id: '3',
-          contractNumber: 'AMC-2023-015',
-          assetId: 'AST-003',
-          assetName: 'Network Server',
-          vendor: 'TechCorp Services',
-          contractType: 'On-Site',
-          startDate: '2023-06-01',
-          endDate: '2024-05-31',
-          renewalDate: '2024-04-01',
-          status: 'Expired',
-          annualCost: 75000,
-          coverage: 'On-site maintenance, 24/7 support, parts included',
-          serviceLevel: 'Critical',
-          responseTime: '2 hours',
-          lastServiceDate: '2024-04-28',
-          serviceCallsUsed: 8,
-          serviceCallsLimit: 24,
-          paymentStatus: 'Overdue',
-        },
-        {
-          id: '4',
-          contractNumber: 'AMC-2024-008',
-          assetId: 'AST-004',
-          assetName: 'Cisco Router',
-          vendor: 'Network Solutions Ltd',
-          contractType: 'Remote Support',
-          startDate: '2024-02-15',
-          endDate: '2025-02-14',
-          renewalDate: '2024-12-15',
-          status: 'Under Review',
-          annualCost: 35000,
-          coverage: 'Remote monitoring, configuration support, firmware updates',
-          serviceLevel: 'Premium',
-          responseTime: '1 hour',
-          serviceCallsUsed: 0,
-          serviceCallsLimit: 10,
-          paymentStatus: 'Pending',
-        },
-      ];
-
-      setContracts(demoContracts);
+      const response = await api.get('/maintenance/amc-contracts');
+      const data = response.data.data || response.data;
+      setContracts(data);
     } catch (error) {
       console.error('Error loading AMC data:', error);
       toast.error('Failed to load AMC data');
@@ -231,9 +151,7 @@ const AMCPage = () => {
   };
 
   const handleRenewContract = (contract: AMCContract) => {
-    // Simulate contract renewal
     toast.success(`Contract renewal initiated for ${contract.contractNumber}`);
-    // In real app, update contract status and send to backend
     setContracts(prev => prev.map(c => 
       c.id === contract.id 
         ? { ...c, status: 'Under Review' as const }

@@ -46,7 +46,7 @@ import {
 import { Line, Pie } from 'react-chartjs-2';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import AdminDataService from '../../data/adminDataService';
+import api from '../../services/api';
 
 ChartJS.register(
   CategoryScale,
@@ -80,43 +80,76 @@ const AdminDashboard: React.FC = () => {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Load real statistics from API
+      const [statsResponse, activitiesResponse] = await Promise.all([
+        api.get('/dashboard/stats'),
+        api.get('/audit-logs?limit=10&sort=-timestamp')
+      ]);
 
-      // Load statistics
-      const userStatsData = AdminDataService.getUserStatistics();
-      const assetStatsData = AdminDataService.getAssetStatistics();
-      const transactionStatsData = AdminDataService.getTransactionStatistics();
+      const stats = statsResponse.data.data || statsResponse.data;
+      
+      // Set user stats
+      setUserStats({
+        total: stats.activeUsers || 0,
+        active: stats.activeUsers || 0,
+        inactive: 0,
+        trend: stats.trends?.users?.value || 0
+      });
 
-      setUserStats(userStatsData);
-      setAssetStats(assetStatsData);
-      setTransactionStats(transactionStatsData);
+      // Set asset stats
+      setAssetStats({
+        total: stats.totalAssets || 0,
+        inUse: stats.totalAssets || 0,
+        available: 0,
+        maintenance: stats.inMaintenanceAssets || 0,
+        trend: stats.trends?.assets?.value || 0
+      });
 
-      // Generate recent activities
-      const auditLogs = AdminDataService.getAuditLogs().slice(0, 10);
-      setRecentActivities(auditLogs);
+      // Set transaction stats
+      setTransactionStats({
+        total: 0,
+        pending: stats.pendingApprovals || 0,
+        approved: 0,
+        rejected: 0
+      });
 
-      // Generate system alerts
-      const alerts = [
-        { id: 1, type: 'warning', message: '15 assets require maintenance this week', action: 'View Maintenance' },
-        { id: 2, type: 'error', message: '3 assets are overdue for audit', action: 'View Assets' },
-        { id: 3, type: 'info', message: '25 pending transactions need approval', action: 'View Transactions' },
-        { id: 4, type: 'success', message: 'System backup completed successfully', action: 'View Logs' }
-      ];
+      // Set recent activities from audit logs
+      const activities = (activitiesResponse.data.data || []).map((log: any) => ({
+        id: log._id,
+        user: log.performed_by?.name || 'System',
+        action: log.action,
+        asset: log.details?.asset_tag || log.details?.name || 'N/A',
+        time: new Date(log.timestamp).toLocaleString(),
+        status: 'success'
+      }));
+      setRecentActivities(activities);
+
+      // Set system alerts (from real data when available)
+      const alerts: any[] = [];
+      if (stats.warrantyExpiring > 0) {
+        alerts.push({ id: 1, type: 'warning', message: `${stats.warrantyExpiring} assets have expiring warranties`, action: 'View Assets' });
+      }
+      if (stats.maintenanceDue > 0) {
+        alerts.push({ id: 2, type: 'warning', message: `${stats.maintenanceDue} assets require maintenance`, action: 'View Maintenance' });
+      }
+      if (stats.pendingApprovals > 0) {
+        alerts.push({ id: 3, type: 'info', message: `${stats.pendingApprovals} pending approvals`, action: 'View Approvals' });
+      }
       setSystemAlerts(alerts);
 
-      // Generate chart data
-      generateChartData();
+      // Generate chart data from real stats
+      generateChartData(stats);
 
     } catch (error) {
+      console.error('Error loading dashboard data:', error);
       toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
   };
 
-  const generateChartData = () => {
-    // Asset utilization over time
+  const generateChartData = (stats: any = {}) => {
+    // Asset utilization over time (placeholder - would need monthly trends API)
     const assetUtilizationData = Array.from({ length: 12 }, (_, i) => ({
       month: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i],
       active: Math.floor(Math.random() * 50) + 100,

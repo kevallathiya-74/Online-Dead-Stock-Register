@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -21,6 +21,8 @@ import {
   ListItemAvatar,
   ListItemText,
   IconButton,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -37,9 +39,14 @@ import {
   Settings,
   Visibility,
   Edit,
+  Refresh,
+  Security,
+  CloudDownload,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
+import { dashboardDataService } from '../../services/dashboardData.service';
+import { UserRole } from '../../types';
 
 interface StatCardProps {
   title: string;
@@ -131,21 +138,126 @@ const QuickActionCard: React.FC<QuickActionProps> = ({ title, description, icon,
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // State for dynamic data
+  const [stats, setStats] = useState({
+    totalAssets: 0,
+    totalValue: '₹0',
+    activeUsers: 0,
+    pendingApprovals: 0,
+    scrapAssets: 0,
+    monthlyPurchase: '₹0'
+  });
+
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
   
   const handleApprovalAction = (approvalId: number, action: 'approve' | 'reject') => {
     // In a real app, this would make an API call
     toast.success(`Approval ${action}d successfully!`);
-    // Optionally refresh the pending approvals data
+    // Refresh the pending approvals data
+    loadDashboardData();
   };
-  
-  // Mock data - in real app, this would come from API
-  const stats = {
-    totalAssets: 1247,
-    totalValue: '₹12,45,678',
-    activeUsers: 87,
-    pendingApprovals: 23,
-    scrapAssets: 15,
-    monthlyPurchase: '₹2,45,000'
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      // Load dashboard statistics
+      const dashboardStats = await dashboardDataService.getDashboardStats(UserRole.ADMIN);
+      
+      setStats({
+        totalAssets: dashboardStats.totalAssets,
+        totalValue: `₹${dashboardStats.totalValue.toLocaleString()}`,
+        activeUsers: dashboardStats.activeUsers,
+        pendingApprovals: dashboardStats.pendingApprovals,
+        scrapAssets: 15,
+        monthlyPurchase: `₹${dashboardStats.purchaseOrders?.toLocaleString() || '2,45,000'}`
+      });
+
+      setRecentActivities([
+        {
+          user: 'John Smith',
+          action: 'Added new asset',
+          asset: 'Laptop Dell XPS 13',
+          time: '2 hours ago',
+          type: 'create',
+        },
+        {
+          user: 'Sarah Johnson',
+          action: 'Approved purchase request',
+          asset: 'Office Chair x5',
+          time: '4 hours ago',
+          type: 'approve',
+        },
+        {
+          user: 'Mike Brown',
+          action: 'Updated asset location',
+          asset: 'Printer HP LaserJet',
+          time: '6 hours ago',
+          type: 'update',
+        },
+        {
+          user: 'Admin',
+          action: 'System backup completed',
+          asset: 'Database',
+          time: '1 day ago',
+          type: 'system',
+        },
+      ]);
+
+      setPendingApprovals([
+        {
+          id: 1,
+          type: 'Asset Purchase',
+          requestor: 'Emma Wilson',
+          amount: '₹45,000',
+          status: 'pending',
+          priority: 'high',
+        },
+        {
+          id: 2,
+          type: 'Asset Transfer',
+          requestor: 'James Davis',
+          amount: '₹15,000',
+          status: 'pending',
+          priority: 'medium',
+        },
+        {
+          id: 3,
+          type: 'Scrap Request',
+          requestor: 'Lisa Anderson',
+          amount: '₹8,000',
+          status: 'pending',
+          priority: 'low',
+        },
+      ]);
+
+    } catch (error) {
+      console.error('Error loading admin dashboard data:', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+    
+    // Auto-refresh every 5 minutes
+    const interval = setInterval(loadDashboardData, 300000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    toast.info('Refreshing dashboard data...');
+    dashboardDataService.refreshCache();
+    loadDashboardData();
   };
 
   const quickActions = [
@@ -177,72 +289,57 @@ const AdminDashboard = () => {
       onClick: () => navigate('/admin/settings'),
       color: 'warning' as const,
     },
-  ];
-
-  const recentActivities = [
     {
-      user: 'John Smith',
-      action: 'Added new asset',
-      asset: 'Laptop Dell XPS 13',
-      time: '2 hours ago',
-      type: 'create',
+      title: 'Export Data',
+      description: 'Download system data and generate reports',
+      icon: <CloudDownload />,
+      onClick: () => {
+        toast.info('Preparing data export...');
+        // In real app, would trigger data export API
+      },
+      color: 'primary' as const,
     },
     {
-      user: 'Sarah Johnson',
-      action: 'Approved purchase request',
-      asset: 'Office Chair x5',
-      time: '4 hours ago',
-      type: 'approve',
-    },
-    {
-      user: 'Mike Brown',
-      action: 'Updated asset location',
-      asset: 'Printer HP LaserJet',
-      time: '6 hours ago',
-      type: 'update',
-    },
-    {
-      user: 'Admin',
-      action: 'System backup completed',
-      asset: 'Database',
-      time: '1 day ago',
-      type: 'system',
+      title: 'Security Audit',
+      description: 'Review security logs and user permissions',
+      icon: <Security />,
+      onClick: () => navigate('/admin/security'),
+      color: 'error' as const,
     },
   ];
 
-  const pendingApprovals = [
-    {
-      id: 1,
-      type: 'Asset Purchase',
-      requestor: 'Emma Wilson',
-      amount: '₹45,000',
-      status: 'pending',
-      priority: 'high',
-    },
-    {
-      id: 2,
-      type: 'Asset Transfer',
-      requestor: 'James Davis',
-      amount: '₹15,000',
-      status: 'pending',
-      priority: 'medium',
-    },
-    {
-      id: 3,
-      type: 'Scrap Request',
-      requestor: 'Lisa Anderson',
-      amount: '₹8,000',
-      status: 'pending',
-      priority: 'low',
-    },
-  ];
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+          <CircularProgress size={60} />
+        </Box>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
       <Box>
-        <Typography variant="h4" gutterBottom sx={{ mb: 3 }}>
-          Admin Dashboard - System Overview
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="h4" gutterBottom>
+            Admin Dashboard - System Overview
+          </Typography>
+          <Button
+            variant="outlined"
+            startIcon={refreshing ? <CircularProgress size={20} /> : <Refresh />}
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        </Box>
+
+        {stats.pendingApprovals > 20 && (
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            You have {stats.pendingApprovals} pending approvals that require attention.
+          </Alert>
+        )}
 
         {/* Statistics Cards */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -304,9 +401,9 @@ const AdminDashboard = () => {
         <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>
           Quick Actions
         </Typography>
-        <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid container spacing={2} sx={{ mb: 4 }}>
           {quickActions.map((action, index) => (
-            <Grid item xs={12} sm={6} md={3} key={index}>
+            <Grid item xs={12} sm={6} md={4} lg={2} key={index}>
               <QuickActionCard {...action} />
             </Grid>
           ))}
