@@ -59,7 +59,7 @@ const menuItems: MenuItem[] = [
   },
   {
     title: 'Documents',
-    path: '/documents',
+    path: '/dashboard',
     icon: DocumentIcon,
     roles: [UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.AUDITOR],
   },

@@ -5,14 +5,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const emailService = require('../utils/emailService');
 
-// Check required environment variables
-if (!process.env.JWT_SECRET) {
-  console.warn('WARNING: JWT_SECRET is not set in environment variables. Using default (NOT SECURE FOR PRODUCTION)');
-}
 
-if (!process.env.MONGODB_URI) {
-  console.warn('WARNING: MONGODB_URI is not set in environment variables');
-}
 
 // Password validation
 const validatePassword = (password) => {
@@ -189,19 +182,25 @@ exports.forgotPassword = async (req, res) => {
       return res.status(404).json({ message: 'No account found with this email' });
     }
 
-    // Generate reset token
+    // Generate reset token (unhashed for email)
     const resetToken = crypto.randomBytes(32).toString('hex');
     const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
 
-    // Save token to user
-    user.resetPasswordToken = resetToken;
+    // Hash token before storing in database - CRITICAL SECURITY FIX
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+
+    // Save HASHED token to database
+    user.resetPasswordToken = hashedToken;
     user.resetPasswordExpires = resetTokenExpiry;
     await user.save();
 
-    // Send password reset email
+    // Send UNHASHED token via email (user needs this)
     await emailService.sendPasswordResetEmail(user.email, resetToken);
 
-    res.json({ message: 'Password reset instructions sent to your email' });
+    res.json({ message: 'If an account exists with this email, password reset instructions have been sent.' });
   } catch (error) {
     console.error('Forgot password error:', error);
     res.status(500).json({ message: 'Error processing password reset' });
@@ -216,9 +215,15 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({ message: 'Token and new password are required' });
     }
 
-    // Find user with valid reset token
+    // Hash the incoming token to compare with stored hash
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    // Find user with hashed token and unexpired token
     const user = await User.findOne({
-      resetPasswordToken: token,
+      resetPasswordToken: hashedToken,
       resetPasswordExpires: { $gt: Date.now() }
     }).select('+password +resetPasswordToken +resetPasswordExpires');
 

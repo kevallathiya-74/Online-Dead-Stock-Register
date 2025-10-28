@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bulkOpsController = require('../controllers/bulkOperationsController');
 const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
+const { importUpload } = require('../middleware/uploadMiddleware');
 
 // All routes require authentication
 router.use(authMiddleware);
@@ -95,5 +96,26 @@ router.post(
  * @query   limit, page, action_type
  */
 router.get('/history', bulkOpsController.getBulkOperationHistory);
+
+/**
+ * @route   POST /api/bulk-operations/import-assets
+ * @desc    Import assets from CSV/Excel file
+ * @access  Admin, Inventory Manager
+ * @body    FormData with 'file' field containing CSV/Excel
+ */
+router.post(
+  '/import-assets',
+  requireRole(['ADMIN', 'INVENTORY_MANAGER']),
+  importUpload.single('file'),
+  bulkOpsController.importAssets
+);
+
+/**
+ * @route   GET /api/bulk-operations/template
+ * @desc    Download CSV/Excel template for bulk import
+ * @access  All authenticated users
+ * @query   format=csv|xlsx (default: csv)
+ */
+router.get('/template', bulkOpsController.generateImportTemplate);
 
 module.exports = router;

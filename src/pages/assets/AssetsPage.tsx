@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -25,6 +25,12 @@ import {
   Menu,
   ListItemIcon,
   ListItemText,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Alert,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -66,81 +72,99 @@ interface Asset {
 }
 
 const AssetsPage = () => {
-  const [assets, setAssets] = useState<Asset[]>([
-    {
-      id: '1',
-      unique_asset_id: 'AST-001',
-      name: 'Dell XPS 15 Laptop',
-      category: 'IT Equipment',
-      manufacturer: 'Dell',
-      model: 'XPS 15',
-      serial_number: 'DLL123456789',
-      status: 'Active',
-      condition: 'Good',
-      location: 'IT Department - Floor 2',
-      assigned_user: 'John Employee',
-      purchase_date: '2023-06-15',
-      purchase_value: 85000,
-      warranty_expiry: '2025-06-15',
-      last_audit_date: '2024-01-01',
-    },
-    {
-      id: '2',
-      unique_asset_id: 'AST-002',
-      name: 'HP LaserJet Printer',
-      category: 'Office Equipment',
-      manufacturer: 'HP',
-      model: 'LaserJet Pro M404n',
-      serial_number: 'HP987654321',
-      status: 'Active',
-      condition: 'Excellent',
-      location: 'Admin Office',
-      purchase_date: '2023-08-20',
-      purchase_value: 25000,
-      warranty_expiry: '2025-08-20',
-      last_audit_date: '2024-01-15',
-    },
-    {
-      id: '3',
-      unique_asset_id: 'AST-003',
-      name: 'iPhone 14 Pro',
-      category: 'Mobile Device',
-      manufacturer: 'Apple',
-      model: 'iPhone 14 Pro',
-      serial_number: 'APL445566778',
-      status: 'Active',
-      condition: 'Excellent',
-      location: 'Sales Department',
-      assigned_user: 'Sarah Manager',
-      purchase_date: '2023-09-10',
-      purchase_value: 120000,
-      warranty_expiry: '2024-09-10',
-      last_audit_date: '2023-12-15',
-    },
-    {
-      id: '4',
-      unique_asset_id: 'AST-004',
-      name: 'Ergonomic Office Chair',
-      category: 'Furniture',
-      manufacturer: 'Herman Miller',
-      model: 'Aeron',
-      serial_number: 'HM334455667',
-      status: 'Maintenance',
-      condition: 'Fair',
-      location: 'Maintenance Room',
-      purchase_date: '2022-12-01',
-      purchase_value: 45000,
-      last_audit_date: '2024-02-01',
-    },
-  ]);
-
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [stats, setStats] = useState({
+    totalAssets: 0,
+    activeAssets: 0,
+    underMaintenance: 0,
+    totalValue: 0,
+  });
+  const [formData, setFormData] = useState({
+    unique_asset_id: '',
+    name: '',
+    asset_type: '',
+    manufacturer: '',
+    model: '',
+    serial_number: '',
+    location: '',
+    purchase_date: '',
+    purchase_value: '',
+    status: 'Active',
+    condition: 'Good',
+    department: '',
+  });
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
 
   const categories = ['IT Equipment', 'Office Equipment', 'Mobile Device', 'Furniture', 'Machinery'];
+
+  // Load assets from API on component mount
+  useEffect(() => {
+    loadAssets();
+  }, []);
+
+  const loadAssets = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch both assets and stats in parallel
+      const [assetsResponse, statsResponse] = await Promise.all([
+        api.get('/assets'),
+        api.get('/assets/stats')
+      ]);
+      
+      // Handle new API response format with pagination
+      const apiData = assetsResponse.data.data || assetsResponse.data;
+      const assetsArray = apiData.data || apiData;
+      
+      // Transform backend data to match frontend interface
+      const transformedAssets = Array.isArray(assetsArray) ? assetsArray.map((asset: any) => ({
+        id: asset._id || asset.id,
+        unique_asset_id: asset.unique_asset_id,
+        name: asset.name,
+        category: asset.category || asset.asset_type,
+        manufacturer: asset.manufacturer,
+        model: asset.model,
+        serial_number: asset.serial_number,
+        status: asset.status,
+        condition: asset.condition,
+        location: asset.location,
+        assigned_user: asset.assigned_to?.name || asset.assigned_user,
+        purchase_date: asset.purchase_date,
+        purchase_value: asset.purchase_value || asset.value,
+        warranty_expiry: asset.warranty_expiry,
+        last_audit_date: asset.last_audit_date,
+      })) : [];
+      
+      setAssets(transformedAssets);
+      
+      // Update stats from API - DYNAMIC!
+      if (statsResponse.data.success && statsResponse.data.data) {
+        setStats({
+          totalAssets: statsResponse.data.data.totalAssets,
+          activeAssets: statsResponse.data.data.activeAssets,
+          underMaintenance: statsResponse.data.data.underMaintenance,
+          totalValue: statsResponse.data.data.totalValue,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load assets:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Failed to load assets';
+      toast.error(errorMsg);
+      setAssets([]); // Set to empty array on error
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Handler functions for asset actions
   const handleViewAsset = (asset: Asset) => {
@@ -149,10 +173,188 @@ const AssetsPage = () => {
     toast.info(`Viewing details for: ${asset.name} (${asset.unique_asset_id})`);
   };
 
-  const handleEditAsset = (asset: Asset) => {
-    console.log('Editing asset:', asset);
-    // In a real app, this would navigate to edit page or open edit modal
-    toast.info(`Opening editor for: ${asset.name} (${asset.unique_asset_id})`);
+  const handleAddAsset = async () => {
+    try {
+      // Validation
+      if (!formData.unique_asset_id || !formData.manufacturer || !formData.model || 
+          !formData.serial_number || !formData.asset_type || !formData.department) {
+        toast.error('Please fill in all required fields: Asset ID, Manufacturer, Model, Serial Number, Category, and Department');
+        return;
+      }
+
+      const payload = {
+        unique_asset_id: formData.unique_asset_id,
+        manufacturer: formData.manufacturer,
+        model: formData.model,
+        serial_number: formData.serial_number,
+        asset_type: formData.asset_type,
+        department: formData.department,
+        location: formData.location || 'Unknown',
+        purchase_date: formData.purchase_date || new Date().toISOString(),
+        purchase_cost: formData.purchase_value ? Number(formData.purchase_value) : 0,
+        status: formData.status,
+        condition: formData.condition,
+      };
+
+      await api.post('/assets', payload);
+      toast.success('Asset added successfully');
+      setAddDialogOpen(false);
+      resetForm();
+      await loadAssets();
+    } catch (error: any) {
+      console.error('Failed to add asset:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to add asset';
+      toast.error(errorMsg);
+    }
+  };
+
+  const handleEditAssetClick = (asset: Asset) => {
+    setSelectedAsset(asset);
+    setFormData({
+      unique_asset_id: asset.unique_asset_id,
+      name: asset.name || '',
+      asset_type: asset.category,
+      manufacturer: asset.manufacturer,
+      model: asset.model,
+      serial_number: asset.serial_number,
+      location: asset.location,
+      purchase_date: asset.purchase_date?.split('T')[0] || '',
+      purchase_value: asset.purchase_value?.toString() || '',
+      status: asset.status,
+      condition: asset.condition,
+      department: '',
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateAsset = async () => {
+    if (!selectedAsset) return;
+
+    try {
+      const payload = {
+        manufacturer: formData.manufacturer,
+        model: formData.model,
+        serial_number: formData.serial_number,
+        asset_type: formData.asset_type,
+        location: formData.location,
+        purchase_date: formData.purchase_date,
+        purchase_cost: formData.purchase_value ? Number(formData.purchase_value) : undefined,
+        status: formData.status,
+        condition: formData.condition,
+      };
+
+      await api.put(`/assets/${selectedAsset.id}`, payload);
+      toast.success('Asset updated successfully');
+      setEditDialogOpen(false);
+      resetForm();
+      await loadAssets();
+    } catch (error: any) {
+      console.error('Failed to update asset:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to update asset';
+      toast.error(errorMsg);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      unique_asset_id: '',
+      name: '',
+      asset_type: '',
+      manufacturer: '',
+      model: '',
+      serial_number: '',
+      location: '',
+      purchase_date: '',
+      purchase_value: '',
+      status: 'Active',
+      condition: 'Good',
+      department: '',
+    });
+    setSelectedAsset(null);
+  };
+
+  const handleBulkImport = () => {
+    setBulkImportOpen(true);
+  };
+
+  const handleImportFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validTypes = [
+        'text/csv',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      ];
+      
+      if (!validTypes.includes(file.type) && !file.name.endsWith('.csv') && !file.name.endsWith('.xlsx')) {
+        toast.error('Please select a CSV or Excel file');
+        return;
+      }
+      
+      setImportFile(file);
+    }
+  };
+
+  const handleBulkImportSubmit = async () => {
+    if (!importFile) {
+      toast.error('Please select a file to import');
+      return;
+    }
+
+    try {
+      setImporting(true);
+      
+      const formData = new FormData();
+      formData.append('file', importFile);
+
+      const response = await api.post('/assets/bulk-import', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      if (response.data.success) {
+        const { imported, failed, total } = response.data.data;
+        toast.success(`Successfully imported ${imported} out of ${total} assets${failed > 0 ? `. ${failed} failed.` : ''}`);
+        
+        setBulkImportOpen(false);
+        setImportFile(null);
+        
+        // Refresh assets list
+        await loadAssets();
+      }
+    } catch (error: any) {
+      console.error('Failed to import assets:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to import assets';
+      toast.error(errorMsg);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    // Create CSV template
+    const headers = ['unique_asset_id', 'manufacturer', 'model', 'serial_number', 'asset_type', 'department', 'location', 'purchase_date', 'purchase_cost', 'status', 'condition'];
+    const sampleRow = ['AST-001', 'Dell', 'Latitude 5520', 'SN123456', 'IT Equipment', 'IT Department', 'Office 101', '2024-01-01', '50000', 'Active', 'Good'];
+    
+    const csvContent = [
+      headers.join(','),
+      sampleRow.join(','),
+      '# Add your assets below this line (one per row)',
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'asset_import_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    
+    toast.success('Template downloaded successfully');
   };
 
   const handleDeleteAsset = async (asset: Asset) => {
@@ -167,6 +369,9 @@ const AssetsPage = () => {
         setAssets(prevAssets => prevAssets.filter(a => a.id !== asset.id));
         
         toast.success(`Asset "${asset.name}" has been successfully deleted.`);
+        
+        // Reload assets to ensure consistency with backend
+        await loadAssets();
       } catch (error: any) {
         console.error('Failed to delete asset:', error);
         const errorMsg = error.response?.data?.message || error.message || 'Failed to delete asset';
@@ -199,10 +404,12 @@ const AssetsPage = () => {
 
   const filteredAssets = assets.filter((asset) => {
     const matchesSearch = 
-      asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      asset.unique_asset_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      asset.manufacturer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      asset.serial_number.toLowerCase().includes(searchTerm.toLowerCase());
+      (asset.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (asset.category?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (asset.unique_asset_id?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (asset.manufacturer?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (asset.model?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (asset.serial_number?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     
     const matchesCategory = selectedCategory === 'all' || asset.category === selectedCategory;
     const matchesStatus = selectedStatus === 'all' || asset.status === selectedStatus;
@@ -265,12 +472,17 @@ const AssetsPage = () => {
     }
   };
 
-  const stats = {
-    totalAssets: assets.length,
-    activeAssets: assets.filter(a => a.status === 'Active').length,
-    maintenanceAssets: assets.filter(a => a.status === 'Maintenance').length,
-    totalValue: assets.reduce((sum, asset) => sum + asset.purchase_value, 0),
-  };
+  // Stats now loaded from API (removed static calculation)
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+          <CircularProgress size={60} />
+        </Box>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -285,10 +497,18 @@ const AssetsPage = () => {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button variant="outlined" startIcon={<UploadIcon />}>
+            <Button 
+              variant="outlined" 
+              startIcon={<UploadIcon />}
+              onClick={handleBulkImport}
+            >
               Bulk Import
             </Button>
-            <Button variant="contained" startIcon={<AddIcon />}>
+            <Button 
+              variant="contained" 
+              startIcon={<AddIcon />}
+              onClick={() => setAddDialogOpen(true)}
+            >
               Add New Asset
             </Button>
           </Box>
@@ -338,7 +558,7 @@ const AssetsPage = () => {
                     <Typography color="textSecondary" gutterBottom variant="overline">
                       Under Maintenance
                     </Typography>
-                    <Typography variant="h4">{stats.maintenanceAssets}</Typography>
+                    <Typography variant="h4">{stats.underMaintenance}</Typography>
                   </Box>
                   <Avatar sx={{ backgroundColor: 'warning.main' }}>
                     <InventoryIcon />
@@ -355,7 +575,7 @@ const AssetsPage = () => {
                     <Typography color="textSecondary" gutterBottom variant="overline">
                       Total Value
                     </Typography>
-                    <Typography variant="h4">₹{(stats.totalValue / 100000).toFixed(1)}L</Typography>
+                    <Typography variant="h4">₹{((stats.totalValue || 0) / 100000).toFixed(1)}L</Typography>
                   </Box>
                   <Avatar sx={{ backgroundColor: 'info.main' }}>
                     <InventoryIcon />
@@ -487,7 +707,7 @@ const AssetsPage = () => {
                       </TableCell>
                       <TableCell>{asset.location}</TableCell>
                       <TableCell>{asset.assigned_user || 'Unassigned'}</TableCell>
-                      <TableCell>₹{asset.purchase_value.toLocaleString()}</TableCell>
+                      <TableCell>₹{asset.purchase_value?.toLocaleString() || '0'}</TableCell>
                       <TableCell>
                         <IconButton 
                           size="small" 
@@ -500,7 +720,7 @@ const AssetsPage = () => {
                         <IconButton 
                           size="small" 
                           color="success"
-                          onClick={() => handleEditAsset(asset)}
+                          onClick={() => handleEditAssetClick(asset)}
                           title="Edit Asset"
                         >
                           <EditIcon />
@@ -552,6 +772,367 @@ const AssetsPage = () => {
             <ListItemText>Delete Asset</ListItemText>
           </MenuItem>
         </Menu>
+
+        {/* Add Asset Dialog */}
+        <Dialog 
+          open={addDialogOpen} 
+          onClose={() => setAddDialogOpen(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>Add New Asset</DialogTitle>
+          <DialogContent>
+            <Box sx={{ pt: 2 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Asset ID"
+                    required
+                    value={formData.unique_asset_id}
+                    onChange={(e) => setFormData({...formData, unique_asset_id: e.target.value})}
+                    placeholder="e.g., AST-001"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth required>
+                    <InputLabel>Category</InputLabel>
+                    <Select 
+                      label="Category" 
+                      value={formData.asset_type}
+                      onChange={(e) => setFormData({...formData, asset_type: e.target.value})}
+                    >
+                      {categories.map((cat) => (
+                        <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Manufacturer"
+                    required
+                    value={formData.manufacturer}
+                    onChange={(e) => setFormData({...formData, manufacturer: e.target.value})}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Model"
+                    required
+                    value={formData.model}
+                    onChange={(e) => setFormData({...formData, model: e.target.value})}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Serial Number"
+                    required
+                    value={formData.serial_number}
+                    onChange={(e) => setFormData({...formData, serial_number: e.target.value})}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Department"
+                    required
+                    value={formData.department}
+                    onChange={(e) => setFormData({...formData, department: e.target.value})}
+                    placeholder="e.g., IT, HR, Finance"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Location"
+                    value={formData.location}
+                    onChange={(e) => setFormData({...formData, location: e.target.value})}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    type="date"
+                    label="Purchase Date"
+                    value={formData.purchase_date}
+                    onChange={(e) => setFormData({...formData, purchase_date: e.target.value})}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Purchase Value"
+                    value={formData.purchase_value}
+                    onChange={(e) => setFormData({...formData, purchase_value: e.target.value})}
+                    InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Status</InputLabel>
+                    <Select 
+                      label="Status" 
+                      value={formData.status}
+                      onChange={(e) => setFormData({...formData, status: e.target.value})}
+                    >
+                      <MenuItem value="Active">Active</MenuItem>
+                      <MenuItem value="Inactive">Inactive</MenuItem>
+                      <MenuItem value="Maintenance">Maintenance</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Condition</InputLabel>
+                    <Select 
+                      label="Condition" 
+                      value={formData.condition}
+                      onChange={(e) => setFormData({...formData, condition: e.target.value})}
+                    >
+                      <MenuItem value="Excellent">Excellent</MenuItem>
+                      <MenuItem value="Good">Good</MenuItem>
+                      <MenuItem value="Fair">Fair</MenuItem>
+                      <MenuItem value="Poor">Poor</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => { setAddDialogOpen(false); resetForm(); }}>
+              Cancel
+            </Button>
+            <Button 
+              variant="contained" 
+              onClick={handleAddAsset}
+            >
+              Add Asset
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Edit Asset Dialog */}
+        <Dialog 
+          open={editDialogOpen} 
+          onClose={() => { setEditDialogOpen(false); resetForm(); }}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>Edit Asset</DialogTitle>
+          <DialogContent>
+            <Box sx={{ pt: 2 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Asset ID"
+                    value={formData.unique_asset_id}
+                    disabled
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Category</InputLabel>
+                    <Select 
+                      label="Category" 
+                      value={formData.asset_type}
+                      onChange={(e) => setFormData({...formData, asset_type: e.target.value})}
+                    >
+                      {categories.map((cat) => (
+                        <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Manufacturer"
+                    value={formData.manufacturer}
+                    onChange={(e) => setFormData({...formData, manufacturer: e.target.value})}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Model"
+                    value={formData.model}
+                    onChange={(e) => setFormData({...formData, model: e.target.value})}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Serial Number"
+                    value={formData.serial_number}
+                    onChange={(e) => setFormData({...formData, serial_number: e.target.value})}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Location"
+                    value={formData.location}
+                    onChange={(e) => setFormData({...formData, location: e.target.value})}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    type="date"
+                    label="Purchase Date"
+                    value={formData.purchase_date}
+                    onChange={(e) => setFormData({...formData, purchase_date: e.target.value})}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Purchase Value"
+                    value={formData.purchase_value}
+                    onChange={(e) => setFormData({...formData, purchase_value: e.target.value})}
+                    InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Status</InputLabel>
+                    <Select 
+                      label="Status" 
+                      value={formData.status}
+                      onChange={(e) => setFormData({...formData, status: e.target.value})}
+                    >
+                      <MenuItem value="Active">Active</MenuItem>
+                      <MenuItem value="Inactive">Inactive</MenuItem>
+                      <MenuItem value="Maintenance">Maintenance</MenuItem>
+                      <MenuItem value="Scrapped">Scrapped</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Condition</InputLabel>
+                    <Select 
+                      label="Condition" 
+                      value={formData.condition}
+                      onChange={(e) => setFormData({...formData, condition: e.target.value})}
+                    >
+                      <MenuItem value="Excellent">Excellent</MenuItem>
+                      <MenuItem value="Good">Good</MenuItem>
+                      <MenuItem value="Fair">Fair</MenuItem>
+                      <MenuItem value="Poor">Poor</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => { setEditDialogOpen(false); resetForm(); }}>
+              Cancel
+            </Button>
+            <Button 
+              variant="contained" 
+              onClick={handleUpdateAsset}
+            >
+              Update Asset
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Bulk Import Dialog */}
+        <Dialog
+          open={bulkImportOpen}
+          onClose={() => { setBulkImportOpen(false); setImportFile(null); }}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Bulk Import Assets</DialogTitle>
+          <DialogContent>
+            <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Alert severity="info">
+                Upload a CSV or Excel file to import multiple assets at once. 
+                Download the template to see the required format.
+              </Alert>
+
+              <Button
+                variant="outlined"
+                onClick={handleDownloadTemplate}
+                fullWidth
+              >
+                Download Template
+              </Button>
+
+              <Box
+                sx={{
+                  border: '2px dashed',
+                  borderColor: importFile ? 'primary.main' : 'divider',
+                  borderRadius: 2,
+                  p: 3,
+                  textAlign: 'center',
+                  bgcolor: importFile ? 'action.hover' : 'background.paper',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s',
+                  '&:hover': {
+                    borderColor: 'primary.main',
+                    bgcolor: 'action.hover',
+                  }
+                }}
+                onClick={() => document.getElementById('bulk-import-file')?.click()}
+              >
+                <input
+                  id="bulk-import-file"
+                  type="file"
+                  hidden
+                  accept=".csv,.xlsx,.xls"
+                  onChange={handleImportFileSelect}
+                />
+                <UploadIcon sx={{ fontSize: 48, color: importFile ? 'primary.main' : 'text.secondary', mb: 1 }} />
+                {importFile ? (
+                  <Box>
+                    <Typography variant="body1" fontWeight="medium" color="primary">
+                      {importFile.name}
+                    </Typography>
+                    <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                      Click to change file
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Box>
+                    <Typography variant="body1" fontWeight="medium">
+                      Click to select a file
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Supported: CSV, Excel (.xlsx, .xls)
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => { setBulkImportOpen(false); setImportFile(null); }} disabled={importing}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleBulkImportSubmit}
+              disabled={!importFile || importing}
+              startIcon={importing ? <CircularProgress size={20} /> : <UploadIcon />}
+            >
+              {importing ? 'Importing...' : 'Import Assets'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </DashboardLayout>
   );

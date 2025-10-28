@@ -1,4 +1,5 @@
 import { UserRole } from '../types';
+import type { SvgIconComponent } from '@mui/icons-material';
 import {
   Dashboard as DashboardIcon,
   People as PeopleIcon,
@@ -27,7 +28,7 @@ export interface NavigationItem {
   id: string;
   title: string;
   path: string;
-  icon: any;
+  icon: SvgIconComponent;
   children?: NavigationItem[];
 }
 
@@ -72,7 +73,7 @@ export const adminNavigation: NavigationItem[] = [
   {
     id: 'reports',
     title: 'Reports & Analytics',
-    path: '/admin/reports',
+    path: '/reports',
     icon: AnalyticsIcon,
     children: [
       { id: 'asset-reports', title: 'Asset Reports', path: '/reports/assets', icon: ReportIcon },
@@ -210,7 +211,7 @@ export const auditorNavigation: NavigationItem[] = [
   {
     id: 'reports',
     title: 'Audit Reports',
-    path: '/reports',
+    path: '/auditor/reports',
     icon: ReportIcon,
   },
   {
@@ -255,7 +256,7 @@ export const vendorNavigation: NavigationItem[] = [
   {
     id: 'help',
     title: 'Help & Support',
-    path: '/help',
+    path: '/employee/help',
     icon: HelpIcon,
   },
 ];

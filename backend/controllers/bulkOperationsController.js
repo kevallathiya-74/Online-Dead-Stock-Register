@@ -780,4 +780,286 @@ exports.validateBulkOperation = async (req, res) => {
   }
 };
 
+// Bulk import assets from CSV/Excel file
+exports.importAssets = async (req, res) => {
+  const fs = require('fs');
+  const csv = require('csv-parser');
+  const XLSX = require('xlsx');
+  const path = require('path');
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    const filePath = req.file.path;
+    const fileExtension = path.extname(req.file.originalname).toLowerCase();
+    const results = [];
+    const errors = [];
+
+    // Parse file based on extension
+    if (fileExtension === '.csv') {
+      // Parse CSV file
+      await new Promise((resolve, reject) => {
+        let rowNumber = 0;
+        fs.createReadStream(filePath)
+          .pipe(csv())
+          .on('data', (data) => {
+            rowNumber++;
+            results.push({ row: rowNumber, data });
+          })
+          .on('end', resolve)
+          .on('error', reject);
+      });
+    } else if (fileExtension === '.xlsx' || fileExtension === '.xls') {
+      // Parse Excel file
+      const workbook = XLSX.readFile(filePath);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(worksheet);
+      
+      data.forEach((row, index) => {
+        results.push({ row: index + 2, data: row }); // +2 because Excel rows start at 1 and row 1 is headers
+      });
+    } else {
+      fs.unlinkSync(filePath);
+      return res.status(400).json({
+        success: false,
+        message: 'Unsupported file format. Please upload CSV or Excel file.'
+      });
+    }
+
+    let successCount = 0;
+    let failedCount = 0;
+
+    // Process each row
+    for (const item of results) {
+      try {
+        const { row, data } = item;
+
+        // Normalize field names (handle different column naming conventions)
+        const normalizedData = {};
+        for (const [key, value] of Object.entries(data)) {
+          const normalizedKey = key.toLowerCase().replace(/\s+/g, '_');
+          normalizedData[normalizedKey] = value;
+        }
+
+        // Map common field variations
+        const name = normalizedData.name || normalizedData.asset_name;
+        const unique_asset_id = normalizedData.unique_asset_id || normalizedData.asset_id || normalizedData.id;
+        const asset_type = normalizedData.asset_type || normalizedData.type || normalizedData.category;
+
+        // Validate required fields
+        if (!name || !unique_asset_id || !asset_type) {
+          errors.push({
+            row,
+            error: 'Missing required fields (name, unique_asset_id, asset_type)',
+            data
+          });
+          failedCount++;
+          continue;
+        }
+
+        // Check if asset ID already exists
+        const existingAsset = await Asset.findOne({ unique_asset_id });
+        if (existingAsset) {
+          errors.push({
+            row,
+            error: `Asset ID ${unique_asset_id} already exists`,
+            data
+          });
+          failedCount++;
+          continue;
+        }
+
+        // Create asset object
+        const assetData = {
+          unique_asset_id,
+          name,
+          asset_type,
+          category: normalizedData.category || asset_type,
+          manufacturer: normalizedData.manufacturer || '',
+          model: normalizedData.model || '',
+          serial_number: normalizedData.serial_number || normalizedData.serial || '',
+          purchase_date: normalizedData.purchase_date ? new Date(normalizedData.purchase_date) : null,
+          purchase_value: parseFloat(normalizedData.purchase_value || normalizedData.value || 0),
+          warranty_expiry: normalizedData.warranty_expiry ? new Date(normalizedData.warranty_expiry) : null,
+          status: normalizedData.status || 'Available',
+          condition: normalizedData.condition || 'Good',
+          location: normalizedData.location || '',
+          department: normalizedData.department || 'INVENTORY',
+          description: normalizedData.description || normalizedData.notes || '',
+          created_by: req.user.id
+        };
+
+        // Create asset
+        const asset = new Asset(assetData);
+        await asset.save();
+
+        // Create audit log
+        await AuditLog.create({
+          user: req.user.id,
+          action: 'BULK_IMPORT_ASSET',
+          resource_type: 'Asset',
+          resource_id: asset._id,
+          description: `Asset ${asset.unique_asset_id} imported from ${fileExtension} file`,
+          ip_address: req.ip,
+          user_agent: req.get('user-agent')
+        });
+
+        successCount++;
+      } catch (err) {
+        errors.push({
+          row: item.row,
+          error: err.message,
+          data: item.data
+        });
+        failedCount++;
+      }
+    }
+
+    // Clean up uploaded file
+    fs.unlinkSync(filePath);
+
+    // Send notification
+    await Notification.create({
+      user: req.user.id,
+      title: 'Bulk Import Completed',
+      message: `Imported ${successCount} assets successfully. ${failedCount} failed.`,
+      type: successCount > 0 ? 'success' : 'error',
+      category: 'asset_management',
+      priority: 'medium'
+    });
+
+    res.json({
+      success: true,
+      message: `Import completed: ${successCount} successful, ${failedCount} failed`,
+      success: successCount,
+      failed: failedCount,
+      total: results.length,
+      errors: errors
+    });
+
+  } catch (error) {
+    console.error('Error importing assets:', error);
+    
+    // Clean up file if it exists
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to import assets',
+      error: error.message
+    });
+  }
+};
+
+// Generate CSV template for bulk import
+exports.generateImportTemplate = async (req, res) => {
+  try {
+    const format = req.query.format || 'csv'; // csv or xlsx
+    
+    // Template headers
+    const headers = [
+      'name',
+      'unique_asset_id',
+      'asset_type',
+      'category',
+      'manufacturer',
+      'model',
+      'serial_number',
+      'purchase_date',
+      'purchase_value',
+      'warranty_expiry',
+      'status',
+      'condition',
+      'location',
+      'department',
+      'description'
+    ];
+
+    // Sample data
+    const sampleData = [
+      {
+        name: 'Dell XPS 15 Laptop',
+        unique_asset_id: 'AST-001',
+        asset_type: 'IT Equipment',
+        category: 'Laptop',
+        manufacturer: 'Dell',
+        model: 'XPS 15',
+        serial_number: 'DL123456789',
+        purchase_date: '2024-01-15',
+        purchase_value: '85000',
+        warranty_expiry: '2026-01-15',
+        status: 'Available',
+        condition: 'Excellent',
+        location: 'IT Department',
+        department: 'IT',
+        description: 'High-performance laptop for development work'
+      },
+      {
+        name: 'HP LaserJet Printer',
+        unique_asset_id: 'AST-002',
+        asset_type: 'Office Equipment',
+        category: 'Printer',
+        manufacturer: 'HP',
+        model: 'LaserJet Pro M404n',
+        serial_number: 'HP987654321',
+        purchase_date: '2024-02-20',
+        purchase_value: '25000',
+        warranty_expiry: '2025-02-20',
+        status: 'Available',
+        condition: 'Good',
+        location: 'Admin Office',
+        department: 'ADMIN',
+        description: 'Network printer for office use'
+      }
+    ];
+
+    if (format === 'xlsx' || format === 'excel') {
+      // Generate Excel file
+      const XLSX = require('xlsx');
+      const worksheet = XLSX.utils.json_to_sheet(sampleData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Assets');
+      
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+      
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=asset-import-template.xlsx');
+      res.send(buffer);
+    } else {
+      // Generate CSV file
+      const csvRows = [];
+      csvRows.push(headers.join(','));
+      
+      sampleData.forEach(row => {
+        const values = headers.map(header => {
+          const value = row[header] || '';
+          return `"${value}"`;
+        });
+        csvRows.push(values.join(','));
+      });
+      
+      const csvContent = csvRows.join('\n');
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=asset-import-template.csv');
+      res.send(csvContent);
+    }
+  } catch (error) {
+    console.error('Error generating template:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate template',
+      error: error.message
+    });
+  }
+};
+
 module.exports = exports;

@@ -4,10 +4,11 @@ import type {
   VendorOrder, 
   VendorProduct, 
   VendorInvoice, 
-  VendorProfile 
+  VendorProfile,
+  Pagination
 } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
 
 // Get auth token from localStorage
 const getAuthHeader = () => {
@@ -40,7 +41,7 @@ export const getOrders = async (params?: {
   priority?: string;
   startDate?: string;
   endDate?: string;
-}): Promise<{ orders: VendorOrder[]; pagination: any }> => {
+}): Promise<{ orders: VendorOrder[]; pagination: Pagination }> => {
   const response = await axios.get(`${API_BASE_URL}/vendor/orders`, {
     headers: getAuthHeader(),
     params
@@ -66,7 +67,7 @@ export const getProducts = async (params?: {
   search?: string;
   category?: string;
   status?: string;
-}): Promise<{ products: VendorProduct[]; pagination: any }> => {
+}): Promise<{ products: VendorProduct[]; pagination: Pagination }> => {
   const response = await axios.get(`${API_BASE_URL}/vendor/products`, {
     headers: getAuthHeader(),
     params
@@ -80,7 +81,7 @@ export const getProducts = async (params?: {
 // Get invoices
 export const getInvoices = async (params?: {
   status?: string;
-}): Promise<{ invoices: VendorInvoice[]; summary: any }> => {
+}): Promise<{ invoices: VendorInvoice[]; summary: { total_invoices: number; total_amount: number; pending_amount: number; paid_amount: number } }> => {
   const response = await axios.get(`${API_BASE_URL}/vendor/invoices`, {
     headers: getAuthHeader(),
     params

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import {
   Box,
   Grid,
@@ -952,6 +952,16 @@ const InventoryManagerDashboard = () => {
         onClose={() => closeModal('report')}
         onSubmit={(data) => handleModalSubmit('report', data)}
       />
+
+      {/* Documents Panel - Embedded for quick access */}
+      <Box sx={{ mt: 4 }}>
+        <Suspense fallback={<CircularProgress />}>
+          {(() => {
+            const Documents = lazy(() => import('../documents/Documents'));
+            return <Documents embedded />;
+          })()}
+        </Suspense>
+      </Box>
     </DashboardLayout>
   );
 };

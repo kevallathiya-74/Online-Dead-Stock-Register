@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Drawer,
@@ -46,6 +46,25 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
   const navigation = user ? getNavigationForRole(user.role) : [];
 
+  // Auto-expand parent menu when on a child route
+  useEffect(() => {
+    const newOpenItems: { [key: string]: boolean } = {};
+    
+    navigation.forEach((item) => {
+      if (item.children) {
+        // Check if current path matches any child path
+        const hasActiveChild = item.children.some(
+          (child) => location.pathname === child.path || location.pathname.startsWith(child.path + '/')
+        );
+        if (hasActiveChild) {
+          newOpenItems[item.id] = true;
+        }
+      }
+    });
+
+    setOpenItems(prev => ({ ...prev, ...newOpenItems }));
+  }, [location.pathname, navigation]);
+
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
@@ -81,44 +100,49 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   };
 
   const renderNavigationItems = (items: NavigationItem[], level: number = 0) => {
-    return items.map((item) => (
-      <React.Fragment key={item.id}>
-        <ListItem disablePadding sx={{ pl: level * 2 }}>
-          <ListItemButton
-            onClick={() => handleMenuItemClick(item)}
-            selected={location.pathname === item.path}
-            sx={{
-              minHeight: 48,
-              '&.Mui-selected': {
-                backgroundColor: 'primary.main',
-                color: 'white',
-                '&:hover': {
-                  backgroundColor: 'primary.dark',
-                },
-                '& .MuiListItemIcon-root': {
+    return items.map((item) => {
+      const isActive = location.pathname === item.path || 
+                      (item.children && item.children.some(child => location.pathname === child.path));
+      
+      return (
+        <React.Fragment key={item.id}>
+          <ListItem disablePadding sx={{ pl: level * 2 }}>
+            <ListItemButton
+              onClick={() => handleMenuItemClick(item)}
+              selected={isActive}
+              sx={{
+                minHeight: 48,
+                '&.Mui-selected': {
+                  backgroundColor: 'primary.main',
                   color: 'white',
+                  '&:hover': {
+                    backgroundColor: 'primary.dark',
+                  },
+                  '& .MuiListItemIcon-root': {
+                    color: 'white',
+                  },
                 },
-              },
-            }}
-          >
-            <ListItemIcon>
-              <item.icon />
-            </ListItemIcon>
-            <ListItemText primary={item.title} />
-            {item.children && (
-              openItems[item.id] ? <ExpandLess /> : <ExpandMore />
-            )}
-          </ListItemButton>
-        </ListItem>
-        {item.children && (
-          <Collapse in={openItems[item.id]} timeout="auto" unmountOnExit>
-            <List component="div" disablePadding>
-              {renderNavigationItems(item.children, level + 1)}
-            </List>
-          </Collapse>
-        )}
-      </React.Fragment>
-    ));
+              }}
+            >
+              <ListItemIcon>
+                <item.icon />
+              </ListItemIcon>
+              <ListItemText primary={item.title} />
+              {item.children && (
+                openItems[item.id] ? <ExpandLess /> : <ExpandMore />
+              )}
+            </ListItemButton>
+          </ListItem>
+          {item.children && (
+            <Collapse in={openItems[item.id]} timeout="auto" unmountOnExit>
+              <List component="div" disablePadding>
+                {renderNavigationItems(item.children, level + 1)}
+              </List>
+            </Collapse>
+          )}
+        </React.Fragment>
+      );
+    });
   };
 
   const drawer = (
@@ -208,13 +232,13 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               horizontal: 'right',
             }}
           >
-            <MenuItem onClick={() => { navigate('/profile'); handleProfileMenuClose(); }}>
+            <MenuItem onClick={() => { navigate('/employee/profile'); handleProfileMenuClose(); }}>
               <ListItemIcon>
                 <PersonIcon fontSize="small" />
               </ListItemIcon>
               Profile
             </MenuItem>
-            <MenuItem onClick={() => { navigate('/settings'); handleProfileMenuClose(); }}>
+            <MenuItem onClick={() => { navigate('/admin/settings'); handleProfileMenuClose(); }}>
               <ListItemIcon>
                 <SettingsIcon fontSize="small" />
               </ListItemIcon>

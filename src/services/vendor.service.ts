@@ -1,5 +1,5 @@
 import api from './api';
-import { ApiResponse } from '../types';
+import { ApiResponse, Pagination } from '../types';
 
 // Vendor Management Service
 export interface Vendor {
@@ -34,12 +34,33 @@ export interface Vendor {
   updated_at: string;
 }
 
+export interface CategoryBreakdown {
+  category: string;
+  count: number;
+  percentage: number;
+}
+
+export interface VendorQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  category?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface GetVendorsResponse {
+  vendors: Vendor[];
+  pagination: Pagination;
+}
+
 export interface VendorStats {
   total_vendors: number;
   active_vendors: number;
   inactive_vendors: number;
   blocked_vendors: number;
-  category_breakdown: any[];
+  category_breakdown: CategoryBreakdown[];
   top_performers: Vendor[];
   recent_additions: Vendor[];
   contract_expiring_soon: Vendor[];
@@ -47,20 +68,18 @@ export interface VendorStats {
 
 class VendorService {
   // Get all vendors with filtering
-  async getVendors(params?: any): Promise<{
-    vendors: Vendor[];
-    pagination: any;
-  }> {
+  async getVendors(params?: VendorQueryParams): Promise<GetVendorsResponse> {
     try {
-      const queryParams = new URLSearchParams(params || {}).toString();
-      const response = await api.get<ApiResponse<any>>(`/inventory/vendors?${queryParams}`);
+      const queryParams = new URLSearchParams(params as Record<string, string> || {}).toString();
+      const response = await api.get<ApiResponse<GetVendorsResponse>>(`/inventory/vendors?${queryParams}`);
       if (response.data.success && response.data.data) {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch vendors');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching vendors:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch vendors');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch vendors';
+      throw new Error(errorMessage);
     }
   }
 
@@ -72,9 +91,10 @@ class VendorService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch vendor');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching vendor:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch vendor');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch vendor';
+      throw new Error(errorMessage);
     }
   }
 
@@ -86,9 +106,10 @@ class VendorService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to create vendor');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating vendor:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to create vendor');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create vendor';
+      throw new Error(errorMessage);
     }
   }
 
@@ -100,22 +121,24 @@ class VendorService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to update vendor');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating vendor:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to update vendor');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update vendor';
+      throw new Error(errorMessage);
     }
   }
 
   // Delete vendor
   async deleteVendor(id: string): Promise<void> {
     try {
-      const response = await api.delete<ApiResponse<any>>(`/inventory/vendors/${id}`);
+      const response = await api.delete<ApiResponse<{ message: string }>>(`/inventory/vendors/${id}`);
       if (!response.data.success) {
         throw new Error(response.data.error || 'Failed to delete vendor');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting vendor:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to delete vendor');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete vendor';
+      throw new Error(errorMessage);
     }
   }
 
@@ -127,25 +150,27 @@ class VendorService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch vendor statistics');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching vendor statistics:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch vendor statistics');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch vendor statistics';
+      throw new Error(errorMessage);
     }
   }
 
   // Bulk operations
   async bulkUpdateVendorStatus(vendorIds: string[], status: 'active' | 'inactive' | 'blocked'): Promise<void> {
     try {
-      const response = await api.patch<ApiResponse<any>>('/inventory/vendors/bulk-status', {
+      const response = await api.patch<ApiResponse<{ updated: number; message: string }>>('/inventory/vendors/bulk-status', {
         vendor_ids: vendorIds,
         status
       });
       if (!response.data.success) {
         throw new Error(response.data.error || 'Failed to update vendor status');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating vendor status:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to update vendor status');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update vendor status';
+      throw new Error(errorMessage);
     }
   }
 }

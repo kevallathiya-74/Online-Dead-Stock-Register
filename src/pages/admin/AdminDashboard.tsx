@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -73,11 +73,7 @@ const AdminDashboard: React.FC = () => {
   const [systemAlerts, setSystemAlerts] = useState<any[]>([]);
   const [chartData, setChartData] = useState<any>({});
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
       // Load real statistics from API
@@ -146,7 +142,11 @@ const AdminDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []); // useCallback with empty dependency array since it doesn't use any external values
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   const generateChartData = (stats: any = {}) => {
     // Asset utilization over time (placeholder - would need monthly trends API)

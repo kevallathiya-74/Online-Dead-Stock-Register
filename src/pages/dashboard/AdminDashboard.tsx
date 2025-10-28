@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -47,6 +47,33 @@ import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { dashboardDataService } from '../../services/dashboardData.service';
 import { UserRole } from '../../types';
+import api from '../../services/api';
+
+// Utility function to format timestamp to relative time
+const formatTimeAgo = (timestamp: string | Date): string => {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} day${days > 1 ? 's' : ''} ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} month${months > 1 ? 's' : ''} ago`;
+  const years = Math.floor(months / 12);
+  return `${years} year${years > 1 ? 's' : ''} ago`;
+};
+
+// Utility function to format currency
+const formatCurrency = (amount: number | string): string => {
+  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (isNaN(numAmount)) return '₹0';
+  return `₹${numAmount.toLocaleString('en-IN')}`;
+};
 
 interface StatCardProps {
   title: string;
@@ -162,9 +189,9 @@ const AdminDashboard = () => {
   };
 
   const loadDashboardData = async () => {
+    setLoading(true);
+    
     try {
-      setLoading(true);
-      
       // Load dashboard statistics
       const dashboardStats = await dashboardDataService.getDashboardStats(UserRole.ADMIN);
       
@@ -173,75 +200,36 @@ const AdminDashboard = () => {
         totalValue: `₹${dashboardStats.totalValue.toLocaleString()}`,
         activeUsers: dashboardStats.activeUsers,
         pendingApprovals: dashboardStats.pendingApprovals,
-        scrapAssets: 15,
-        monthlyPurchase: `₹${dashboardStats.purchaseOrders?.toLocaleString() || '2,45,000'}`
+        scrapAssets: dashboardStats.disposedAssets || 0, // Use disposedAssets for scrap assets
+        monthlyPurchase: `₹${dashboardStats.monthlyPurchaseValue?.toLocaleString() || '0'}`
       });
-
-      setRecentActivities([
-        {
-          user: 'John Smith',
-          action: 'Added new asset',
-          asset: 'Laptop Dell XPS 13',
-          time: '2 hours ago',
-          type: 'create',
-        },
-        {
-          user: 'Sarah Johnson',
-          action: 'Approved purchase request',
-          asset: 'Office Chair x5',
-          time: '4 hours ago',
-          type: 'approve',
-        },
-        {
-          user: 'Mike Brown',
-          action: 'Updated asset location',
-          asset: 'Printer HP LaserJet',
-          time: '6 hours ago',
-          type: 'update',
-        },
-        {
-          user: 'Admin',
-          action: 'System backup completed',
-          asset: 'Database',
-          time: '1 day ago',
-          type: 'system',
-        },
-      ]);
-
-      setPendingApprovals([
-        {
-          id: 1,
-          type: 'Asset Purchase',
-          requestor: 'Emma Wilson',
-          amount: '₹45,000',
-          status: 'pending',
-          priority: 'high',
-        },
-        {
-          id: 2,
-          type: 'Asset Transfer',
-          requestor: 'James Davis',
-          amount: '₹15,000',
-          status: 'pending',
-          priority: 'medium',
-        },
-        {
-          id: 3,
-          type: 'Scrap Request',
-          requestor: 'Lisa Anderson',
-          amount: '₹8,000',
-          status: 'pending',
-          priority: 'low',
-        },
-      ]);
-
     } catch (error) {
-      console.error('Error loading admin dashboard data:', error);
-      toast.error('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+      console.error('Error loading dashboard stats:', error);
+      toast.error('Failed to load dashboard statistics');
     }
+
+    try {
+      // Fetch recent activities from API
+      const activitiesResponse = await api.get('/dashboard/activities');
+      const activitiesData = activitiesResponse.data.data || activitiesResponse.data;
+      setRecentActivities(Array.isArray(activitiesData) ? activitiesData : []);
+    } catch (error) {
+      console.error('Error loading activities:', error);
+      setRecentActivities([]);
+    }
+
+    try {
+      // Fetch pending approvals from API
+      const approvalsResponse = await api.get('/dashboard/approvals');
+      const approvalsData = approvalsResponse.data.data || approvalsResponse.data;
+      setPendingApprovals(Array.isArray(approvalsData) ? approvalsData.slice(0, 3) : []);
+    } catch (error) {
+      console.error('Error loading approvals:', error);
+      setPendingApprovals([]);
+    }
+
+    setLoading(false);
+    setRefreshing(false);
   };
 
   useEffect(() => {
@@ -258,6 +246,42 @@ const AdminDashboard = () => {
     toast.info('Refreshing dashboard data...');
     dashboardDataService.refreshCache();
     loadDashboardData();
+  };
+
+  const handleExportData = async () => {
+    try {
+      toast.info('Preparing data export...');
+      
+      const response = await api.post('/export-import/export', {
+        format: 'xlsx',
+        includeAssets: true,
+        includeUsers: true,
+        includeTransactions: true,
+        includeVendors: true
+      }, {
+        responseType: 'blob'
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `system-export-${new Date().toISOString().split('T')[0]}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Data exported successfully!');
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export data');
+    }
+  };
+
+  const handleSecurityAudit = () => {
+    // Navigate to audit logs page with security filter
+    navigate('/admin/audit-logs', { state: { filter: 'security' } });
   };
 
   const quickActions = [
@@ -293,17 +317,14 @@ const AdminDashboard = () => {
       title: 'Export Data',
       description: 'Download system data and generate reports',
       icon: <CloudDownload />,
-      onClick: () => {
-        toast.info('Preparing data export...');
-        // In real app, would trigger data export API
-      },
+      onClick: handleExportData,
       color: 'primary' as const,
     },
     {
       title: 'Security Audit',
       description: 'Review security logs and user permissions',
       icon: <Security />,
-      onClick: () => navigate('/admin/security'),
+      onClick: handleSecurityAudit,
       color: 'error' as const,
     },
   ];
@@ -436,7 +457,7 @@ const AdminDashboard = () => {
                           </Typography>
                         </Box>
                       }
-                      secondary={activity.time}
+                      secondary={formatTimeAgo(activity.time)}
                     />
                     <Chip
                       label={activity.type}
@@ -480,7 +501,7 @@ const AdminDashboard = () => {
                             {approval.requestor}
                           </Typography>
                         </TableCell>
-                        <TableCell>{approval.amount}</TableCell>
+                        <TableCell>{formatCurrency(approval.amount)}</TableCell>
                         <TableCell>
                           <Chip
                             label={approval.priority}
@@ -523,6 +544,16 @@ const AdminDashboard = () => {
             </Paper>
           </Grid>
         </Grid>
+
+        {/* Documents Panel - Embedded for quick access */}
+        <Box sx={{ mt: 4 }}>
+          <Suspense fallback={<CircularProgress />}>
+            {(() => {
+              const Documents = lazy(() => import('../documents/Documents'));
+              return <Documents embedded />;
+            })()}
+          </Suspense>
+        </Box>
       </Box>
     </DashboardLayout>
   );

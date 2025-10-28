@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
 import AdminDashboard from './AdminDashboard';
@@ -51,32 +51,45 @@ const Dashboard = () => {
   console.log('Dashboard - Current user role:', currentUserRole);
   console.log('Dashboard - User details:', { name: user.name, email: user.email, department: user.department });
   
-  // Render role-specific dashboard
+  // Lazy-load Documents and render role-specific dashboard alongside it
+  const Documents = lazy(() => import('../documents/Documents'));
+
+  // Render role-specific dashboard into a variable so we can render Documents alongside
+  let roleComponent: React.ReactElement | null = null;
   switch (currentUserRole) {
     case UserRole.ADMIN:
       console.log('Rendering AdminDashboard');
-      return <AdminDashboard />;
-      
+      roleComponent = <AdminDashboard />;
+      break;
+
     case UserRole.INVENTORY_MANAGER:
       console.log('Rendering InventoryManagerDashboard');
-      return <InventoryManagerDashboard />;
-      
+      roleComponent = <InventoryManagerDashboard />;
+      break;
+
     case UserRole.EMPLOYEE:
       console.log('Rendering EmployeeDashboard');
-      return <EmployeeDashboard />;
-      
+      roleComponent = <EmployeeDashboard />;
+      break;
+
     case UserRole.AUDITOR:
       console.log('Rendering AuditorDashboard');
-      return <AuditorDashboard />;
-      
+      roleComponent = <AuditorDashboard />;
+      break;
+
     case UserRole.VENDOR:
       console.log('Rendering VendorDashboard');
-      return <VendorDashboard />;
-      
+      roleComponent = <VendorDashboard />;
+      break;
+
     default:
       console.warn('Unknown role:', currentUserRole, '- Defaulting to EmployeeDashboard');
-      return <EmployeeDashboard />;
+      roleComponent = <EmployeeDashboard />;
+      break;
   }
+
+
+  return roleComponent;
 };
 
 export default Dashboard;

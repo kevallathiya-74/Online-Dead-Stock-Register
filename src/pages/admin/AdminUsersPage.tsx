@@ -52,7 +52,7 @@ interface AdminUser {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: 'ADMIN' | 'INVENTORY_MANAGER' | 'AUDITOR' | 'EMPLOYEE';
   department: string;
   employee_id: string;
   is_active: boolean;
@@ -104,7 +104,7 @@ const AdminUsersPage: React.FC = () => {
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
-    role: 'Employee',
+    role: 'EMPLOYEE' as AdminUser['role'],
     department: '',
     phone: '',
     location: '',
@@ -132,9 +132,9 @@ const AdminUsersPage: React.FC = () => {
   const stats = {
     total: users.length,
     active: users.filter(u => u.is_active).length,
-    admins: users.filter(u => u.role === 'Admin').length,
-    managers: users.filter(u => u.role === 'Inventory_Manager').length,
-    employees: users.filter(u => u.role === 'Employee').length
+    admins: users.filter(u => u.role === 'ADMIN').length,
+    managers: users.filter(u => u.role === 'INVENTORY_MANAGER').length,
+    employees: users.filter(u => u.role === 'EMPLOYEE').length
   };
 
   const filteredUsers = users.filter(user => {
@@ -179,7 +179,7 @@ const AdminUsersPage: React.FC = () => {
       setNewUser({
         name: '',
         email: '',
-        role: 'Employee',
+        role: 'EMPLOYEE',
         department: '',
         phone: '',
         location: '',
@@ -286,14 +286,26 @@ const AdminUsersPage: React.FC = () => {
     }
   };
 
+  const formatRoleName = (role: string): string => {
+    const roleNames: Record<string, string> = {
+      'ADMIN': 'Admin',
+      'INVENTORY_MANAGER': 'Inventory Manager',
+      'EMPLOYEE': 'Employee',
+      'AUDITOR': 'Auditor'
+    };
+    return roleNames[role] || role;
+  };
+
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'Admin':
+      case 'ADMIN':
         return 'error';
-      case 'Inventory_Manager':
+      case 'INVENTORY_MANAGER':
         return 'warning';
-      case 'Auditor':
+      case 'AUDITOR':
         return 'info';
+      case 'EMPLOYEE':
+        return 'success';
       default:
         return 'default';
     }
@@ -301,12 +313,14 @@ const AdminUsersPage: React.FC = () => {
 
   const getRoleIcon = (role: string) => {
     switch (role) {
-      case 'Admin':
+      case 'ADMIN':
         return <AdminIcon fontSize="small" />;
-      case 'Inventory_Manager':
+      case 'INVENTORY_MANAGER':
         return <BusinessIcon fontSize="small" />;
-      case 'Auditor':
+      case 'AUDITOR':
         return <SecurityIcon fontSize="small" />;
+      case 'EMPLOYEE':
+        return <PersonIcon fontSize="small" />;
       default:
         return <PersonIcon fontSize="small" />;
     }
@@ -450,10 +464,10 @@ const AdminUsersPage: React.FC = () => {
               onChange={(e) => setSelectedRole(e.target.value)}
             >
               <MenuItem value="all">All Roles</MenuItem>
-              <MenuItem value="Admin">Admin</MenuItem>
-              <MenuItem value="Inventory_Manager">Inventory Manager</MenuItem>
-              <MenuItem value="Employee">Employee</MenuItem>
-              <MenuItem value="Auditor">Auditor</MenuItem>
+              <MenuItem value="ADMIN">Admin</MenuItem>
+              <MenuItem value="INVENTORY_MANAGER">Inventory Manager</MenuItem>
+              <MenuItem value="EMPLOYEE">Employee</MenuItem>
+              <MenuItem value="AUDITOR">Auditor</MenuItem>
             </Select>
           </FormControl>
         </Box>
@@ -514,7 +528,7 @@ const AdminUsersPage: React.FC = () => {
                         <TableCell>
                           <Chip
                             icon={getRoleIcon(user.role)}
-                            label={user.role.replace('_', ' ')}
+                            label={formatRoleName(user.role)}
                             color={getRoleColor(user.role) as any}
                             size="small"
                           />
@@ -618,12 +632,12 @@ const AdminUsersPage: React.FC = () => {
                     <Select
                       value={newUser.role}
                       label="Role"
-                      onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value }))}
+                      onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value as AdminUser['role'] }))}
                     >
-                      <MenuItem value="Admin">Admin</MenuItem>
-                      <MenuItem value="Inventory_Manager">Inventory Manager</MenuItem>
-                      <MenuItem value="Employee">Employee</MenuItem>
-                      <MenuItem value="Auditor">Auditor</MenuItem>
+                      <MenuItem value="ADMIN">Admin</MenuItem>
+                      <MenuItem value="INVENTORY_MANAGER">Inventory Manager</MenuItem>
+                      <MenuItem value="EMPLOYEE">Employee</MenuItem>
+                      <MenuItem value="AUDITOR">Auditor</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -636,8 +650,8 @@ const AdminUsersPage: React.FC = () => {
                       label="Department"
                       onChange={(e) => setNewUser(prev => ({ ...prev, department: e.target.value }))}
                     >
-                      <MenuItem value="IT">IT</MenuItem>
                       <MenuItem value="INVENTORY">Inventory</MenuItem>
+                      <MenuItem value="IT">IT</MenuItem>
                       <MenuItem value="ADMIN">Admin</MenuItem>
                       <MenuItem value="VENDOR">Vendor</MenuItem>
                     </Select>
@@ -712,12 +726,12 @@ const AdminUsersPage: React.FC = () => {
                     <Select
                       value={newUser.role}
                       label="Role"
-                      onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value }))}
+                      onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value as AdminUser['role'] }))}
                     >
-                      <MenuItem value="Admin">Admin</MenuItem>
-                      <MenuItem value="Inventory_Manager">Inventory Manager</MenuItem>
-                      <MenuItem value="Employee">Employee</MenuItem>
-                      <MenuItem value="Auditor">Auditor</MenuItem>
+                      <MenuItem value="ADMIN">Admin</MenuItem>
+                      <MenuItem value="INVENTORY_MANAGER">Inventory Manager</MenuItem>
+                      <MenuItem value="EMPLOYEE">Employee</MenuItem>
+                      <MenuItem value="AUDITOR">Auditor</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -730,8 +744,8 @@ const AdminUsersPage: React.FC = () => {
                       label="Department"
                       onChange={(e) => setNewUser(prev => ({ ...prev, department: e.target.value }))}
                     >
-                      <MenuItem value="IT">IT</MenuItem>
                       <MenuItem value="INVENTORY">Inventory</MenuItem>
+                      <MenuItem value="IT">IT</MenuItem>
                       <MenuItem value="ADMIN">Admin</MenuItem>
                       <MenuItem value="VENDOR">Vendor</MenuItem>
                     </Select>

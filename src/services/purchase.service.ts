@@ -1,19 +1,72 @@
 import api from './api';
-import { ApiResponse } from '../types';
+import { ApiResponse, Pagination } from '../types';
 
 // Purchase Management Service
+export interface VendorInfo {
+  id: string;
+  name: string;
+  vendor_code: string;
+  contact_person: string;
+  contact_email: string;
+}
+
+export interface UserInfo {
+  id: string;
+  full_name: string;
+  email: string;
+  department: string;
+}
+
+export interface StatusBreakdown {
+  status: string;
+  count: number;
+  value: number;
+}
+
+export interface MonthlySpending {
+  month: string;
+  amount: number;
+  count: number;
+}
+
+export interface TopVendor {
+  vendor_id: string;
+  vendor_name: string;
+  total_spent: number;
+  order_count: number;
+}
+
+export interface PurchaseQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  vendor?: string;
+  department?: string;
+  priority?: string;
+  startDate?: string;
+  endDate?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface GetPurchaseOrdersResponse {
+  purchase_orders: PurchaseOrder[];
+  pagination: Pagination;
+}
+
 export interface PurchaseOrder {
   id: string;
   po_number: string;
-  vendor: any;
+  vendor: VendorInfo;
   items: PurchaseOrderItem[];
   status: 'pending' | 'approved' | 'sent' | 'partially_received' | 'completed' | 'cancelled';
   subtotal: number;
   tax_amount: number;
   shipping_cost: number;
   total_amount: number;
-  requested_by: any;
-  approved_by?: any;
+  requested_by: UserInfo;
+  approved_by?: UserInfo;
   department: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
   expected_delivery_date: string;
@@ -34,7 +87,7 @@ export interface PurchaseOrderItem {
 export interface PurchaseRequest {
   id: string;
   request_number: string;
-  requester: any;
+  requester: UserInfo;
   items: PurchaseRequestItem[];
   status: 'draft' | 'submitted' | 'under_review' | 'approved' | 'rejected' | 'converted_to_po';
   department: string;
@@ -61,35 +114,33 @@ export interface PurchaseRequestItem {
 
 export interface PurchaseStats {
   purchase_orders: {
-    status_breakdown: any[];
+    status_breakdown: StatusBreakdown[];
     total_orders: number;
     total_value: number;
   };
   purchase_requests: {
-    status_breakdown: any[];
+    status_breakdown: StatusBreakdown[];
     total_requests: number;
     total_estimated_value: number;
   };
-  monthly_spending: any[];
-  top_vendors: any[];
+  monthly_spending: MonthlySpending[];
+  top_vendors: TopVendor[];
 }
 
 class PurchaseService {
   // Purchase Orders
-  async getPurchaseOrders(params?: any): Promise<{
-    purchase_orders: PurchaseOrder[];
-    pagination: any;
-  }> {
+  async getPurchaseOrders(params?: PurchaseQueryParams): Promise<GetPurchaseOrdersResponse> {
     try {
-      const queryParams = new URLSearchParams(params || {}).toString();
-      const response = await api.get<ApiResponse<any>>(`/purchase-management/orders?${queryParams}`);
+      const queryParams = new URLSearchParams(params as Record<string, string> || {}).toString();
+      const response = await api.get<ApiResponse<GetPurchaseOrdersResponse>>(`/purchase-management/orders?${queryParams}`);
       if (response.data.success && response.data.data) {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch purchase orders');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching purchase orders:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch purchase orders');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch purchase orders';
+      throw new Error(errorMessage);
     }
   }
 
@@ -100,9 +151,10 @@ class PurchaseService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch purchase order');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching purchase order:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch purchase order');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch purchase order';
+      throw new Error(errorMessage);
     }
   }
 
@@ -113,24 +165,26 @@ class PurchaseService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to create purchase order');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating purchase order:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to create purchase order');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create purchase order';
+      throw new Error(errorMessage);
     }
   }
 
   async updatePurchaseOrderStatus(id: string, status: string, comments?: string): Promise<void> {
     try {
-      const response = await api.patch<ApiResponse<any>>(`/purchase-management/orders/${id}/status`, {
+      const response = await api.patch<ApiResponse<{ message: string }>>(`/purchase-management/orders/${id}/status`, {
         status,
         comments
       });
       if (!response.data.success) {
         throw new Error(response.data.error || 'Failed to update purchase order status');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating purchase order status:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to update purchase order status');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update purchase order status';
+      throw new Error(errorMessage);
     }
   }
 

@@ -1,1 +1,26 @@
 node_modules/
+
+# Log files
+logs/*.log
+logs/*.log.gz
+logs/*-audit.json
+
+# Keep the directory structure
+!logs/.gitkeep
+
+# Uploads
+uploads/
+uploads/**/*
+!uploads/.gitkeep
+!uploads/temp/.gitkeep
+!uploads/documents/.gitkeep
+!uploads/assets/.gitkeep
+
+# Environment variables
+# .env
+# .env.local
+# .env.production
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -117,17 +117,18 @@ const importFileFilter = (req, file, cb) => {
   const allowedTypes = [
     'text/csv',
     'application/json',
-    'application/vnd.ms-excel', // Some systems send CSV as this
-    'text/plain' // Some systems send CSV as this
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain'
   ];
 
-  const allowedExtensions = ['.csv', '.json'];
+  const allowedExtensions = ['.csv', '.json', '.xlsx', '.xls'];
   const ext = path.extname(file.originalname).toLowerCase();
 
   if (allowedTypes.includes(file.mimetype) || allowedExtensions.includes(ext)) {
     cb(null, true);
   } else {
-    cb(new Error('Only CSV and JSON files are allowed for import'), false);
+    cb(new Error('Only CSV, Excel (.xlsx, .xls), and JSON files are allowed for import'), false);
   }
 };
 

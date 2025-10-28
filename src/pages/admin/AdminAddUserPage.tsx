@@ -256,10 +256,10 @@ const AdminAddUserPage: React.FC = () => {
                   label="Role"
                   onChange={(e) => handleRoleChange(e.target.value)}
                 >
-                  <MenuItem value="Admin">Admin</MenuItem>
-                  <MenuItem value="Inventory_Manager">Inventory Manager</MenuItem>
-                  <MenuItem value="Employee">Employee</MenuItem>
-                  <MenuItem value="Auditor">Auditor</MenuItem>
+                  <MenuItem value="ADMIN">Admin</MenuItem>
+                  <MenuItem value="INVENTORY_MANAGER">Inventory Manager</MenuItem>
+                  <MenuItem value="EMPLOYEE">Employee</MenuItem>
+                  <MenuItem value="AUDITOR">Auditor</MenuItem>
                 </Select>
               </FormControl>
             </Grid>

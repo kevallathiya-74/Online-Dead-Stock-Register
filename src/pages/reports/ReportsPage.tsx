@@ -1,4 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import {
   Box,
@@ -82,12 +84,54 @@ interface GeneratedReport {
   downloadCount: number;
 }
 
+interface DisposalRecord {
+  id: string;
+  asset_id: string;
+  asset_name: string;
+  category: string;
+  disposal_date: string;
+  disposal_method: string;
+  disposal_value: number;
+  approved_by: string;
+  document_reference: string;
+  status: string;
+}
+
+// Typed helper for Chip colors
+const statusToColor = (status: string): 'success' | 'warning' | 'default' => {
+  const lowerStatus = status?.toLowerCase();
+  if (lowerStatus === 'approved' || lowerStatus === 'completed') return 'success';
+  if (lowerStatus === 'pending') return 'warning';
+  return 'default';
+};
+
 const ReportsPage = () => {
   const [reportTemplates, setReportTemplates] = useState<ReportTemplate[]>([]);
   const [generatedReports, setGeneratedReports] = useState<GeneratedReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [disposalLoading, setDisposalLoading] = useState(false);
+  const [disposalRecords, setDisposalRecords] = useState<DisposalRecord[]>([]);
   const [tabValue, setTabValue] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Sync tab selection with URL path (e.g., /reports/disposal -> Disposal Reports tab)
+  useEffect(() => {
+    if (location.pathname.startsWith('/reports')) {
+      if (location.pathname === '/reports' || location.pathname === '/reports/assets') {
+        setTabValue(0);
+      } else if (location.pathname === '/reports/disposal') {
+        setTabValue(1);
+      } else if (location.pathname === '/reports/generated') {
+        setTabValue(2);
+      } else if (location.pathname === '/reports/scheduled') {
+        setTabValue(3);
+      } else if (location.pathname === '/reports/analytics') {
+        setTabValue(4);
+      }
+    }
+  }, [location.pathname]);
   const [customReportOpen, setCustomReportOpen] = useState(false);
   const [scheduleReportOpen, setScheduleReportOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplate | null>(null);
@@ -230,15 +274,20 @@ const ReportsPage = () => {
     const loadData = async () => {
       setLoading(true);
       try {
+        // Try to fetch from API, but use mock data as fallback
         const [templatesRes, historyRes] = await Promise.all([
-          api.get('/reports/templates'),
-          api.get('/reports/history')
+          api.get('/reports/templates').catch(() => ({ data: { data: null } })),
+          api.get('/reports/history').catch(() => ({ data: { data: null } }))
         ]);
-        setReportTemplates(templatesRes.data.data || []);
-        setGeneratedReports(historyRes.data.data || []);
+        
+        // Use API data if available, otherwise use generated mock data
+        setReportTemplates(templatesRes.data.data || generateReportTemplates());
+        setGeneratedReports(historyRes.data.data || generateReportHistory());
       } catch (error) {
         console.error('Error loading reports:', error);
-        toast.error('Failed to load reports data');
+        // Fallback to mock data on error
+        setReportTemplates(generateReportTemplates());
+        setGeneratedReports(generateReportHistory());
       } finally {
         setLoading(false);
       }
@@ -246,6 +295,38 @@ const ReportsPage = () => {
 
     loadData();
   }, []);
+
+  // Lazy-load disposal records when needed with server-side pagination
+  useEffect(() => {
+    const needsDisposal = tabValue === 1 || location.pathname === '/reports/disposal';
+    if (!needsDisposal || disposalLoading) return;
+    
+    const abortController = new AbortController();
+    
+    (async () => {
+      try {
+        setDisposalLoading(true);
+        const res = await api.get('/inventory/disposal-records', {
+          params: {
+            page: 1,
+            limit: 100,
+          },
+          signal: abortController.signal,
+        });
+        const data: DisposalRecord[] = Array.isArray(res.data?.data) ? res.data.data : [];
+        setDisposalRecords(data);
+      } catch (e: any) {
+        if (e.name === 'AbortError' || e.name === 'CanceledError') {
+          return; // Request was cancelled
+        }
+        console.error('Error loading disposal records:', e);
+      } finally {
+        setDisposalLoading(false);
+      }
+    })();
+    
+    return () => abortController.abort();
+  }, [tabValue, location.pathname, disposalLoading]);
 
   const categories = Array.from(new Set(reportTemplates.map(r => r.category)));
 
@@ -272,14 +353,65 @@ const ReportsPage = () => {
     }
   };
 
-  const handleGenerateReport = (template: ReportTemplate) => {
-    setSelectedTemplate(template);
-    setCustomReportOpen(true);
-    toast.info(`Generating ${template.name}...`);
+  const handleGenerateReport = async (template: ReportTemplate) => {
+    try {
+      setSelectedTemplate(template);
+      toast.info(`Generating ${template.name}...`);
+      
+      // Call API to generate report
+      const response = await api.post('/reports/generate', {
+        template_id: template.id,
+        format: 'PDF',
+        parameters: {}
+      });
+
+      if (response.data.success) {
+        toast.success(`Report "${template.name}" generated successfully!`);
+        
+        // Refresh reports list - reload from API
+        try {
+          const historyRes = await api.get('/reports/history');
+          if (historyRes.data.data) {
+            setGeneratedReports(historyRes.data.data);
+          }
+        } catch (error) {
+          console.error('Failed to refresh reports:', error);
+        }
+        
+        // Optionally download immediately
+        if (response.data.data.download_url) {
+          window.open(response.data.data.download_url, '_blank');
+        }
+      }
+    } catch (error: any) {
+      console.error('Failed to generate report:', error);
+      const errorMsg = error.response?.data?.message || 'Failed to generate report';
+      toast.error(errorMsg);
+    }
   };
 
-  const handleDownloadReport = (report: GeneratedReport) => {
-    toast.success(`Downloading ${report.name} (${report.format})`);
+  const handleDownloadReport = async (report: GeneratedReport) => {
+    try {
+      // Call API to download report
+      const response = await api.get(`/reports/${report.id}/download`, {
+        responseType: 'blob'
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${report.name}.${report.format.toLowerCase()}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success(`Downloaded ${report.name}`);
+    } catch (error: any) {
+      console.error('Failed to download report:', error);
+      toast.error('Failed to download report');
+    }
   };
 
   const stats = {
@@ -413,10 +545,16 @@ const ReportsPage = () => {
         <Card sx={{ mb: 3 }}>
           <Tabs
             value={tabValue}
-            onChange={(e, newValue) => setTabValue(newValue)}
+            onChange={(e, newValue) => {
+              setTabValue(newValue);
+              // Optional: update URL when switching tabs for deep-linkability
+              const paths = ['/reports', '/reports/disposal', '/reports/generated', '/reports/scheduled', '/reports/analytics'];
+              if (paths[newValue]) navigate(paths[newValue]);
+            }}
             sx={{ borderBottom: 1, borderColor: 'divider' }}
           >
             <Tab label="Report Templates" />
+            <Tab label="Disposal Reports" />
             <Tab label="Generated Reports" />
             <Tab label="Scheduled Reports" />
             <Tab label="Analytics Dashboard" />
@@ -509,7 +647,7 @@ const ReportsPage = () => {
 
                         <Box sx={{ mb: 2 }}>
                           <Typography variant="caption" color="text.secondary">
-                            Parameters: {template.parameters.join(', ')}
+                            Parameters: {(template.parameters || []).join(', ')}
                           </Typography>
                         </Box>
 
@@ -539,6 +677,137 @@ const ReportsPage = () => {
         )}
 
         {tabValue === 1 && (
+          <Box>
+            <Grid container spacing={3} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card>
+                  <CardContent>
+                    <Typography color="textSecondary" gutterBottom variant="overline">
+                      Total Disposals
+                    </Typography>
+                    {disposalLoading ? (
+                      <Skeleton variant="text" width={60} height={32} />
+                    ) : (
+                      <Typography variant="h4">{disposalRecords.length}</Typography>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card>
+                  <CardContent>
+                    <Typography color="textSecondary" gutterBottom variant="overline">
+                      This Month
+                    </Typography>
+                    {disposalLoading ? (
+                      <Skeleton variant="text" width={60} height={32} />
+                    ) : (
+                      <Typography variant="h4">{
+                        disposalRecords.filter(r => {
+                          const d = new Date(r.disposal_date);
+                          const now = new Date();
+                          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+                        }).length
+                      }</Typography>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card>
+                  <CardContent>
+                    <Typography color="textSecondary" gutterBottom variant="overline">
+                      Total Value
+                    </Typography>
+                    {disposalLoading ? (
+                      <Skeleton variant="text" width={120} height={32} />
+                    ) : (
+                      <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <MoneyIcon fontSize="small" />
+                        {disposalRecords.reduce((sum, r) => sum + (Number(r.disposal_value) || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
+                      </Typography>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card>
+                  <CardContent>
+                    <Typography color="textSecondary" gutterBottom variant="overline">
+                      Methods Used
+                    </Typography>
+                    {disposalLoading ? (
+                      <Skeleton variant="text" width={80} height={32} />
+                    ) : (
+                      <Typography variant="h5">{
+                        Array.from(new Set(disposalRecords.map(r => r.disposal_method))).length
+                      }</Typography>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Disposal Records
+                </Typography>
+                <TableContainer component={Paper} elevation={0}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Asset</TableCell>
+                        <TableCell>Category</TableCell>
+                        <TableCell>Method</TableCell>
+                        <TableCell align="right">Value</TableCell>
+                        <TableCell>Date</TableCell>
+                        <TableCell>Status</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {disposalLoading ? (
+                        [1,2,3,4,5,6,7].map(k => (
+                          <TableRow key={k}>
+                            <TableCell colSpan={6}>
+                              <Skeleton variant="rectangular" height={28} />
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : disposalRecords.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6}>
+                            <Typography variant="body2" color="text.secondary">
+                              No disposal records found.
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        disposalRecords.slice(0, 25).map((rec) => (
+                          <TableRow key={rec.id}>
+                            <TableCell>
+                              <Typography variant="subtitle2">{rec.asset_name || rec.asset_id}</Typography>
+                              <Typography variant="caption" color="text.secondary">{rec.asset_id}</Typography>
+                            </TableCell>
+                            <TableCell>{rec.category}</TableCell>
+                            <TableCell>{rec.disposal_method}</TableCell>
+                            <TableCell align="right">{(Number(rec.disposal_value) || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}</TableCell>
+                            <TableCell>{new Date(rec.disposal_date).toLocaleDateString('en-IN')}</TableCell>
+                            <TableCell>
+                              <Chip size="small" label={rec.status} color={statusToColor(rec.status)} />
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </CardContent>
+            </Card>
+          </Box>
+        )}
+
+        {tabValue === 2 && (
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -607,7 +876,7 @@ const ReportsPage = () => {
           </Card>
         )}
 
-        {tabValue === 2 && (
+        {tabValue === 3 && (
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -654,7 +923,7 @@ const ReportsPage = () => {
           </Card>
         )}
 
-        {tabValue === 3 && (
+        {tabValue === 4 && (
           <Grid container spacing={3}>
             <Grid item xs={12} md={6}>
               <Card>

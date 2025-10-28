@@ -1,5 +1,5 @@
 import api from './api';
-import { ApiResponse } from '../types';
+import { ApiResponse, Pagination } from '../types';
 
 // User Management Service
 export interface User {
@@ -17,6 +17,28 @@ export interface User {
   updated_at: string;
 }
 
+export interface DepartmentBreakdown {
+  department: string;
+  count: number;
+  percentage: number;
+}
+
+export interface UserQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  role?: string;
+  department?: string;
+  status?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface GetUsersResponse {
+  users: User[];
+  pagination: Pagination;
+}
+
 export interface UserStats {
   total_users: number;
   active_users: number;
@@ -28,7 +50,7 @@ export interface UserStats {
     AUDITOR: number;
     EMPLOYEE: number;
   };
-  department_breakdown: any[];
+  department_breakdown: DepartmentBreakdown[];
   recent_registrations: User[];
   recent_logins: User[];
 }
@@ -46,20 +68,18 @@ export interface CreateUserRequest {
 
 class UserManagementService {
   // Get all users with filtering
-  async getUsers(params?: any): Promise<{
-    users: User[];
-    pagination: any;
-  }> {
+  async getUsers(params?: UserQueryParams): Promise<GetUsersResponse> {
     try {
-      const queryParams = new URLSearchParams(params || {}).toString();
-      const response = await api.get<ApiResponse<any>>(`/admin/users?${queryParams}`);
+      const queryParams = new URLSearchParams(params as Record<string, string> || {}).toString();
+      const response = await api.get<ApiResponse<GetUsersResponse>>(`/admin/users?${queryParams}`);
       if (response.data.success && response.data.data) {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch users');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching users:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch users');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch users';
+      throw new Error(errorMessage);
     }
   }
 
@@ -71,9 +91,10 @@ class UserManagementService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch user');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching user:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch user');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch user';
+      throw new Error(errorMessage);
     }
   }
 
@@ -85,9 +106,10 @@ class UserManagementService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to create user');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating user:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to create user');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create user';
+      throw new Error(errorMessage);
     }
   }
 
@@ -99,50 +121,54 @@ class UserManagementService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to update user');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating user:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to update user');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update user';
+      throw new Error(errorMessage);
     }
   }
 
   // Delete user
   async deleteUser(id: string): Promise<void> {
     try {
-      const response = await api.delete<ApiResponse<any>>(`/admin/users/${id}`);
+      const response = await api.delete<ApiResponse<{ message: string }>>(`/admin/users/${id}`);
       if (!response.data.success) {
         throw new Error(response.data.error || 'Failed to delete user');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting user:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to delete user');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete user';
+      throw new Error(errorMessage);
     }
   }
 
   // Update user status
   async updateUserStatus(id: string, status: 'active' | 'inactive' | 'suspended'): Promise<void> {
     try {
-      const response = await api.patch<ApiResponse<any>>(`/admin/users/${id}/status`, { status });
+      const response = await api.patch<ApiResponse<{ message: string }>>(`/admin/users/${id}/status`, { status });
       if (!response.data.success) {
         throw new Error(response.data.error || 'Failed to update user status');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating user status:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to update user status');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update user status';
+      throw new Error(errorMessage);
     }
   }
 
   // Reset user password
   async resetUserPassword(id: string, newPassword: string): Promise<void> {
     try {
-      const response = await api.patch<ApiResponse<any>>(`/admin/users/${id}/reset-password`, {
+      const response = await api.patch<ApiResponse<{ message: string }>>(`/admin/users/${id}/reset-password`, {
         new_password: newPassword
       });
       if (!response.data.success) {
         throw new Error(response.data.error || 'Failed to reset password');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error resetting password:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to reset password');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to reset password';
+      throw new Error(errorMessage);
     }
   }
 
@@ -154,25 +180,27 @@ class UserManagementService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch user statistics');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching user statistics:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch user statistics');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch user statistics';
+      throw new Error(errorMessage);
     }
   }
 
   // Bulk operations
   async bulkUpdateUserStatus(userIds: string[], status: 'active' | 'inactive' | 'suspended'): Promise<void> {
     try {
-      const response = await api.patch<ApiResponse<any>>('/admin/users/bulk-status', {
+      const response = await api.patch<ApiResponse<{ updated: number; message: string }>>('/admin/users/bulk-status', {
         user_ids: userIds,
         status
       });
       if (!response.data.success) {
         throw new Error(response.data.error || 'Failed to update user status');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating user status:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to update user status');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update user status';
+      throw new Error(errorMessage);
     }
   }
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -7,8 +7,10 @@ import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider } from './context/AuthContext';
 import { theme } from './config/theme';
 import { UserRole } from './types';
+import Loading from './components/common/Loading';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
-// Auth Pages
+// Auth Pages (keep these eagerly loaded for faster initial auth experience)
 import Landing from './pages/auth/Landing';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -18,80 +20,89 @@ import ResetPassword from './pages/auth/ResetPassword';
 // Dashboard Pages
 import Dashboard from './pages/dashboard/Dashboard';
 
-// Documents Pages
-import Documents from './pages/documents/Documents';
-
-// Admin Pages
-import UsersPage from './pages/users/UsersPage';
-import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminAssetPage from './pages/admin/AdminAssetPage';
-import AdminTransactionPage from './pages/admin/AdminTransactionPage';
-import AdminAuditLogPage from './pages/admin/AdminAuditLogPage';
-import AdminSystemSettingsPage from './pages/admin/AdminSystemSettingsPage';
-import AdminAnalyticsPage from './pages/admin/AdminAnalyticsPage';
-import AdminReportsPage from './pages/admin/AdminReportsPage';
-import AdminCustomReportsPage from './pages/admin/AdminCustomReportsPage';
-import AdminUsersPage from './pages/admin/AdminUsersPage';
-import AdminAddUserPage from './pages/admin/AdminAddUserPage';
-import AdminDocumentsPage from './pages/admin/AdminDocumentsPage';
-import AdminBackupPage from './pages/admin/AdminBackupPage';
-
-// Inventory Manager Pages
-import AssetsPage from './pages/assets/AssetsPage';
-import VendorsPage from './pages/vendors/VendorsPage';
-import MaintenancePage from './pages/maintenance/MaintenancePage';
-import ReportsPage from './pages/reports/ReportsPage';
-import PurchaseOrdersPage from './pages/purchase-orders/PurchaseOrdersPage';
-import LocationsPage from './pages/locations/LocationsPage';
-import ApprovalsPage from './pages/approvals/ApprovalsPage';
-
-// Employee Pages
-import MyAssetsPage from './pages/employee/MyAssetsPage';
-import RequestsPage from './pages/employee/RequestsPage';
-import ProfilePage from './pages/employee/ProfilePage';
-import HistoryPage from './pages/employee/HistoryPage';
-import HelpPage from './pages/employee/HelpPage';
-
-// Auditor Pages
-import AuditorDashboard from './pages/auditor/AuditorDashboard';
-import AuditListPage from './pages/auditor/AuditListPage';
-import CompliancePage from './pages/auditor/CompliancePage';
-
-// Vendor Pages
-import VendorDashboard from './pages/vendor/VendorDashboard';
-import VendorOrdersPage from './pages/vendor/VendorOrdersPage';
-import VendorProductsPage from './pages/vendor/VendorProductsPage';
-import VendorInvoicesPage from './pages/vendor/VendorInvoicesPage';
-import VendorProfilePage from './pages/vendor/VendorProfilePage';
-
 // Protected Route Component
 import ProtectedRoute from './components/auth/ProtectedRoute';
+
+// Lazy-loaded pages for code splitting
+
+// Admin Pages
+const UsersPage = lazy(() => import('./pages/users/UsersPage'));
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const AdminAssetPage = lazy(() => import('./pages/admin/AdminAssetPage'));
+const AdminTransactionPage = lazy(() => import('./pages/admin/AdminTransactionPage'));
+const AdminAuditLogPage = lazy(() => import('./pages/admin/AdminAuditLogPage'));
+const AdminSystemSettingsPage = lazy(() => import('./pages/admin/AdminSystemSettingsPage'));
+const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'));
+const AdminReportsPage = lazy(() => import('./pages/admin/AdminReportsPage'));
+const AdminCustomReportsPage = lazy(() => import('./pages/admin/AdminCustomReportsPage'));
+const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'));
+const AdminAddUserPage = lazy(() => import('./pages/admin/AdminAddUserPage'));
+const AdminDocumentsPage = lazy(() => import('./pages/admin/AdminDocumentsPage'));
+const AdminBackupPage = lazy(() => import('./pages/admin/AdminBackupPage'));
+
+// Inventory Manager Pages
+const AssetsPage = lazy(() => import('./pages/assets/AssetsPage'));
+const AddAssetPage = lazy(() => import('./pages/assets/AddAssetPage'));
+const AssetTransfersPage = lazy(() => import('./pages/assets/AssetTransfersPage'));
+const AssetLabelsPage = lazy(() => import('./pages/assets/AssetLabelsPage'));
+const BulkImportPage = lazy(() => import('./pages/assets/BulkImportPage'));
+const CategoriesPage = lazy(() => import('./pages/assets/CategoriesPage'));
+const VendorsPage = lazy(() => import('./pages/vendors/VendorsPage'));
+const MaintenancePage = lazy(() => import('./pages/maintenance/MaintenancePage'));
+const ReportsPage = lazy(() => import('./pages/reports/ReportsPage'));
+const PurchaseOrdersPage = lazy(() => import('./pages/purchase-orders/PurchaseOrdersPage'));
+const LocationsPage = lazy(() => import('./pages/locations/LocationsPage'));
+const ApprovalsPage = lazy(() => import('./pages/approvals/ApprovalsPage'));
+
+// Inventory/Dead Stock Pages
+const DeadStockItemsPage = lazy(() => import('./pages/inventory/DeadStockItemsPage'));
+const DisposalRecordsPage = lazy(() => import('./pages/inventory/DisposalRecordsPage'));
+
+// Employee Pages
+const MyAssetsPage = lazy(() => import('./pages/employee/MyAssetsPage'));
+const RequestsPage = lazy(() => import('./pages/employee/RequestsPage'));
+const ProfilePage = lazy(() => import('./pages/employee/ProfilePage'));
+const HistoryPage = lazy(() => import('./pages/employee/HistoryPage'));
+const HelpPage = lazy(() => import('./pages/employee/HelpPage'));
+
+// Auditor Pages
+const AuditorDashboard = lazy(() => import('./pages/auditor/AuditorDashboard'));
+const AuditListPage = lazy(() => import('./pages/auditor/AuditListPage'));
+const CompliancePage = lazy(() => import('./pages/auditor/CompliancePage'));
+
+// Vendor Pages
+const VendorDashboard = lazy(() => import('./pages/vendor/VendorDashboard'));
+const VendorOrdersPage = lazy(() => import('./pages/vendor/VendorOrdersPage'));
+const VendorProductsPage = lazy(() => import('./pages/vendor/VendorProductsPage'));
+const VendorInvoicesPage = lazy(() => import('./pages/vendor/VendorInvoicesPage'));
+const VendorProfilePage = lazy(() => import('./pages/vendor/VendorProfilePage'));
 
 const App = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <Router>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Landing />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <ErrorBoundary>
+          <Router>
+            <Suspense fallback={<Loading />}>
+              <Routes>
+                {/* Public Routes */}
+                <Route path="/" element={<Landing />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-            {/* Protected Routes - Common to all authenticated users */}
-            <Route element={<ProtectedRoute />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/dashboard/*" element={<Dashboard />} />
-              <Route path="/documents" element={<Documents />} />
-              <Route path="/employee/my-assets" element={<MyAssetsPage />} />
-              <Route path="/employee/requests" element={<RequestsPage />} />
-              <Route path="/employee/profile" element={<ProfilePage />} />
-              <Route path="/employee/history" element={<HistoryPage />} />
-              <Route path="/employee/help" element={<HelpPage />} />
-            </Route>
+                {/* Protected Routes - Common to all authenticated users */}
+                <Route element={<ProtectedRoute />}>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/dashboard/*" element={<Dashboard />} />
+                  <Route path="/employee/my-assets" element={<MyAssetsPage />} />
+                  <Route path="/employee/requests" element={<RequestsPage />} />
+                  <Route path="/employee/profile" element={<ProfilePage />} />
+                  <Route path="/employee/history" element={<HistoryPage />} />
+                  <Route path="/employee/help" element={<HelpPage />} />
+                </Route>
               
             {/* Admin Only Routes */}
             <Route element={<ProtectedRoute allowedRoles={[UserRole.ADMIN]} />}>
@@ -115,7 +126,14 @@ const App = () => {
             {/* Inventory Manager Routes - ADMIN and INVENTORY_MANAGER only */}
             <Route element={<ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.INVENTORY_MANAGER]} />}>
               <Route path="/assets" element={<AssetsPage />} />
-              <Route path="/assets/*" element={<AssetsPage />} />
+              <Route path="/assets/add" element={<AddAssetPage />} />
+              <Route path="/assets/categories" element={<CategoriesPage />} />
+              <Route path="/assets/transfers" element={<AssetTransfersPage />} />
+              <Route path="/assets/labels" element={<AssetLabelsPage />} />
+              <Route path="/assets/import" element={<BulkImportPage />} />
+              <Route path="/assets/maintenance" element={<MaintenancePage />} />
+              <Route path="/inventory/dead-stock" element={<DeadStockItemsPage />} />
+              <Route path="/inventory/disposal" element={<DisposalRecordsPage />} />
               <Route path="/vendors" element={<VendorsPage />} />
               <Route path="/vendors/*" element={<VendorsPage />} />
               <Route path="/maintenance" element={<MaintenancePage />} />
@@ -136,6 +154,7 @@ const App = () => {
               <Route path="/auditor/dashboard" element={<AuditorDashboard />} />
               <Route path="/auditor/audit-list" element={<AuditListPage />} />
               <Route path="/auditor/compliance" element={<CompliancePage />} />
+              <Route path="/auditor/reports" element={<ReportsPage />} />
             </Route>
 
             {/* Vendor Routes - VENDOR role only */}
@@ -150,8 +169,10 @@ const App = () => {
 
             {/* Default Routes */}
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Router>
+              </Routes>
+            </Suspense>
+          </Router>
+        </ErrorBoundary>
         
         {/* Toast Container for notifications */}
         <ToastContainer

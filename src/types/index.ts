@@ -170,6 +170,26 @@ export interface PaginatedResponse<T> {
   hasMore: boolean;
 }
 
+export interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+export interface Location {
+  building?: string;
+  floor?: string;
+  room?: string;
+  department?: string;
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+}
+
 // Auditor Types
 export interface AuditorStats {
   total_assigned: number;
@@ -279,7 +299,7 @@ export interface VendorProduct {
     email: string;
     department: string;
   } | null;
-  location: any;
+  location: Location | null;
   quantity: number;
   serial_number?: string;
   model_number?: string;

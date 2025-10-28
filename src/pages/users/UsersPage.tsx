@@ -56,7 +56,7 @@ interface AdminUser {
   id: string;
   name: string;
   email: string;
-  role: 'Admin' | 'Inventory Manager' | 'Auditor' | 'Employee' | 'Inventory_Manager';
+  role: 'ADMIN' | 'INVENTORY_MANAGER' | 'AUDITOR' | 'EMPLOYEE';
   department: string;
   employee_id: string;
   status: 'Active' | 'Inactive';
@@ -230,7 +230,7 @@ const UsersPage = () => {
     setNewUser({
       name: '',
       email: '',
-      role: 'Employee',
+      role: 'EMPLOYEE',
       department: 'INVENTORY',
       employee_id: '',
       phone: '',
@@ -250,20 +250,20 @@ const UsersPage = () => {
     ];
 
     switch (role) {
-      case 'Admin':
+      case 'ADMIN':
         return allPermissions;
-      case 'Inventory_Manager':
+      case 'INVENTORY_MANAGER':
         return [
           'view_users', 'view_assets', 'create_assets', 'edit_assets',
           'view_transactions', 'create_transactions', 'approve_transactions',
           'view_reports', 'create_reports', 'manage_vendors', 'schedule_maintenance'
         ];
-      case 'Auditor':
+      case 'AUDITOR':
         return [
           'view_users', 'view_assets', 'view_transactions', 'view_reports',
           'create_reports', 'export_data', 'view_audit_logs'
         ];
-      case 'Employee':
+      case 'EMPLOYEE':
         return ['view_assets', 'view_transactions'];
       default:
         return [];
@@ -272,13 +272,13 @@ const UsersPage = () => {
 
   const getRoleColor = (role: AdminUser['role']) => {
     switch (role) {
-      case 'Admin':
+      case 'ADMIN':
         return 'error';
-      case 'Inventory_Manager':
+      case 'INVENTORY_MANAGER':
         return 'primary';
-      case 'Auditor':
+      case 'AUDITOR':
         return 'secondary';
-      case 'Employee':
+      case 'EMPLOYEE':
         return 'success';
       default:
         return 'default';
@@ -291,13 +291,13 @@ const UsersPage = () => {
     active: users.filter(u => u.is_active || u.status === 'Active').length,
     activeUsers: users.filter(u => u.is_active || u.status === 'Active').length,
     inactiveUsers: users.filter(u => !u.is_active || u.status === 'Inactive').length,
-    adminUsers: users.filter(u => u.role === 'Admin').length,
+    adminUsers: users.filter(u => u.role === 'ADMIN').length,
     recentLogins: users.filter(u => u.last_login).length,
     byRole: {
-      'Admin': users.filter(u => u.role === 'Admin').length,
-      'Inventory Manager': users.filter(u => u.role === 'Inventory Manager' || u.role === 'Inventory_Manager').length,
-      'Auditor': users.filter(u => u.role === 'Auditor').length,
-      'Employee': users.filter(u => u.role === 'Employee').length,
+      'ADMIN': users.filter(u => u.role === 'ADMIN').length,
+      'INVENTORY_MANAGER': users.filter(u => u.role === 'INVENTORY_MANAGER').length,
+      'AUDITOR': users.filter(u => u.role === 'AUDITOR').length,
+      'EMPLOYEE': users.filter(u => u.role === 'EMPLOYEE').length,
     },
     byDepartment: users.reduce((acc: any, user) => {
       if (user.department) {
@@ -307,9 +307,20 @@ const UsersPage = () => {
     }, {}),
   };
   
+  // Helper function to format role names for display
+  const formatRoleName = (role: string): string => {
+    const roleNames: Record<string, string> = {
+      'ADMIN': 'Admin',
+      'INVENTORY_MANAGER': 'Inventory Manager',
+      'EMPLOYEE': 'Employee',
+      'AUDITOR': 'Auditor'
+    };
+    return roleNames[role] || role;
+  };
+  
   // Filter out empty/undefined departments and ensure unique values
   const departments = Array.from(new Set(users.map(u => u.department).filter(d => d && d.trim() !== '')));
-  const roles = ['Admin', 'Inventory_Manager', 'Auditor', 'Employee'];
+  const roles = ['ADMIN', 'INVENTORY_MANAGER', 'AUDITOR', 'EMPLOYEE'];
 
   if (loading) {
     return (
@@ -607,7 +618,7 @@ const UsersPage = () => {
                       <TableCell>
                         <Box>
                           <Chip
-                            label={user.role.replace('_', ' ')}
+                            label={formatRoleName(user.role)}
                             color={getRoleColor(user.role) as any}
                             size="small"
                             sx={{ mb: 1 }}
@@ -770,10 +781,10 @@ const UsersPage = () => {
                     label="Role"
                     onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value as AdminUser['role'] }))}
                   >
-                    <MenuItem value="Employee">Employee</MenuItem>
-                    <MenuItem value="Auditor">Auditor</MenuItem>
-                    <MenuItem value="Inventory_Manager">Inventory Manager</MenuItem>
-                    <MenuItem value="Admin">Administrator</MenuItem>
+                    <MenuItem value="EMPLOYEE">Employee</MenuItem>
+                    <MenuItem value="AUDITOR">Auditor</MenuItem>
+                    <MenuItem value="INVENTORY_MANAGER">Inventory Manager</MenuItem>
+                    <MenuItem value="ADMIN">Administrator</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
