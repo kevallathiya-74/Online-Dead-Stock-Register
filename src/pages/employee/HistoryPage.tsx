@@ -502,7 +502,7 @@ const HistoryPage = () => {
                       <Grid item xs={12} md={6}>
                         {request.estimated_cost && (
                           <Typography variant="body2" color="text.secondary">
-                            <strong>Estimated Cost:</strong> ${request.estimated_cost.toLocaleString()}
+                            <strong>Estimated Cost:</strong> ₹{request.estimated_cost.toLocaleString('en-IN')}
                           </Typography>
                         )}
                         {request.assigned_to && (

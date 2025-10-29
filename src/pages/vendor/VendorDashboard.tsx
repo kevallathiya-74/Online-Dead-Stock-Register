@@ -94,8 +94,8 @@ const VendorDashboard: React.FC = () => {
     }
   };
 
-  const formatCurrency = (amount: number, currency: string = 'USD') => {
-    return new Intl.NumberFormat('en-US', {
+  const formatCurrency = (amount: number, currency: string = 'INR') => {
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: currency
     }).format(amount);
@@ -174,7 +174,7 @@ const VendorDashboard: React.FC = () => {
                     Total Revenue
                   </Typography>
                   <Typography variant="h4">
-                    {stats?.currency || 'USD'} {stats?.totalRevenue || '0.00'}
+                    {stats?.currency || 'INR'} {stats?.totalRevenue || '0.00'}
                   </Typography>
                 </Box>
                 <AttachMoney sx={{ fontSize: 40, color: 'success.main', opacity: 0.3 }} />

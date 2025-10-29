@@ -309,7 +309,7 @@ const AdminDashboard: React.FC = () => {
                       Total Assets
                     </Typography>
                     <Typography variant="caption">
-                      ${(assetStats?.totalValue || 0).toLocaleString()}
+                      ₹{(assetStats?.totalValue || 0).toLocaleString('en-IN')}
                     </Typography>
                   </Box>
                   <InventoryIcon sx={{ fontSize: 40, opacity: 0.8 }} />

@@ -62,7 +62,7 @@ const VendorProductsPage: React.FC = () => {
       const { products: productsData, pagination } = await getProducts(params);
 
       setProducts(productsData);
-      setTotalProducts(pagination.totalProducts);
+      setTotalProducts(pagination.total);
     } catch (err: any) {
       console.error('Error loading products:', err);
       setError(err.response?.data?.message || 'Failed to load products');
@@ -101,9 +101,9 @@ const VendorProductsPage: React.FC = () => {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'INR'
     }).format(amount);
   };
 

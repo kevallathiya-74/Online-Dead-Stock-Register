@@ -156,7 +156,7 @@ const AdminDashboard = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Total Asset Value"
-            value={`$${(dashboardData.totalValue / 1000000).toFixed(1)}M`}
+            value={`₹${(dashboardData.totalValue / 1000000).toFixed(1)}M`}
             subtitle="15% increase from last month"
             progress={85}
             progressColor="success"

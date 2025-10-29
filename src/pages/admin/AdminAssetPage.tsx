@@ -470,7 +470,7 @@ const AdminAssetPage: React.FC = () => {
                     </Typography>
                     <Typography variant="h4">{stats.total}</Typography>
                     <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                      ${stats.totalValue.toLocaleString()} value
+                      ₹{stats.totalValue.toLocaleString('en-IN')} value
                     </Typography>
                   </Box>
                   <ComputerIcon sx={{ fontSize: 40, opacity: 0.8 }} />
@@ -758,10 +758,10 @@ const AdminAssetPage: React.FC = () => {
                         <Box>
                           <Typography variant="body2" display="flex" alignItems="center" gap={0.5}>
                             <MoneyIcon fontSize="small" color="success" />
-                            ${asset.purchase_cost.toLocaleString()}
+                            ₹{asset.purchase_cost.toLocaleString('en-IN')}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            Current: ${(asset.current_value || 0).toLocaleString()}
+                            Current: ₹{(asset.current_value || 0).toLocaleString('en-IN')}
                           </Typography>
                           <LinearProgress 
                             variant="determinate" 
@@ -944,7 +944,7 @@ const AdminAssetPage: React.FC = () => {
                   value={newAsset.purchase_cost}
                   onChange={(e) => setNewAsset(prev => ({ ...prev, purchase_cost: e.target.value }))}
                   InputProps={{
-                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                    startAdornment: <InputAdornment position="start">₹</InputAdornment>,
                   }}
                 />
               </Grid>
@@ -1035,8 +1035,8 @@ const AdminAssetPage: React.FC = () => {
                   <Card variant="outlined">
                     <CardContent>
                       <Typography variant="h6" gutterBottom>Financial Information</Typography>
-                      <Typography><strong>Purchase Cost:</strong> ${selectedAsset.purchase_cost.toLocaleString()}</Typography>
-                      <Typography><strong>Current Value:</strong> ${(selectedAsset.current_value || selectedAsset.purchase_cost).toLocaleString()}</Typography>
+                      <Typography><strong>Purchase Cost:</strong> ₹{selectedAsset.purchase_cost.toLocaleString('en-IN')}</Typography>
+                      <Typography><strong>Current Value:</strong> ₹{(selectedAsset.current_value || selectedAsset.purchase_cost).toLocaleString('en-IN')}</Typography>
                       {selectedAsset.depreciation_rate && (
                         <Typography><strong>Depreciation Rate:</strong> {selectedAsset.depreciation_rate}%</Typography>
                       )}

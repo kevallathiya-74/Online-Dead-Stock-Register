@@ -351,7 +351,7 @@ const RequestsPage = () => {
                       </Grid>
                       <Grid item xs={12} md={6}>
                         <Typography variant="body2" color="text.secondary">
-                          <strong>Estimated Cost:</strong> ${request.estimated_cost?.toLocaleString()}
+                          <strong>Estimated Cost:</strong> ₹{request.estimated_cost?.toLocaleString('en-IN')}
                         </Typography>
                         {request.expected_delivery && (
                           <Typography variant="body2" color="text.secondary">

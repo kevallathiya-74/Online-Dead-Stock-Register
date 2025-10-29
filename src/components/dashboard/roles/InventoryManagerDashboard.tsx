@@ -262,7 +262,7 @@ const InventoryManagerDashboard = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Maintenance Cost"
-            value={`$${(dashboardData.monthlyMaintenanceCost / 1000).toFixed(0)}K`}
+            value={`₹${(dashboardData.monthlyMaintenanceCost / 1000).toFixed(0)}K`}
             subtitle="This month's spending"
             progress={65}
             progressColor="info"
@@ -413,7 +413,7 @@ const InventoryManagerDashboard = () => {
                       secondary={
                         <Box>
                           <Typography variant="caption" display="block">
-                            {approval.items} • ${approval.amount.toLocaleString()}
+                            {approval.items} • ₹{approval.amount.toLocaleString('en-IN')}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             by {approval.requestedBy} • {approval.daysWaiting} days waiting
@@ -536,7 +536,7 @@ const InventoryManagerDashboard = () => {
                       secondary={
                         <Box>
                           <Typography variant="caption" display="block">
-                            {transaction.vendor} • ${transaction.amount.toLocaleString()}
+                            {transaction.vendor} • ₹{transaction.amount.toLocaleString('en-IN')}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             {new Date(transaction.date).toLocaleString()}

@@ -72,7 +72,7 @@ const VendorOrdersPage: React.FC = () => {
       const { orders: ordersData, pagination } = await getOrders(params);
 
       setOrders(ordersData);
-      setTotalOrders(pagination.totalOrders);
+      setTotalOrders(pagination.total);
     } catch (err: any) {
       console.error('Error loading orders:', err);
       setError(err.response?.data?.message || 'Failed to load orders');
@@ -133,8 +133,8 @@ const VendorOrdersPage: React.FC = () => {
     }
   };
 
-  const formatCurrency = (amount: number, currency: string = 'USD') => {
-    return new Intl.NumberFormat('en-US', {
+  const formatCurrency = (amount: number, currency: string = 'INR') => {
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: currency
     }).format(amount);

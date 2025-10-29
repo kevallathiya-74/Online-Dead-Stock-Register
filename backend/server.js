@@ -47,7 +47,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, curl, etc.)
+
     if (!origin) return callback(null, true);
     
     if (allowedOrigins.indexOf(origin) !== -1) {
@@ -78,12 +78,12 @@ app.use(compression({
 }));
 
 // Body parser middleware - Must come before security middleware
-app.use(express.json({ limit: '100kb' })); // Reduced default limit
+app.use(express.json({ limit: '100kb' })); 
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
 // NoSQL Injection Protection - CRITICAL SECURITY
 app.use(mongoSanitize({
-  replaceWith: '_', // Replace prohibited characters with underscore
+  replaceWith: '_', 
   onSanitize: ({ req, key }) => {
     logger.warn('Potential NoSQL injection attempt blocked', {
       ip: req.ip,
@@ -120,8 +120,8 @@ app.use(requestLogger);
 
 // General API rate limiting
 const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000, 
+  max: 100, 
   standardHeaders: true,
   legacyHeaders: false,
   message: { 
@@ -142,9 +142,9 @@ const generalLimiter = rateLimit({
 
 // Strict limiter for authentication routes
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Only 5 attempts per 15 minutes
-  skipSuccessfulRequests: true, // Don't count successful requests
+  windowMs: 15 * 60 * 1000, 
+  max: 5,
+  skipSuccessfulRequests: true, 
   message: {
     success: false,
     error: 'Too many authentication attempts. Please try again in 15 minutes.'
@@ -165,8 +165,8 @@ const authLimiter = rateLimit({
 
 // Progressive delay for failed login attempts
 const loginLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour window
-  max: 10, // Maximum 10 failed attempts per hour
+  windowMs: 60 * 60 * 1000,
+  max: 10,
   skipSuccessfulRequests: true,
   handler: (req, res) => {
     logger.error('Excessive failed login attempts - account may be under attack', {
@@ -181,7 +181,6 @@ const loginLimiter = rateLimit({
   }
 });
 
-// Apply general rate limiting to all API routes
 app.use('/api/', generalLimiter);
 
 // ========================================

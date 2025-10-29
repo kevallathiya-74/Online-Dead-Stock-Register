@@ -9,6 +9,7 @@ import {
   CardContent,
   CircularProgress,
   Alert,
+  Button,
 } from '@mui/material';
 import {
   Assignment as AssignmentIcon,
@@ -17,6 +18,7 @@ import {
   Error as ErrorIcon,
   Search as SearchIcon,
   TrendingUp as TrendingUpIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import StatCard from '../../components/dashboard/StatCard';
@@ -37,13 +39,24 @@ const AuditorDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchDashboardData();
+    // Add a small delay to ensure token is available
+    const timer = setTimeout(() => {
+      fetchDashboardData();
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       setError(null);
+
+      // Check if token exists before making API calls
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication token not found. Please login again.');
+      }
 
       const [
         statsData,
@@ -66,7 +79,11 @@ const AuditorDashboard: React.FC = () => {
       setComplianceMetrics(complianceData);
     } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
-      setError(err.response?.data?.message || 'Failed to load dashboard data');
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to load dashboard data';
+      // Don't show authentication errors in UI, as they're handled by ProtectedRoute
+      if (!errorMessage.includes('token') && !errorMessage.includes('Authentication')) {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -91,7 +108,14 @@ const AuditorDashboard: React.FC = () => {
     return (
       <DashboardLayout>
         <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-          <Alert severity="error" onClose={() => setError(null)}>
+          <Alert 
+            severity="error" 
+            action={
+              <Button color="inherit" size="small" onClick={fetchDashboardData}>
+                Retry
+              </Button>
+            }
+          >
             {error}
           </Alert>
         </Container>
@@ -103,13 +127,23 @@ const AuditorDashboard: React.FC = () => {
     <DashboardLayout>
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         {/* Header */}
-        <Box mb={4}>
-          <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
-            Auditor Dashboard
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Track audit progress, compliance metrics, and asset conditions
-          </Typography>
+        <Box mb={4} display="flex" justifyContent="space-between" alignItems="center">
+          <Box>
+            <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
+              Auditor Dashboard
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              Track audit progress, compliance metrics, and asset conditions
+            </Typography>
+          </Box>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={fetchDashboardData}
+            disabled={loading}
+          >
+            Refresh
+          </Button>
         </Box>
 
         {/* Statistics Cards */}

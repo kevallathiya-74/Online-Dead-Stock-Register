@@ -543,11 +543,11 @@ const MyAssetsPage = () => {
                           </TableRow>
                           <TableRow>
                             <TableCell><strong>Purchase Price</strong></TableCell>
-                            <TableCell>${selectedAsset.purchase_price?.toLocaleString()}</TableCell>
+                            <TableCell>₹{selectedAsset.purchase_price?.toLocaleString('en-IN')}</TableCell>
                           </TableRow>
                           <TableRow>
                             <TableCell><strong>Current Value</strong></TableCell>
-                            <TableCell>${selectedAsset.current_value?.toLocaleString()}</TableCell>
+                            <TableCell>₹{selectedAsset.current_value?.toLocaleString('en-IN')}</TableCell>
                           </TableRow>
                         </TableBody>
                       </Table>

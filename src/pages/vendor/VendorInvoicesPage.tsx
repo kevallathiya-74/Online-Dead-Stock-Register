@@ -69,9 +69,9 @@ const VendorInvoicesPage: React.FC = () => {
     }
   };
 
-  const formatCurrency = (amount: string | number, currency: string = 'USD') => {
+  const formatCurrency = (amount: string | number, currency: string = 'INR') => {
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: currency
     }).format(numAmount);

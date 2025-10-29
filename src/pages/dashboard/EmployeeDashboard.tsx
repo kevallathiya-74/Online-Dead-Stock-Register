@@ -35,6 +35,7 @@ import {
   Add as AddIcon,
   History as HistoryIcon,
   Help as HelpIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { useAuth } from '../../context/AuthContext';
@@ -121,12 +122,14 @@ const EmployeeDashboard = () => {
   ]);
 
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      setLoading(false);
-    };
     loadData();
   }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    setLoading(false);
+  };
 
   const employeeStats = {
     total_assets: myAssets.length,
@@ -255,18 +258,28 @@ const EmployeeDashboard = () => {
     <DashboardLayout>
       <Box>
         {/* Header */}
-        <Box display="flex" alignItems="center" gap={2} mb={3}>
-          <Avatar sx={{ bgcolor: 'primary.main', width: 56, height: 56 }}>
-            <PersonIcon />
-          </Avatar>
-          <Box>
-            <Typography variant="h4">
-              Welcome, {user?.name || user?.full_name || 'Employee'}!
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Manage your assigned assets and maintenance requests
-            </Typography>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+          <Box display="flex" alignItems="center" gap={2}>
+            <Avatar sx={{ bgcolor: 'primary.main', width: 56, height: 56 }}>
+              <PersonIcon />
+            </Avatar>
+            <Box>
+              <Typography variant="h4">
+                Welcome, {user?.name || user?.full_name || 'Employee'}!
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Manage your assigned assets and maintenance requests
+              </Typography>
+            </Box>
           </Box>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={loadData}
+            disabled={loading}
+          >
+            Refresh
+          </Button>
         </Box>
 
         {/* Statistics Cards */}
