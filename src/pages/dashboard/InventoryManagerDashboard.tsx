@@ -24,6 +24,7 @@ import {
   CircularProgress,
   Skeleton,
 } from '@mui/material';
+import AssetQRCodeDialog from '../../components/AssetQRCodeDialog';
 import {
   Inventory as InventoryIcon,
   Warning,
@@ -57,6 +58,7 @@ import PurchaseOrderModal from '../../components/modals/PurchaseOrderModal';
 import MaintenanceModal from '../../components/modals/MaintenanceModal';
 import AssetTransferModal from '../../components/modals/AssetTransferModal';
 import ReportModal from '../../components/modals/ReportModal';
+import CategoriesModal from '../../components/modals/CategoriesModal';
 
 interface StatCardProps {
   title: string;
@@ -129,7 +131,7 @@ interface QuickActionProps {
   description: string;
   icon: React.ReactNode;
   onClick: () => void;
-  color?: 'primary' | 'secondary' | 'success' | 'warning' | 'error';
+  color?: 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info';
   disabled?: boolean;
 }
 
@@ -187,7 +189,12 @@ const InventoryManagerDashboard = () => {
     maintenance: false,
     assetTransfer: false,
     report: false,
+    categories: false,
   });
+
+  // QR dialog for created assets via modal
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrAsset, setQrAsset] = useState<any | null>(null);
 
   const loadDashboardData = async () => {
     try {
@@ -282,6 +289,13 @@ const InventoryManagerDashboard = () => {
         toast.success('Action completed successfully!');
     }
     
+    // If an asset was created via the modal, show QR dialog
+    if (modalName === 'addAsset' && data) {
+      // data is expected to be the created asset returned by the modal
+      setQrAsset(data);
+      setQrOpen(true);
+    }
+
     // Here you would typically send data to your API
     // For now, we'll just refresh the dashboard data
     setTimeout(() => {
@@ -296,6 +310,13 @@ const InventoryManagerDashboard = () => {
       icon: <AddIcon />,
       onClick: () => openModal('addAsset'),
       color: 'primary' as const,
+    },
+    {
+      title: 'Manage Categories',
+      description: 'Organize asset categories',
+      icon: <InventoryIcon />,
+      onClick: () => openModal('categories'),
+      color: 'info' as const,
     },
     {
       title: 'Create Purchase Order',
@@ -951,6 +972,23 @@ const InventoryManagerDashboard = () => {
         open={modals.report}
         onClose={() => closeModal('report')}
         onSubmit={(data) => handleModalSubmit('report', data)}
+      />
+
+      <CategoriesModal
+        open={modals.categories}
+        onClose={() => closeModal('categories')}
+      />
+
+      {/* QR Dialog for newly created asset from modal */}
+      <AssetQRCodeDialog
+        open={qrOpen}
+        asset={qrAsset}
+        onClose={() => {
+          setQrOpen(false);
+          setQrAsset(null);
+          // also close add asset modal if still open
+          setModals(prev => ({ ...prev, addAsset: false }));
+        }}
       />
 
       {/* Documents Panel - Embedded for quick access */}

@@ -28,6 +28,7 @@ import {
   FilterList as FilterIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
+import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../services/api';
 
 interface DeadStockAsset {
@@ -169,11 +170,12 @@ const DeadStockItemsPage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4" component="h1" fontWeight="bold">
-          Dead Stock Items
-        </Typography>
+    <DashboardLayout>
+      <Box sx={{ p: 3 }}>
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h4" component="h1" fontWeight="bold">
+            Dead Stock Items
+          </Typography>
         <Button
           variant="outlined"
           startIcon={<ExportIcon />}
@@ -326,7 +328,8 @@ const DeadStockItemsPage: React.FC = () => {
           onRowsPerPageChange={handleChangeRowsPerPage}
         />
       </TableContainer>
-    </Box>
+      </Box>
+    </DashboardLayout>
   );
 };
 

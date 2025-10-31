@@ -38,4 +38,11 @@ router.post(
   reportsController.generateReport
 );
 
+// Download report
+router.get(
+  '/:id/download',
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR']),
+  reportsController.downloadReport
+);
+
 module.exports = router;

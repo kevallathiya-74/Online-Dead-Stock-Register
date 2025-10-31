@@ -160,10 +160,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       {user && (
         <Box sx={{ p: 2, textAlign: 'center' }}>
           <Avatar sx={{ mx: 'auto', mb: 1, bgcolor: 'primary.main' }}>
-            {user.full_name?.[0] || user.email[0].toUpperCase()}
+            {(user.name || user.full_name)?.[0] || user.email[0].toUpperCase()}
           </Avatar>
           <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-            {user.full_name || 'User'}
+            {user.name || user.full_name || 'User'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             {user.email}
@@ -215,7 +215,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             sx={{ ml: 2 }}
           >
             <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.dark' }}>
-              {user?.full_name?.[0] || user?.email[0].toUpperCase()}
+              {(user?.name || user?.full_name)?.[0] || user?.email[0].toUpperCase()}
             </Avatar>
           </IconButton>
 

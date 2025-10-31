@@ -266,6 +266,7 @@ export const getNavigationForRole = (role: UserRole): NavigationItem[] => {
     case UserRole.ADMIN:
       return adminNavigation;
     case UserRole.INVENTORY_MANAGER:
+    case UserRole.IT_MANAGER:
       return inventoryManagerNavigation;
     case UserRole.EMPLOYEE:
       return employeeNavigation;

@@ -29,6 +29,7 @@ import { useNavigate } from 'react-router-dom';
 import { getVendorStats, getRecentOrders } from '../../services/vendorPortal.service';
 import type { VendorStats, VendorOrder } from '../../types';
 import { format } from 'date-fns';
+import DashboardLayout from '../../components/layout/DashboardLayout';
 
 const VendorDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -94,31 +95,33 @@ const VendorDashboard: React.FC = () => {
     }
   };
 
-  const formatCurrency = (amount: number, currency: string = 'INR') => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: currency
-    }).format(amount);
+  const formatCurrency = (amount: number) => {
+    return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-        <CircularProgress />
-      </Box>
+      <DashboardLayout>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+          <CircularProgress />
+        </Box>
+      </DashboardLayout>
     );
   }
 
   if (error) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
+      <DashboardLayout>
+        <Box sx={{ p: 3 }}>
+          <Alert severity="error">{error}</Alert>
+        </Box>
+      </DashboardLayout>
     );
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <DashboardLayout>
+      <Box sx={{ p: 3 }}>
       {/* Header */}
       <Typography variant="h4" gutterBottom>
         Vendor Dashboard
@@ -174,7 +177,7 @@ const VendorDashboard: React.FC = () => {
                     Total Revenue
                   </Typography>
                   <Typography variant="h4">
-                    {stats?.currency || 'INR'} {stats?.totalRevenue || '0.00'}
+                    {formatCurrency(stats?.totalRevenue || 0)}
                   </Typography>
                 </Box>
                 <AttachMoney sx={{ fontSize: 40, color: 'success.main', opacity: 0.3 }} />
@@ -299,7 +302,7 @@ const VendorDashboard: React.FC = () => {
                     </TableCell>
                     <TableCell>{order.items_count}</TableCell>
                     <TableCell>
-                      {formatCurrency(order.total_amount, order.currency)}
+                      {formatCurrency(order.total_amount)}
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -339,7 +342,8 @@ const VendorDashboard: React.FC = () => {
           </Table>
         </TableContainer>
       </Paper>
-    </Box>
+      </Box>
+    </DashboardLayout>
   );
 };
 

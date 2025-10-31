@@ -12,6 +12,7 @@ export interface User {
 export enum UserRole {
   ADMIN = 'ADMIN',
   INVENTORY_MANAGER = 'INVENTORY_MANAGER',
+  IT_MANAGER = 'IT_MANAGER',
   EMPLOYEE = 'EMPLOYEE',
   AUDITOR = 'AUDITOR',
   VENDOR = 'VENDOR'
@@ -250,8 +251,7 @@ export interface VendorStats {
   totalOrders: number;
   pendingOrders: number;
   completedOrders: number;
-  totalRevenue: string;
-  currency: string;
+  totalRevenue: number;
   activeProducts: number;
   pendingInvoices: number;
   onTimeDeliveryRate: number;
@@ -264,7 +264,6 @@ export interface VendorOrder {
   status: string;
   priority: string;
   total_amount: number;
-  currency: string;
   expected_delivery_date: string;
   actual_delivery_date?: string;
   order_date: string;

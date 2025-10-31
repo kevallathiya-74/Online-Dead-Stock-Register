@@ -5,8 +5,11 @@ const auditLogSchema = new mongoose.Schema({
   action: { type: String, required: true },
   entity_type: { type: String },
   entity_id: { type: mongoose.Schema.Types.ObjectId },
+  description: { type: String },
+  severity: { type: String, enum: ['info', 'warning', 'error', 'critical'], default: 'info' },
   old_values: { type: Object },
   new_values: { type: Object },
+  changes: { type: Object },
   ip_address: { type: String },
   user_agent: { type: String },
   timestamp: { type: Date, default: Date.now }

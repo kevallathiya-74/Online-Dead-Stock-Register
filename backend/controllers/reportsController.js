@@ -1,4 +1,7 @@
 const logger = require('../utils/logger');
+const ReportTemplate = require('../models/reportTemplate');
+const GeneratedReport = require('../models/generatedReport');
+const User = require('../models/user');
 
 // ========================================
 // REPORT TEMPLATES
@@ -11,116 +14,49 @@ const logger = require('../utils/logger');
  */
 exports.getReportTemplates = async (req, res, next) => {
   try {
-    // Static report templates
-    const templates = [
-      {
-        _id: 'RPT-001',
-        name: 'Asset Inventory Summary',
-        description: 'Complete overview of all assets with current status and location',
-        category: 'Inventory',
-        frequency: 'Weekly',
-        // Frontend expects these fields
-        type: 'Table',
-        parameters: ['Date Range', 'Location', 'Category', 'Status'],
-        lastGenerated: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-        status: 'active',
-        format: 'PDF'
-      },
-      {
-        _id: 'RPT-002',
-        name: 'Asset Utilization Analytics',
-        description: 'Track asset usage patterns and identify underutilized resources',
-        category: 'Analytics',
-        frequency: 'Monthly',
-        type: 'Chart',
-        parameters: ['Date Range', 'Department', 'Asset Type'],
-        lastGenerated: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-        status: 'active',
-        format: 'Excel'
-      },
-      {
-        _id: 'RPT-003',
-        name: 'Maintenance Cost Analysis',
-        description: 'Detailed breakdown of maintenance expenses by asset and department',
-        category: 'Financial',
-        frequency: 'Monthly',
-        type: 'Analytics',
-        parameters: ['Date Range', 'Asset Category', 'Maintenance Type'],
-        lastGenerated: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
-        status: 'active',
-        format: 'PDF'
-      },
-      {
-        _id: 'RPT-004',
-        name: 'Vendor Performance Report',
-        description: 'Evaluate vendor reliability and delivery timelines',
-        category: 'Vendors',
-        frequency: 'Quarterly',
-        type: 'Summary',
-        parameters: ['Date Range', 'Vendor Category', 'Performance Metrics'],
-        lastGenerated: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-        status: 'active',
-        format: 'Excel'
-      },
-      {
-        _id: 'RPT-005',
-        name: 'Asset Depreciation Schedule',
-        description: 'Calculate current asset values with depreciation analysis',
-        category: 'Financial',
-        frequency: 'Yearly',
-        type: 'Table',
-        parameters: ['Date Range', 'Depreciation Method', 'Asset Category'],
-        lastGenerated: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
-        status: 'active',
-        format: 'PDF'
-      },
-      {
-        _id: 'RPT-006',
-        name: 'Compliance Audit Report',
-        description: 'Ensure regulatory compliance and identify gaps',
-        category: 'Compliance',
-        frequency: 'Monthly',
-        type: 'Summary',
-        parameters: ['Date Range', 'Compliance Type', 'Department'],
-        lastGenerated: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000),
-        status: 'active',
-        format: 'PDF'
-      },
-      {
-        _id: 'RPT-007',
-        name: 'Asset Movement Tracking',
-        description: 'Track asset transfers between locations and departments',
-        category: 'Operations',
-        frequency: 'Weekly',
-        type: 'Table',
-        parameters: ['Date Range', 'Location', 'Movement Type'],
-        lastGenerated: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-        status: 'active',
-        format: 'Excel'
-      },
-      {
-        _id: 'RPT-008',
-        name: 'User Activity Dashboard',
-        description: 'Monitor user actions and system usage metrics',
-        category: 'Operations',
-        frequency: 'Daily',
-        type: 'Chart',
-        parameters: ['Date Range', 'User Role', 'Activity Type'],
-        lastGenerated: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-        status: 'active',
-        format: 'Dashboard'
-      }
-    ];
+    const { category, status = 'active' } = req.query;
+    
+    // Build query
+    const query = {};
+    if (category) query.category = category;
+    if (status) query.status = status;
+
+    // Get templates from database
+    const templates = await ReportTemplate.find(query)
+      .populate('created_by', 'name email')
+      .sort({ category: 1, name: 1 })
+      .lean();
+
+    // If no templates exist, seed initial templates
+    if (templates.length === 0) {
+      logger.warn('No report templates found. Please seed database.');
+    }
+
+    // Format for frontend compatibility
+    const formattedTemplates = templates.map(template => ({
+      _id: template.template_id,
+      name: template.name,
+      description: template.description,
+      category: template.category,
+      frequency: template.frequency.charAt(0).toUpperCase() + template.frequency.slice(1),
+      type: template.type.charAt(0).toUpperCase() + template.type.slice(1),
+      parameters: Array.isArray(template.parameters) ? template.parameters : 
+                  typeof template.parameters === 'object' ? Object.keys(template.parameters) : [],
+      lastGenerated: template.last_generated,
+      status: template.status,
+      format: Array.isArray(template.format) ? template.format[0] : template.format,
+      generationCount: template.generation_count || 0
+    }));
 
     logger.info('Report templates retrieved', {
       userId: req.user.id,
-      count: templates.length
+      count: formattedTemplates.length
     });
 
     res.status(200).json({
       success: true,
-      count: templates.length,
-      data: templates
+      count: formattedTemplates.length,
+      data: formattedTemplates
     });
   } catch (error) {
     logger.error('Error fetching report templates:', error);
@@ -142,42 +78,39 @@ exports.getReportHistory = async (req, res, next) => {
       category = ''
     } = req.query;
 
-    // Generate sample historical reports
-    const reportTypes = [
-      'Asset Inventory Summary',
-      'Asset Utilization Analytics',
-      'Maintenance Cost Analysis',
-      'Vendor Performance Report',
-      'Asset Depreciation Schedule'
-    ];
+    // Build query
+    const query = {};
+    if (status) query.status = status;
+    if (category) query.category = category;
 
-    const categories = ['Inventory', 'Analytics', 'Financial', 'Vendor', 'Compliance'];
-    const statuses = ['completed', 'processing', 'failed'];
-    const formats = ['PDF', 'Excel', 'CSV'];
+    // Get total count
+    const totalReports = await GeneratedReport.countDocuments(query);
 
-    const history = [];
-    const totalReports = 50; // Total historical reports
+    // Get paginated reports
+    const reports = await GeneratedReport.find(query)
+      .populate('generated_by', 'name email')
+      .populate('template', 'name template_id')
+      .sort({ generated_at: -1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .lean();
 
-    for (let i = 0; i < Math.min(parseInt(limit), totalReports); i++) {
-      const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
-      const randomCategory = categories[Math.floor(Math.random() * categories.length)];
-      
-      // Apply filters if provided
-      if (status && randomStatus !== status) continue;
-      if (category && randomCategory !== category) continue;
-
-      history.push({
-        _id: `HIST-${1000 + i}`,
-        reportName: reportTypes[Math.floor(Math.random() * reportTypes.length)],
-        category: randomCategory,
-        generatedBy: req.user.email,
-        generatedAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000), // Random date within last 30 days
-        status: randomStatus,
-        format: formats[Math.floor(Math.random() * formats.length)],
-        fileSize: `${(Math.random() * 5 + 0.5).toFixed(2)} MB`,
-        downloadCount: Math.floor(Math.random() * 50)
-      });
-    }
+    // Format for frontend
+    const history = reports.map(report => ({
+      _id: report.report_id,
+      reportName: report.report_name,
+      category: report.category,
+      generatedBy: report.generated_by?.email || 'Unknown',
+      generatedAt: report.generated_at,
+      status: report.status,
+      format: report.format,
+      fileSize: report.file_size ? 
+        (report.file_size < 1024 * 1024 ? 
+          `${(report.file_size / 1024).toFixed(2)} KB` : 
+          `${(report.file_size / (1024 * 1024)).toFixed(2)} MB`) 
+        : 'N/A',
+      downloadCount: report.download_count || 0
+    }));
 
     logger.info('Report history retrieved', {
       userId: req.user.id,
@@ -210,25 +143,53 @@ exports.getReportHistory = async (req, res, next) => {
  */
 exports.getReportStats = async (req, res, next) => {
   try {
+    // Get real statistics from database
+    const totalTemplates = await ReportTemplate.countDocuments({ status: 'active' });
+    const scheduledReports = await ReportTemplate.countDocuments({ 
+      status: 'active', 
+      is_scheduled: true 
+    });
+
+    // Reports generated this month
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    
+    const generatedThisMonth = await GeneratedReport.countDocuments({
+      generated_at: { $gte: startOfMonth }
+    });
+
+    // Total downloads
+    const totalDownloadsResult = await GeneratedReport.aggregate([
+      { $group: { _id: null, total: { $sum: '$download_count' } } }
+    ]);
+    const totalDownloads = totalDownloadsResult[0]?.total || 0;
+
+    // Reports by category
+    const byCategory = await GeneratedReport.aggregate([
+      { $group: { _id: '$category', count: { $sum: 1 } } }
+    ]);
+    const byCategoryObj = {};
+    byCategory.forEach(item => {
+      byCategoryObj[item._id] = item.count;
+    });
+
+    // Reports by status
+    const byStatus = await GeneratedReport.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ]);
+    const byStatusObj = {};
+    byStatus.forEach(item => {
+      byStatusObj[item._id] = item.count;
+    });
+
     const stats = {
-      totalTemplates: 8,
-      generatedThisMonth: Math.floor(Math.random() * 20) + 10,
-      scheduledReports: 8,
-      totalDownloads: Math.floor(Math.random() * 500) + 200,
-      byCategory: {
-        'Inventory': 150,
-        'Analytics': 120,
-        'Financial': 95,
-        'Vendor': 80,
-        'Compliance': 70,
-        'Tracking': 110,
-        'System': 85
-      },
-      byStatus: {
-        'completed': 450,
-        'processing': 15,
-        'failed': 10
-      }
+      totalTemplates,
+      generatedThisMonth,
+      scheduledReports,
+      totalDownloads,
+      byCategory: byCategoryObj,
+      byStatus: byStatusObj
     };
 
     logger.info('Report stats retrieved', { userId: req.user.id });
@@ -279,6 +240,49 @@ exports.generateReport = async (req, res, next) => {
     });
   } catch (error) {
     logger.error('Error generating report:', error);
+    next(error);
+  }
+};
+
+/**
+ * @desc    Download a generated report
+ * @route   GET /api/v1/reports/:id/download
+ * @access  Private (ADMIN, INVENTORY_MANAGER, IT_MANAGER, AUDITOR)
+ */
+exports.downloadReport = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    logger.info('Report download requested', { 
+      userId: req.user.id, 
+      reportId: id 
+    });
+
+    // Simulate PDF file generation (replace with actual file retrieval)
+    // In production, you would:
+    // 1. Fetch report metadata from database
+    // 2. Read the actual file from storage
+    // 3. Stream the file to the client
+    
+    const samplePdfContent = Buffer.from(
+      '%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n/Pages 2 0 R\n>>\nendobj\n' +
+      '2 0 obj\n<<\n/Type /Pages\n/Kids [3 0 R]\n/Count 1\n>>\nendobj\n' +
+      '3 0 obj\n<<\n/Type /Page\n/Parent 2 0 R\n/Resources <<\n/Font <<\n/F1 4 0 R\n>>\n>>\n' +
+      '/MediaBox [0 0 612 792]\n/Contents 5 0 R\n>>\nendobj\n' +
+      '4 0 obj\n<<\n/Type /Font\n/Subtype /Type1\n/BaseFont /Helvetica\n>>\nendobj\n' +
+      '5 0 obj\n<<\n/Length 44\n>>\nstream\nBT\n/F1 24 Tf\n100 700 Td\n(Report Generated) Tj\nET\nendstream\nendobj\n' +
+      'xref\n0 6\n0000000000 65535 f\n0000000009 00000 n\n0000000058 00000 n\n' +
+      '0000000115 00000 n\n0000000262 00000 n\n0000000341 00000 n\n' +
+      'trailer\n<<\n/Size 6\n/Root 1 0 R\n>>\nstartxref\n435\n%%EOF'
+    );
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=report-${id}.pdf`);
+    res.setHeader('Content-Length', samplePdfContent.length);
+    res.send(samplePdfContent);
+
+  } catch (error) {
+    logger.error('Error downloading report:', error);
     next(error);
   }
 };

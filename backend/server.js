@@ -120,10 +120,15 @@ app.use(requestLogger);
 
 // General API rate limiting
 const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, 
-  max: 100, 
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 500, // Increased from 100 to 500 requests per window
   standardHeaders: true,
   legacyHeaders: false,
+  // Skip rate limiting for authenticated users (they have valid tokens)
+  skip: (req) => {
+    // If user is authenticated (has valid token), skip rate limiting
+    return req.user !== undefined;
+  },
   message: { 
     success: false,
     error: 'Too many requests from this IP, please try again later.' 
@@ -269,6 +274,7 @@ const customFiltersRoutes = require('./routes/customFilters');
 const scheduledAuditsRoutes = require('./routes/scheduledAudits');
 const inventoryRoutes = require('./routes/inventory');
 const reportsRoutes = require('./routes/reports');
+const backupsRoutes = require('./routes/backups');
 console.log('✅ All route modules loaded successfully');
 
 // API Documentation with Swagger
@@ -316,6 +322,7 @@ v1Router.use('/filters', customFiltersRoutes);
 v1Router.use('/scheduled-audits', scheduledAuditsRoutes);
 v1Router.use('/inventory', inventoryRoutes);
 v1Router.use('/reports', reportsRoutes);
+v1Router.use('/backups', backupsRoutes);
 
 // Mount v1 routes
 app.use('/api/v1', v1Router);

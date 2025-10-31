@@ -23,10 +23,13 @@ import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../services/api';
+import AssetQRCodeDialog from '../../components/AssetQRCodeDialog';
 
 const AddAssetPage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
+  const [createdAssetForQr, setCreatedAssetForQr] = useState<any | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     unique_asset_id: '',
@@ -76,10 +79,13 @@ const AddAssetPage: React.FC = () => {
         purchase_value: parseFloat(formData.purchase_value) || 0,
       };
 
-      await api.post('/assets', payload);
-      
-      toast.success(`Asset "${formData.name}" created successfully!`);
-      navigate('/assets');
+  const response = await api.post('/assets', payload);
+  const createdAsset = response.data.data || response.data;
+
+  // Open QR dialog for created asset
+  setCreatedAssetForQr(createdAsset);
+  setQrOpen(true);
+  toast.success(`Asset "${formData.name}" created successfully!`);
     } catch (error: any) {
       console.error('Failed to create asset:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to create asset';
@@ -106,6 +112,16 @@ const AddAssetPage: React.FC = () => {
         </Box>
 
         <Card>
+
+        <AssetQRCodeDialog
+          open={qrOpen}
+          asset={createdAssetForQr}
+          onClose={() => {
+            setQrOpen(false);
+            setCreatedAssetForQr(null);
+            navigate('/assets');
+          }}
+        />
           <CardContent>
             <form onSubmit={handleSubmit}>
               <Grid container spacing={3}>

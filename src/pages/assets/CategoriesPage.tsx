@@ -24,6 +24,7 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../../services/api';
+import DashboardLayout from '../../components/layout/DashboardLayout';
 
 interface AssetCategory {
   id: string;
@@ -129,16 +130,17 @@ const CategoriesPage: React.FC = () => {
   const totalAssets = categories.reduce((sum, cat) => sum + cat.count, 0);
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography variant="h4" component="h1" fontWeight="bold">
-            Asset Categories
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Manage asset categories and classifications
-          </Typography>
-        </Box>
+    <DashboardLayout>
+      <Box sx={{ p: 3 }}>
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box>
+            <Typography variant="h4" component="h1" fontWeight="bold">
+              Asset Categories
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Manage asset categories and classifications
+            </Typography>
+          </Box>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -278,7 +280,8 @@ const CategoriesPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+      </Box>
+    </DashboardLayout>
   );
 };
 

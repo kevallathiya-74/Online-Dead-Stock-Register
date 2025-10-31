@@ -43,6 +43,8 @@ const AdminBackupPage = lazy(() => import('./pages/admin/AdminBackupPage'));
 // Inventory Manager Pages
 const AssetsPage = lazy(() => import('./pages/assets/AssetsPage'));
 const AddAssetPage = lazy(() => import('./pages/assets/AddAssetPage'));
+const AssetDetailsPage = lazy(() => import('./pages/assets/AssetDetailsPage'));
+const QRScannerPage = lazy(() => import('./pages/assets/QRScannerPage'));
 const AssetTransfersPage = lazy(() => import('./pages/assets/AssetTransfersPage'));
 const AssetLabelsPage = lazy(() => import('./pages/assets/AssetLabelsPage'));
 const BulkImportPage = lazy(() => import('./pages/assets/BulkImportPage'));
@@ -123,10 +125,12 @@ const App = () => {
               <Route path="/users/*" element={<UsersPage />} />
             </Route>
               
-            {/* Inventory Manager Routes - ADMIN and INVENTORY_MANAGER only */}
-            <Route element={<ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.INVENTORY_MANAGER]} />}>
+            {/* Inventory Manager Routes - ADMIN, INVENTORY_MANAGER, and IT_MANAGER */}
+            <Route element={<ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.IT_MANAGER]} />}>
               <Route path="/assets" element={<AssetsPage />} />
               <Route path="/assets/add" element={<AddAssetPage />} />
+              <Route path="/assets/scan-qr" element={<QRScannerPage />} />
+              <Route path="/assets/:id" element={<AssetDetailsPage />} />
               <Route path="/assets/categories" element={<CategoriesPage />} />
               <Route path="/assets/transfers" element={<AssetTransfersPage />} />
               <Route path="/assets/labels" element={<AssetLabelsPage />} />

@@ -10,8 +10,6 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
-
-  console.log('Dashboard component rendering - User:', user);
   
   // Show loading state while checking authentication
   if (loading) {
@@ -48,9 +46,6 @@ const Dashboard = () => {
   
   const currentUserRole = user.role;
   
-  console.log('Dashboard - Current user role:', currentUserRole);
-  console.log('Dashboard - User details:', { name: user.name, email: user.email, department: user.department });
-  
   // Lazy-load Documents and render role-specific dashboard alongside it
   const Documents = lazy(() => import('../documents/Documents'));
 
@@ -58,32 +53,30 @@ const Dashboard = () => {
   let roleComponent: React.ReactElement | null = null;
   switch (currentUserRole) {
     case UserRole.ADMIN:
-      console.log('Rendering AdminDashboard');
       roleComponent = <AdminDashboard />;
       break;
 
     case UserRole.INVENTORY_MANAGER:
-      console.log('Rendering InventoryManagerDashboard');
+      roleComponent = <InventoryManagerDashboard />;
+      break;
+
+    case UserRole.IT_MANAGER:
       roleComponent = <InventoryManagerDashboard />;
       break;
 
     case UserRole.EMPLOYEE:
-      console.log('Rendering EmployeeDashboard');
       roleComponent = <EmployeeDashboard />;
       break;
 
     case UserRole.AUDITOR:
-      console.log('Rendering AuditorDashboard');
       roleComponent = <AuditorDashboard />;
       break;
 
     case UserRole.VENDOR:
-      console.log('Rendering VendorDashboard');
       roleComponent = <VendorDashboard />;
       break;
 
     default:
-      console.warn('Unknown role:', currentUserRole, '- Defaulting to EmployeeDashboard');
       roleComponent = <EmployeeDashboard />;
       break;
   }

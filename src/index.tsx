@@ -6,7 +6,6 @@ import { store } from './store';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import './index.css';
 import App from './App';
-import reportWebVitals from './reportWebVitals';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,5 +30,3 @@ root.render(
     </ErrorBoundary>
   </React.StrictMode>
 );
-
-reportWebVitals();

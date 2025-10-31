@@ -42,12 +42,14 @@ import {
   Refresh,
   Security,
   CloudDownload,
+  Category as CategoryIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { dashboardDataService } from '../../services/dashboardData.service';
 import { UserRole } from '../../types';
 import api from '../../services/api';
+import CategoriesModal from '../../components/modals/CategoriesModal';
 
 // Utility function to format timestamp to relative time
 const formatTimeAgo = (timestamp: string | Date): string => {
@@ -134,7 +136,7 @@ interface QuickActionProps {
   description: string;
   icon: React.ReactNode;
   onClick: () => void;
-  color?: 'primary' | 'secondary' | 'success' | 'warning' | 'error';
+  color?: 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info';
 }
 
 const QuickActionCard: React.FC<QuickActionProps> = ({ title, description, icon, onClick, color = 'primary' }) => (
@@ -180,6 +182,7 @@ const AdminDashboard = () => {
 
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [categoriesModalOpen, setCategoriesModalOpen] = useState(false);
   
   const handleApprovalAction = (approvalId: number, action: 'approve' | 'reject') => {
     // In a real app, this would make an API call
@@ -291,6 +294,13 @@ const AdminDashboard = () => {
       icon: <PersonAdd />,
       onClick: () => navigate('/admin/users/add'),
       color: 'primary' as const,
+    },
+    {
+      title: 'Manage Categories',
+      description: 'Organize asset categories and classifications',
+      icon: <CategoryIcon />,
+      onClick: () => setCategoriesModalOpen(true),
+      color: 'info' as const,
     },
     {
       title: 'System Backup',
@@ -555,6 +565,12 @@ const AdminDashboard = () => {
           </Suspense>
         </Box>
       </Box>
+
+      {/* Categories Modal */}
+      <CategoriesModal
+        open={categoriesModalOpen}
+        onClose={() => setCategoriesModalOpen(false)}
+      />
     </DashboardLayout>
   );
 };

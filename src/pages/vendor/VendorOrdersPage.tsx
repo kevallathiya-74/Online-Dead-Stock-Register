@@ -249,7 +249,7 @@ const VendorOrdersPage: React.FC = () => {
                         </TableCell>
                         <TableCell>{order.items_count}</TableCell>
                         <TableCell>
-                          {formatCurrency(order.total_amount, order.currency)}
+                          {formatCurrency(order.total_amount)}
                         </TableCell>
                         <TableCell>
                           <Chip
@@ -384,10 +384,10 @@ const VendorOrdersPage: React.FC = () => {
                         <TableCell>{item.category}</TableCell>
                         <TableCell align="right">{item.quantity}</TableCell>
                         <TableCell align="right">
-                          {formatCurrency(item.unit_price, selectedOrder.currency)}
+                          {formatCurrency(item.unit_price)}
                         </TableCell>
                         <TableCell align="right">
-                          {formatCurrency(item.total_price, selectedOrder.currency)}
+                          {formatCurrency(item.total_price)}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -398,20 +398,20 @@ const VendorOrdersPage: React.FC = () => {
               <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                 <Box>
                   <Typography variant="body2">
-                    Subtotal: {formatCurrency(selectedOrder.subtotal, selectedOrder.currency)}
+                    Subtotal: {formatCurrency(selectedOrder.subtotal)}
                   </Typography>
                   {selectedOrder.tax_amount > 0 && (
                     <Typography variant="body2">
-                      Tax: {formatCurrency(selectedOrder.tax_amount, selectedOrder.currency)}
+                      Tax: {formatCurrency(selectedOrder.tax_amount)}
                     </Typography>
                   )}
                   {selectedOrder.shipping_cost > 0 && (
                     <Typography variant="body2">
-                      Shipping: {formatCurrency(selectedOrder.shipping_cost, selectedOrder.currency)}
+                      Shipping: {formatCurrency(selectedOrder.shipping_cost)}
                     </Typography>
                   )}
                   <Typography variant="h6" sx={{ mt: 1 }}>
-                    Total: {formatCurrency(selectedOrder.total_amount, selectedOrder.currency)}
+                    Total: {formatCurrency(selectedOrder.total_amount)}
                   </Typography>
                 </Box>
               </Box>

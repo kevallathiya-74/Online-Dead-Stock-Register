@@ -64,6 +64,8 @@ import {
 import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../services/api';
+import AssetQRCodeDialog from '../../components/AssetQRCodeDialog';
+import { useNavigate } from 'react-router-dom';
 
 interface AdminAsset {
   id: string;
@@ -88,6 +90,7 @@ interface AdminAsset {
 }
 
 const AdminAssetPage: React.FC = () => {
+  const navigate = useNavigate();
   const [assets, setAssets] = useState<AdminAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -198,16 +201,20 @@ const AdminAssetPage: React.FC = () => {
 
       console.log('Creating asset via API:', assetData);
       
-      // Call API to create asset
-      const response = await api.post('/assets', assetData);
-      console.log('Asset created successfully:', response.data);
-      
-      // Reload assets from server
-      await loadAssets();
-      
-      setAddAssetDialogOpen(false);
-      resetNewAsset();
-      toast.success(`Asset created successfully! ID: ${response.data.data?.unique_asset_id || ''}`);
+  // Call API to create asset
+  const response = await api.post('/assets', assetData);
+  const createdAsset = response.data.data || response.data;
+  console.log('Asset created successfully:', createdAsset);
+
+  // Reload assets from server
+  await loadAssets();
+
+  // Close add dialog and open QR dialog for immediate download
+  setAddAssetDialogOpen(false);
+  resetNewAsset();
+  setSelectedAsset(createdAsset as any);
+  setQrCodeDialogOpen(true);
+  toast.success(`Asset created successfully! ID: ${createdAsset?.unique_asset_id || ''}`);
     } catch (error: any) {
       console.error('Failed to create asset:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to create asset';
@@ -787,10 +794,7 @@ const AdminAssetPage: React.FC = () => {
                             <IconButton 
                               size="small" 
                               color="info"
-                              onClick={() => {
-                                setSelectedAsset(asset);
-                                setViewAssetDialogOpen(true);
-                              }}
+                              onClick={() => navigate(`/assets/${asset.id}`)}
                             >
                               <VisibilityIcon />
                             </IconButton>
@@ -1196,49 +1200,15 @@ const AdminAssetPage: React.FC = () => {
           </DialogActions>
         </Dialog>
 
-        {/* QR Code Dialog */}
-        <Dialog open={qrCodeDialogOpen} onClose={() => setQrCodeDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>QR Code: {selectedAsset?.unique_asset_id}</DialogTitle>
-          <DialogContent>
-            <Box sx={{ textAlign: 'center', py: 3 }}>
-              <Box
-                sx={{
-                  width: 200,
-                  height: 200,
-                  mx: 'auto',
-                  mb: 3,
-                  border: '2px solid #ddd',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: '#f5f5f5'
-                }}
-              >
-                <QrCodeIcon sx={{ fontSize: 80, color: 'grey.500' }} />
-              </Box>
-              <Typography variant="h6" gutterBottom>
-                {selectedAsset?.manufacturer} {selectedAsset?.model}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Serial: {selectedAsset?.serial_number}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Location: {selectedAsset?.location}
-              </Typography>
-              {selectedAsset?.qr_code && (
-                <Typography variant="body2" color="text.secondary">
-                  QR Code: {selectedAsset.qr_code}
-                </Typography>
-              )}
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setQrCodeDialogOpen(false)}>Close</Button>
-            <Button variant="contained" onClick={handleGenerateQRCode} startIcon={<DownloadIcon />}>
-              Copy QR Data
-            </Button>
-          </DialogActions>
-        </Dialog>
+        {/* QR Code Dialog - Using Reusable Component */}
+        <AssetQRCodeDialog
+          open={qrCodeDialogOpen}
+          asset={selectedAsset}
+          onClose={() => {
+            setQrCodeDialogOpen(false);
+            setSelectedAsset(null);
+          }}
+        />
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} maxWidth="sm">

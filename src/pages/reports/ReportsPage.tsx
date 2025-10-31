@@ -299,7 +299,10 @@ const ReportsPage = () => {
   // Lazy-load disposal records when needed with server-side pagination
   useEffect(() => {
     const needsDisposal = tabValue === 1 || location.pathname === '/reports/disposal';
-    if (!needsDisposal || disposalLoading) return;
+    if (!needsDisposal) return;
+    
+    // Skip if already loaded or currently loading
+    if (disposalRecords.length > 0 || disposalLoading) return;
     
     const abortController = new AbortController();
     
@@ -326,7 +329,7 @@ const ReportsPage = () => {
     })();
     
     return () => abortController.abort();
-  }, [tabValue, location.pathname, disposalLoading]);
+  }, [tabValue, location.pathname]); // Removed disposalLoading from dependencies
 
   const categories = Array.from(new Set(reportTemplates.map(r => r.category)));
 

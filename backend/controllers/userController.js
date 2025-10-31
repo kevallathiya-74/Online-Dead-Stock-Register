@@ -70,12 +70,9 @@ exports.getUsers = async (req, res) => {
 // GET user by id
 exports.getUserById = async (req, res) => {
   try {
-    console.log('Fetching user by ID:', req.params.id);
-    
     const user = await User.findById(req.params.id).select('-password');
     
     if (!user) {
-      console.log('User not found');
       return res.status(404).json({ 
         success: false,
         message: 'User not found' 
@@ -101,14 +98,10 @@ exports.getUserById = async (req, res) => {
 // CREATE user
 exports.createUser = async (req, res) => {
   try {
-    console.log('=== Creating new user ===');
-    console.log('Request body:', JSON.stringify(req.body, null, 2));
-    
     const { name, email, password, role, department, employee_id, phone, location, manager, is_active } = req.body;
 
     // Validate required fields
     if (!name || !email || !role || !department) {
-      console.log('Validation failed: Missing required fields');
       return res.status(400).json({ 
         success: false,
         message: 'Name, email, role, and department are required' 
@@ -118,7 +111,6 @@ exports.createUser = async (req, res) => {
     // Check if email already exists
     const existingUserByEmail = await User.findOne({ email });
     if (existingUserByEmail) {
-      console.log('User with email already exists:', email);
       return res.status(400).json({ 
         success: false,
         message: 'User with this email already exists' 
@@ -133,13 +125,11 @@ exports.createUser = async (req, res) => {
       const userCount = await User.countDocuments();
       const sequentialNumber = (userCount + 1).toString().padStart(4, '0');
       finalEmployeeId = `EMP-${year}-${sequentialNumber}`;
-      console.log('🔢 Auto-generated Employee ID:', finalEmployeeId);
     }
 
     // Check if employee_id already exists
     const existingUserById = await User.findOne({ employee_id: finalEmployeeId });
     if (existingUserById) {
-      console.log('Employee ID already exists:', finalEmployeeId);
       return res.status(400).json({ 
         success: false,
         message: `Employee ID ${finalEmployeeId} already exists. Please provide a different ID.` 
@@ -154,16 +144,11 @@ exports.createUser = async (req, res) => {
     const normalizedDepartment = department.toUpperCase();
     
     if (!allowedDepartments.includes(normalizedDepartment)) {
-      console.log('Invalid department:', normalizedDepartment);
       return res.status(400).json({ 
         success: false,
         message: `Invalid department. Allowed: ${allowedDepartments.join(', ')}` 
       });
     }
-
-    console.log('Normalized role:', normalizedRole);
-    console.log('Normalized department:', normalizedDepartment);
-    console.log('Final Employee ID:', finalEmployeeId);
 
     // Hash password (use provided password or generate default)
     const plainPassword = password || 'Password@123';
@@ -183,9 +168,6 @@ exports.createUser = async (req, res) => {
     });
 
     const saved = await user.save();
-    
-    console.log('✅ User created successfully:', saved._id);
-    console.log('   Employee ID:', saved.employee_id);
     
     // Return user without password
     const userResponse = saved.toObject();
@@ -241,14 +223,11 @@ exports.updateUser = async (req, res) => {
     ).select('-password');
     
     if (!updated) {
-      console.log('User not found for update');
       return res.status(404).json({ 
         success: false,
         message: 'User not found' 
       });
     }
-    
-    console.log('✅ User updated successfully:', updated._id);
     
     res.json({
       success: true,
@@ -270,20 +249,14 @@ exports.updateUser = async (req, res) => {
 // DELETE user
 exports.deleteUser = async (req, res) => {
   try {
-    console.log('=== Deleting user ===');
-    console.log('User ID:', req.params.id);
-    
     const deleted = await User.findByIdAndDelete(req.params.id);
     
     if (!deleted) {
-      console.log('User not found for deletion');
       return res.status(404).json({ 
         success: false,
         message: 'User not found' 
       });
     }
-    
-    console.log('✅ User deleted successfully:', deleted._id);
     
     res.json({ 
       success: true,

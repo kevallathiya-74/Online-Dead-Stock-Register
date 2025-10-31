@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+
 import {
   Box,
   Grid,
@@ -142,7 +143,17 @@ const AdminUsersPage: React.FC = () => {
                          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.employee_id.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = selectedRole === 'all' || user.role === selectedRole;
-    return matchesSearch && matchesRole;
+    
+    // Filter by tab (active/inactive status)
+    let matchesTab = true;
+    if (tabValue === 1) { // Active Users tab
+      matchesTab = user.is_active === true;
+    } else if (tabValue === 2) { // Inactive Users tab
+      matchesTab = user.is_active === false;
+    }
+    // tabValue === 0 is All Users, so no additional filtering
+    
+    return matchesSearch && matchesRole && matchesTab;
   });
 
   const paginatedUsers = filteredUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
@@ -326,6 +337,134 @@ const AdminUsersPage: React.FC = () => {
     }
   };
 
+  // Render user table (reusable for all tabs)
+  const renderUserTable = (title: string) => (
+    <Card>
+      <CardContent>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6">{title} ({filteredUsers.length})</Typography>
+        </Box>
+        
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>User</TableCell>
+                <TableCell>Role</TableCell>
+                <TableCell>Department</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Last Login</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                      <CircularProgress />
+                      <Typography variant="body2" color="text.secondary">
+                        Loading users...
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ) : paginatedUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      No users found
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginatedUsers.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Avatar sx={{ bgcolor: 'primary.main' }}>
+                          {user.name.charAt(0).toUpperCase()}
+                        </Avatar>
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                            {user.name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {user.email}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            ID: {user.employee_id}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        icon={getRoleIcon(user.role)}
+                        label={formatRoleName(user.role)}
+                        color={getRoleColor(user.role) as any}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>{user.department}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={user.is_active ? 'Active' : 'Inactive'}
+                        color={user.is_active ? 'success' : 'default'}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleEditUser(user)}
+                          color="primary"
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => toggleUserStatus(user.id)}
+                          color={user.is_active ? 'warning' : 'success'}
+                        >
+                          {user.is_active ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />}
+                        </IconButton>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleDeleteUser(user.id)}
+                          color="error"
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25]}
+          component="div"
+          count={filteredUsers.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={(e, newPage) => setPage(newPage)}
+          onRowsPerPageChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
+        />
+      </CardContent>
+    </Card>
+  );
+
   return (
     <DashboardLayout>
       <Box sx={{ flexGrow: 1 }}>
@@ -433,7 +572,10 @@ const AdminUsersPage: React.FC = () => {
 
         {/* Tabs */}
         <Paper sx={{ mb: 3 }}>
-          <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
+          <Tabs value={tabValue} onChange={(e, newValue) => {
+            setTabValue(newValue);
+            setPage(0); // Reset to first page when changing tabs
+          }}>
             <Tab label="All Users" />
             <Tab label="Active Users" />
             <Tab label="Inactive Users" />
@@ -474,129 +616,15 @@ const AdminUsersPage: React.FC = () => {
 
         {/* Tab Panels */}
         <TabPanel value={tabValue} index={0}>
-          {/* All Users Table */}
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6">All Users ({filteredUsers.length})</Typography>
-              </Box>
-              
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>User</TableCell>
-                      <TableCell>Role</TableCell>
-                      <TableCell>Department</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Last Login</TableCell>
-                      <TableCell>Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                            <CircularProgress />
-                            <Typography variant="body2" color="text.secondary">
-                              Loading users...
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    ) : paginatedUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Avatar sx={{ bgcolor: 'primary.main' }}>
-                              {user.name.charAt(0).toUpperCase()}
-                            </Avatar>
-                            <Box>
-                              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                                {user.name}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {user.email}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                ID: {user.employee_id}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            icon={getRoleIcon(user.role)}
-                            label={formatRoleName(user.role)}
-                            color={getRoleColor(user.role) as any}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>{user.department}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={user.is_active ? 'Active' : 'Inactive'}
-                            color={user.is_active ? 'success' : 'default'}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
-                        </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', gap: 1 }}>
-                            <IconButton 
-                              size="small" 
-                              onClick={() => handleEditUser(user)}
-                              color="primary"
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton 
-                              size="small" 
-                              onClick={() => toggleUserStatus(user.id)}
-                              color={user.is_active ? 'warning' : 'success'}
-                            >
-                              {user.is_active ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />}
-                            </IconButton>
-                            <IconButton 
-                              size="small" 
-                              onClick={() => handleDeleteUser(user.id)}
-                              color="error"
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-              
-              <TablePagination
-                rowsPerPageOptions={[5, 10, 25]}
-                component="div"
-                count={filteredUsers.length}
-                rowsPerPage={rowsPerPage}
-                page={page}
-                onPageChange={(e, newPage) => setPage(newPage)}
-                onRowsPerPageChange={(e) => {
-                  setRowsPerPage(parseInt(e.target.value, 10));
-                  setPage(0);
-                }}
-              />
-            </CardContent>
-          </Card>
+          {renderUserTable('All Users')}
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
-          <Alert severity="info">Active users view - shows only active users</Alert>
+          {renderUserTable('Active Users')}
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>
-          <Alert severity="info">Inactive users view - shows only inactive users</Alert>
+          {renderUserTable('Inactive Users')}
         </TabPanel>
 
         {/* Add User Dialog */}

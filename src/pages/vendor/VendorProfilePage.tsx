@@ -16,8 +16,10 @@ import { Save, Star } from '@mui/icons-material';
 import { getProfile, updateProfile } from '../../services/vendorPortal.service';
 import type { VendorProfile } from '../../types';
 import { toast } from 'react-toastify';
+import { useAuth } from '../../context/AuthContext';
 
 const VendorProfilePage: React.FC = () => {
+  const { refreshUser } = useAuth();
   const [profile, setProfile] = useState<VendorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -108,6 +110,8 @@ const VendorProfilePage: React.FC = () => {
       setError(null);
       const updatedProfile = await updateProfile(formData);
       setProfile(updatedProfile);
+      // Refresh global user state after profile update
+      await refreshUser();
       toast.success('Profile updated successfully');
     } catch (err: any) {
       console.error('Error updating profile:', err);

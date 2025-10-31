@@ -56,7 +56,7 @@ interface AdminUser {
   id: string;
   name: string;
   email: string;
-  role: 'ADMIN' | 'INVENTORY_MANAGER' | 'AUDITOR' | 'EMPLOYEE';
+  role: 'ADMIN' | 'INVENTORY_MANAGER' | 'IT_MANAGER' | 'AUDITOR' | 'EMPLOYEE';
   department: string;
   employee_id: string;
   status: 'Active' | 'Inactive';
@@ -258,6 +258,12 @@ const UsersPage = () => {
           'view_transactions', 'create_transactions', 'approve_transactions',
           'view_reports', 'create_reports', 'manage_vendors', 'schedule_maintenance'
         ];
+      case 'IT_MANAGER':
+        return [
+          'view_users', 'view_assets', 'create_assets', 'edit_assets',
+          'view_transactions', 'create_transactions', 'approve_transactions',
+          'view_reports', 'create_reports', 'manage_vendors', 'schedule_maintenance'
+        ];
       case 'AUDITOR':
         return [
           'view_users', 'view_assets', 'view_transactions', 'view_reports',
@@ -276,6 +282,8 @@ const UsersPage = () => {
         return 'error';
       case 'INVENTORY_MANAGER':
         return 'primary';
+      case 'IT_MANAGER':
+        return 'info';
       case 'AUDITOR':
         return 'secondary';
       case 'EMPLOYEE':
@@ -296,6 +304,7 @@ const UsersPage = () => {
     byRole: {
       'ADMIN': users.filter(u => u.role === 'ADMIN').length,
       'INVENTORY_MANAGER': users.filter(u => u.role === 'INVENTORY_MANAGER').length,
+      'IT_MANAGER': users.filter(u => u.role === 'IT_MANAGER').length,
       'AUDITOR': users.filter(u => u.role === 'AUDITOR').length,
       'EMPLOYEE': users.filter(u => u.role === 'EMPLOYEE').length,
     },
@@ -312,6 +321,7 @@ const UsersPage = () => {
     const roleNames: Record<string, string> = {
       'ADMIN': 'Admin',
       'INVENTORY_MANAGER': 'Inventory Manager',
+      'IT_MANAGER': 'IT Manager',
       'EMPLOYEE': 'Employee',
       'AUDITOR': 'Auditor'
     };
@@ -320,7 +330,7 @@ const UsersPage = () => {
   
   // Filter out empty/undefined departments and ensure unique values
   const departments = Array.from(new Set(users.map(u => u.department).filter(d => d && d.trim() !== '')));
-  const roles = ['ADMIN', 'INVENTORY_MANAGER', 'AUDITOR', 'EMPLOYEE'];
+  const roles = ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR', 'EMPLOYEE'];
 
   if (loading) {
     return (
@@ -784,6 +794,7 @@ const UsersPage = () => {
                     <MenuItem value="EMPLOYEE">Employee</MenuItem>
                     <MenuItem value="AUDITOR">Auditor</MenuItem>
                     <MenuItem value="INVENTORY_MANAGER">Inventory Manager</MenuItem>
+                    <MenuItem value="IT_MANAGER">IT Manager</MenuItem>
                     <MenuItem value="ADMIN">Administrator</MenuItem>
                   </Select>
                 </FormControl>

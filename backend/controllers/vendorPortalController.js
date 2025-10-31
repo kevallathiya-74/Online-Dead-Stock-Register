@@ -84,8 +84,7 @@ const getVendorStats = async (req, res) => {
         totalOrders,
         pendingOrders,
         completedOrders,
-        totalRevenue: totalRevenue.toFixed(2),
-        currency: 'USD',
+        totalRevenue: totalRevenue,
         activeProducts,
         pendingInvoices,
         onTimeDeliveryRate,
@@ -127,7 +126,6 @@ const getRecentOrders = async (req, res) => {
       po_number: order.po_number,
       status: order.status,
       total_amount: order.total_amount,
-      currency: order.currency || 'USD',
       expected_delivery_date: order.expected_delivery_date,
       order_date: order.createdAt,
       items_count: order.items.length,
@@ -209,7 +207,6 @@ const getAllOrders = async (req, res) => {
       status: order.status,
       priority: order.priority,
       total_amount: order.total_amount,
-      currency: order.currency || 'USD',
       expected_delivery_date: order.expected_delivery_date,
       actual_delivery_date: order.actual_delivery_date,
       order_date: order.createdAt,
@@ -431,7 +428,6 @@ const getInvoices = async (req, res) => {
         invoice_date: order.createdAt,
         due_date: order.expected_delivery_date,
         amount: order.total_amount,
-        currency: order.currency || 'USD',
         status: invoiceStatus,
         payment_method: order.payment_method,
         payment_terms: order.payment_terms,
@@ -454,10 +450,9 @@ const getInvoices = async (req, res) => {
       invoices: formattedInvoices,
       summary: {
         totalInvoices: formattedInvoices.length,
-        totalAmount: totalAmount.toFixed(2),
-        paidAmount: paidAmount.toFixed(2),
-        pendingAmount: pendingAmount.toFixed(2),
-        currency: 'USD'
+        totalAmount: totalAmount,
+        paidAmount: paidAmount,
+        pendingAmount: pendingAmount
       }
     });
 

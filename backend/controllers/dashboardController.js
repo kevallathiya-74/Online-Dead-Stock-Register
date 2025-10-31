@@ -32,7 +32,7 @@ const getDashboardStats = async (req, res) => {
       // Total asset value
       Asset.aggregate([
         { $match: { status: { $ne: 'Scrapped' } } },
-        { $group: { _id: null, total: { $sum: '$current_value' } } }
+        { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
       ]),
       
       // Active users count
@@ -99,6 +99,21 @@ const getDashboardStats = async (req, res) => {
     const purchaseTrend = lastMonthlyPurchase > 0 ? 
       Math.round(((currentMonthlyPurchase - lastMonthlyPurchase) / lastMonthlyPurchase) * 100) : 0;
 
+    // Calculate asset value trend from last month
+    const lastMonthValue = await Asset.aggregate([
+      { 
+        $match: { 
+          created_at: { $lt: currentMonth },
+          status: { $ne: 'Scrapped' }
+        } 
+      },
+      { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
+    ]);
+    
+    const lastMonthTotalValue = lastMonthValue[0]?.total || 0;
+    const valueTrend = lastMonthTotalValue > 0 ? 
+      Math.round(((currentTotalValue - lastMonthTotalValue) / lastMonthTotalValue) * 100) : 0;
+
     const stats = {
       totalAssets,
       totalValue: currentTotalValue,
@@ -112,8 +127,8 @@ const getDashboardStats = async (req, res) => {
           isPositive: assetsTrend >= 0
         },
         value: {
-          value: 8, // Mock value for asset value trend
-          isPositive: true
+          value: Math.abs(valueTrend),
+          isPositive: valueTrend >= 0
         },
         users: {
           value: Math.abs(usersTrend),
@@ -258,7 +273,7 @@ const getDashboardStatsData = async () => {
     Asset.countDocuments({ status: { $ne: 'Scrapped' } }),
     Asset.aggregate([
       { $match: { status: { $ne: 'Scrapped' } } },
-      { $group: { _id: null, total: { $sum: '$current_value' } } }
+      { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
     ]),
     User.countDocuments({ is_active: true }),
     Approval.countDocuments({ status: 'Pending' }),
@@ -459,7 +474,8 @@ const getInventoryStats = async (req, res) => {
       maintenanceDue,
       monthlyPurchases,
       lastMonthPurchases,
-      topVendorsCount
+      topVendorsCount,
+      assetsLastMonth
     ] = await Promise.all([
       Asset.countDocuments({ status: { $ne: 'Scrapped' } }),
       Asset.countDocuments({ status: 'Active' }),
@@ -467,7 +483,7 @@ const getInventoryStats = async (req, res) => {
       Asset.countDocuments({ status: 'Ready for Scrap' }),
       Asset.aggregate([
         { $match: { status: { $ne: 'Scrapped' } } },
-        { $group: { _id: null, total: { $sum: '$current_value' } } }
+        { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
       ]),
       Asset.distinct('location').then(locations => locations.length),
       Asset.countDocuments({
@@ -486,11 +502,18 @@ const getInventoryStats = async (req, res) => {
       Asset.countDocuments({
         purchase_date: { $gte: lastMonth, $lt: currentMonth }
       }),
-      Vendor.countDocuments({ is_active: true })
+      Vendor.countDocuments({ is_active: true }),
+      Asset.countDocuments({ 
+        created_at: { $lt: currentMonth },
+        status: { $ne: 'Scrapped' }
+      })
     ]);
 
     const purchaseTrend = lastMonthPurchases > 0 ? 
       Math.round(((monthlyPurchases - lastMonthPurchases) / lastMonthPurchases) * 100) : 0;
+
+    const assetsTrend = assetsLastMonth > 0 ? 
+      Math.round(((totalAssets - assetsLastMonth) / assetsLastMonth) * 100) : 0;
 
     const stats = {
       totalAssets,
@@ -505,8 +528,8 @@ const getInventoryStats = async (req, res) => {
       topVendorsCount,
       trends: {
         assets: {
-          value: 12, // Mock trend for assets
-          isPositive: true
+          value: Math.abs(assetsTrend),
+          isPositive: assetsTrend >= 0
         },
         purchases: {
           value: Math.abs(purchaseTrend),
@@ -783,7 +806,7 @@ const getInventoryStatsData = async () => {
     Asset.countDocuments({ status: 'Ready for Scrap' }),
     Asset.aggregate([
       { $match: { status: { $ne: 'Scrapped' } } },
-      { $group: { _id: null, total: { $sum: '$current_value' } } }
+      { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
     ]),
     Asset.distinct('location').then(locations => locations.length),
     Asset.countDocuments({

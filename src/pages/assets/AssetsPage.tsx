@@ -31,6 +31,7 @@ import {
   DialogContent,
   DialogActions,
   Alert,
+  Checkbox,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -48,8 +49,11 @@ import {
   Smartphone as SmartphoneIcon,
   Print as PrinterIcon,
   Chair as FurnitureIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
+import { QRCodeCanvas } from 'qrcode.react';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../services/api';
 
@@ -66,12 +70,13 @@ interface Asset {
   location: string;
   assigned_user?: string;
   purchase_date: string;
-  purchase_value: number;
+  purchase_cost: number;
   warranty_expiry?: string;
   last_audit_date: string;
 }
 
 const AssetsPage = () => {
+  const navigate = useNavigate();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -81,6 +86,18 @@ const AssetsPage = () => {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [newAssetQrDialogOpen, setNewAssetQrDialogOpen] = useState(false);
+  const [newlyCreatedAsset, setNewlyCreatedAsset] = useState<Asset | null>(null);
+  const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [transferData, setTransferData] = useState({
+    to_location: '',
+    to_user: '',
+    notes: ''
+  });
   const [stats, setStats] = useState({
     totalAssets: 0,
     activeAssets: 0,
@@ -140,7 +157,7 @@ const AssetsPage = () => {
         location: asset.location,
         assigned_user: asset.assigned_to?.name || asset.assigned_user,
         purchase_date: asset.purchase_date,
-        purchase_value: asset.purchase_value || asset.value,
+        purchase_cost: asset.purchase_cost || asset.purchase_value || asset.value || 0,
         warranty_expiry: asset.warranty_expiry,
         last_audit_date: asset.last_audit_date,
       })) : [];
@@ -196,10 +213,55 @@ const AssetsPage = () => {
         condition: formData.condition,
       };
 
-      await api.post('/assets', payload);
+      const response = await api.post('/assets', payload);
+      const createdAsset = response.data.data || response.data;
+      
       toast.success('Asset added successfully');
       setAddDialogOpen(false);
       resetForm();
+      
+      // Generate and show QR code for the new asset
+      const fullAssetData = {
+        id: createdAsset._id || createdAsset.id,
+        unique_asset_id: createdAsset.unique_asset_id,
+        name: `${createdAsset.manufacturer} ${createdAsset.model}`,
+        category: createdAsset.asset_type,
+        manufacturer: createdAsset.manufacturer,
+        model: createdAsset.model,
+        serial_number: createdAsset.serial_number,
+        status: createdAsset.status,
+        condition: createdAsset.condition,
+        location: createdAsset.location,
+        purchase_date: createdAsset.purchase_date,
+        purchase_value: createdAsset.purchase_cost,
+        department: createdAsset.department
+      };
+      
+      // Create comprehensive QR data with all asset details
+      const qrData = JSON.stringify({
+        type: 'asset',
+        id: fullAssetData.id,
+        asset_id: fullAssetData.unique_asset_id,
+        name: fullAssetData.name,
+        manufacturer: fullAssetData.manufacturer,
+        model: fullAssetData.model,
+        serial: fullAssetData.serial_number,
+        category: fullAssetData.category,
+
+
+        location: fullAssetData.location,
+        status: fullAssetData.status,
+        condition: fullAssetData.condition,
+        purchase_date: fullAssetData.purchase_date,
+        purchase_value: fullAssetData.purchase_value,
+        department: fullAssetData.department,
+        scan_url: `${window.location.origin}/assets/${fullAssetData.id}`
+      });
+      
+      setQrCodeUrl(qrData);
+      setNewlyCreatedAsset(fullAssetData as any);
+      setNewAssetQrDialogOpen(true);
+      
       await loadAssets();
     } catch (error: any) {
       console.error('Failed to add asset:', error);
@@ -219,7 +281,7 @@ const AssetsPage = () => {
       serial_number: asset.serial_number,
       location: asset.location,
       purchase_date: asset.purchase_date?.split('T')[0] || '',
-      purchase_value: asset.purchase_value?.toString() || '',
+      purchase_value: asset.purchase_cost?.toString() || '',
       status: asset.status,
       condition: asset.condition,
       department: '',
@@ -382,23 +444,109 @@ const AssetsPage = () => {
   };
 
   const handleTransferAsset = (asset: Asset) => {
-    console.log('Transferring asset:', asset);
-    // In a real app, this would open a transfer dialog
-    toast.info(`Initiating transfer for: ${asset.name}`);
+    setSelectedAsset(asset);
+    setTransferDialogOpen(true);
     handleMenuClose();
   };
 
-  const handleGenerateQR = (asset: Asset) => {
-    console.log('Generating QR code for asset:', asset);
-    // In a real app, this would generate and display/download QR code
-    toast.success(`QR Code generated for: ${asset.name} (${asset.unique_asset_id})`);
+  const handleTransferSubmit = async () => {
+    if (!selectedAsset || !transferData.to_location) {
+      toast.error('Please fill in required fields');
+      return;
+    }
+
+    try {
+      await api.post('/asset-transfers', {
+        asset_id: selectedAsset.id,
+        from_location: selectedAsset.location,
+        to_location: transferData.to_location,
+        to_user: transferData.to_user || null,
+        notes: transferData.notes,
+        transfer_date: new Date().toISOString()
+      });
+
+      toast.success('Asset transfer initiated successfully');
+      setTransferDialogOpen(false);
+      setTransferData({ to_location: '', to_user: '', notes: '' });
+      loadAssets(); // Reload assets
+    } catch (error: any) {
+      console.error('Failed to transfer asset:', error);
+      toast.error(error.response?.data?.message || 'Failed to transfer asset');
+    }
+  };
+
+  const handleGenerateQR = async (asset: Asset) => {
+    try {
+      // Create comprehensive QR data with all asset details
+      const qrData = JSON.stringify({
+        type: 'asset',
+        id: asset.id,
+        asset_id: asset.unique_asset_id,
+        name: asset.name,
+        manufacturer: asset.manufacturer,
+        model: asset.model,
+        serial: asset.serial_number,
+        category: asset.category,
+        location: asset.location,
+        status: asset.status,
+        condition: asset.condition,
+        purchase_date: asset.purchase_date,
+        purchase_value: asset.purchase_cost,
+        assigned_user: asset.assigned_user,
+        scan_url: `${window.location.origin}/assets/${asset.id}`
+      });
+      setQrCodeUrl(qrData);
+      setSelectedAsset(asset);
+      setQrDialogOpen(true);
+      toast.success(`QR Code generated for: ${asset.name}`);
+    } catch (error) {
+      console.error('Failed to generate QR code:', error);
+      toast.error('Failed to generate QR code');
+    }
     handleMenuClose();
   };
 
-  const handlePrintLabel = (asset: Asset) => {
-    console.log('Printing label for asset:', asset);
-    // In a real app, this would trigger printing functionality
-    toast.success(`Label printed for: ${asset.name}`);
+  const handlePrintLabel = async (asset: Asset) => {
+    try {
+      // Create a printable label
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Asset Label - ${asset.unique_asset_id}</title>
+              <style>
+                body { font-family: Arial, sans-serif; padding: 20px; }
+                .label { border: 2px solid #000; padding: 20px; max-width: 400px; }
+                .label h2 { margin: 0 0 10px 0; }
+                .label p { margin: 5px 0; }
+                .qr { margin-top: 10px; }
+              </style>
+            </head>
+            <body>
+              <div class="label">
+                <h2>${asset.name}</h2>
+                <p><strong>Asset ID:</strong> ${asset.unique_asset_id}</p>
+                <p><strong>Serial:</strong> ${asset.serial_number}</p>
+                <p><strong>Model:</strong> ${asset.manufacturer} ${asset.model}</p>
+                <p><strong>Location:</strong> ${asset.location}</p>
+              </div>
+              <script>
+                window.onload = function() {
+                  window.print();
+                  setTimeout(() => window.close(), 500);
+                };
+              </script>
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+      }
+      toast.success(`Label sent to printer for: ${asset.name}`);
+    } catch (error) {
+      console.error('Failed to print label:', error);
+      toast.error('Failed to print label');
+    }
     handleMenuClose();
   };
 
@@ -416,6 +564,47 @@ const AssetsPage = () => {
     
     return matchesSearch && matchesCategory && matchesStatus;
   });
+
+  const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.checked) {
+      const allAssetIds = filteredAssets.map(asset => asset.id);
+      setSelectedAssets(allAssetIds);
+    } else {
+      setSelectedAssets([]);
+    }
+  };
+
+  const handleSelectAsset = (assetId: string) => {
+    setSelectedAssets(prev => {
+      if (prev.includes(assetId)) {
+        return prev.filter(id => id !== assetId);
+      } else {
+        return [...prev, assetId];
+      }
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedAssets.length === 0) {
+      toast.error('No assets selected');
+      return;
+    }
+
+    try {
+      // Delete each asset
+      await Promise.all(
+        selectedAssets.map(assetId => api.delete(`/assets/${assetId}`))
+      );
+
+      toast.success(`Successfully deleted ${selectedAssets.length} asset(s)`);
+      setSelectedAssets([]);
+      setBulkDeleteDialogOpen(false);
+      await loadAssets();
+    } catch (error: any) {
+      console.error('Failed to delete assets:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete assets');
+    }
+  };
 
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>, asset: Asset) => {
     setAnchorEl(event.currentTarget);
@@ -497,6 +686,31 @@ const AssetsPage = () => {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 2 }}>
+            {selectedAssets.length > 0 && (
+              <>
+                <Chip 
+                  label={`${selectedAssets.length} selected`}
+                  color="primary"
+                  onDelete={() => setSelectedAssets([])}
+                  sx={{ height: 36, fontSize: '0.875rem' }}
+                />
+                <Button 
+                  variant="contained" 
+                  color="error"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => setBulkDeleteDialogOpen(true)}
+                >
+                  Delete Selected
+                </Button>
+              </>
+            )}
+            <Button 
+              variant="outlined" 
+              startIcon={<QrCodeIcon />}
+              onClick={() => navigate('/assets/scan-qr')}
+            >
+              Scan QR Code
+            </Button>
             <Button 
               variant="outlined" 
               startIcon={<UploadIcon />}
@@ -658,6 +872,13 @@ const AssetsPage = () => {
               <Table>
                 <TableHead>
                   <TableRow>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        indeterminate={selectedAssets.length > 0 && selectedAssets.length < filteredAssets.length}
+                        checked={filteredAssets.length > 0 && selectedAssets.length === filteredAssets.length}
+                        onChange={handleSelectAll}
+                      />
+                    </TableCell>
                     <TableCell>Asset</TableCell>
                     <TableCell>Category</TableCell>
                     <TableCell>Status</TableCell>
@@ -670,7 +891,17 @@ const AssetsPage = () => {
                 </TableHead>
                 <TableBody>
                   {filteredAssets.map((asset) => (
-                    <TableRow key={asset.id}>
+                    <TableRow 
+                      key={asset.id}
+                      selected={selectedAssets.includes(asset.id)}
+                      hover
+                    >
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          checked={selectedAssets.includes(asset.id)}
+                          onChange={() => handleSelectAsset(asset.id)}
+                        />
+                      </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                           <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
@@ -707,7 +938,7 @@ const AssetsPage = () => {
                       </TableCell>
                       <TableCell>{asset.location}</TableCell>
                       <TableCell>{asset.assigned_user || 'Unassigned'}</TableCell>
-                      <TableCell>₹{asset.purchase_value?.toLocaleString() || '0'}</TableCell>
+                      <TableCell>₹{asset.purchase_cost?.toLocaleString() || '0'}</TableCell>
                       <TableCell>
                         <IconButton 
                           size="small" 
@@ -1130,6 +1361,249 @@ const AssetsPage = () => {
               startIcon={importing ? <CircularProgress size={20} /> : <UploadIcon />}
             >
               {importing ? 'Importing...' : 'Import Assets'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* QR Code Dialog (for existing assets) */}
+        <Dialog open={qrDialogOpen} onClose={() => setQrDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Asset QR Code</DialogTitle>
+          <DialogContent>
+            <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              {selectedAsset && qrCodeUrl && (
+                <>
+                  <Typography variant="h6">{selectedAsset.name}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {selectedAsset.unique_asset_id}
+                  </Typography>
+                  <Box id="qr-code-container" sx={{ p: 2, bgcolor: 'white', borderRadius: 1 }}>
+                    <QRCodeCanvas
+                      value={qrCodeUrl}
+                      size={300}
+                      level="H"
+                      includeMargin={true}
+                    />
+                  </Box>
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      const canvas = document.querySelector('#qr-code-container canvas') as HTMLCanvasElement;
+                      if (canvas) {
+                        canvas.toBlob((blob) => {
+                          if (blob) {
+                            const url = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.download = `${selectedAsset.unique_asset_id}-qr.png`;
+                            link.href = url;
+                            link.click();
+                            URL.revokeObjectURL(url);
+                            toast.success('QR Code downloaded');
+                          }
+                        });
+                      }
+                    }}
+                  >
+                    Download QR Code
+                  </Button>
+                </>
+              )}
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setQrDialogOpen(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* New Asset Success Dialog with QR Code */}
+        <Dialog open={newAssetQrDialogOpen} onClose={() => setNewAssetQrDialogOpen(false)} maxWidth="md" fullWidth>
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <CheckCircleIcon color="success" fontSize="large" />
+              <Typography variant="h5">Asset Created Successfully!</Typography>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ pt: 2 }}>
+              {newlyCreatedAsset && qrCodeUrl && (
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={6}>
+                    <Alert severity="success" sx={{ mb: 2 }}>
+                      Your asset has been created and a QR code has been generated.
+                    </Alert>
+                    <Typography variant="h6" gutterBottom>Asset Details:</Typography>
+                    <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1 }}>
+                      <Typography variant="body2"><strong>Asset ID:</strong> {newlyCreatedAsset.unique_asset_id}</Typography>
+                      <Typography variant="body2"><strong>Name:</strong> {newlyCreatedAsset.name}</Typography>
+                      <Typography variant="body2"><strong>Manufacturer:</strong> {newlyCreatedAsset.manufacturer}</Typography>
+                      <Typography variant="body2"><strong>Model:</strong> {newlyCreatedAsset.model}</Typography>
+                      <Typography variant="body2"><strong>Serial:</strong> {newlyCreatedAsset.serial_number}</Typography>
+                      <Typography variant="body2"><strong>Category:</strong> {newlyCreatedAsset.category}</Typography>
+                      <Typography variant="body2"><strong>Location:</strong> {newlyCreatedAsset.location}</Typography>
+                      <Typography variant="body2"><strong>Status:</strong> {newlyCreatedAsset.status}</Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                      <Typography variant="h6">QR Code</Typography>
+                      <Typography variant="body2" color="text.secondary" textAlign="center">
+                        Scan this QR code to view asset details
+                      </Typography>
+                      <Box id="new-asset-qr-container" sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 2 }}>
+                        <QRCodeCanvas
+                          value={qrCodeUrl}
+                          size={250}
+                          level="H"
+                          includeMargin={true}
+                        />
+                      </Box>
+                      <Button
+                        variant="contained"
+                        fullWidth
+                        onClick={() => {
+                          const canvas = document.querySelector('#new-asset-qr-container canvas') as HTMLCanvasElement;
+                          if (canvas) {
+                            canvas.toBlob((blob) => {
+                              if (blob) {
+                                const url = URL.createObjectURL(blob);
+                                const link = document.createElement('a');
+                                link.download = `${newlyCreatedAsset.unique_asset_id}-qr.png`;
+                                link.href = url;
+                                link.click();
+                                URL.revokeObjectURL(url);
+                                toast.success('QR Code downloaded successfully!');
+                              }
+                            });
+                          }
+                        }}
+                      >
+                        Download QR Code
+                      </Button>
+                    </Box>
+                  </Grid>
+                </Grid>
+              )}
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => {
+              setNewAssetQrDialogOpen(false);
+              setNewlyCreatedAsset(null);
+            }}>
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Transfer Asset Dialog */}
+        <Dialog open={transferDialogOpen} onClose={() => setTransferDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Transfer Asset</DialogTitle>
+          <DialogContent>
+            <Box sx={{ pt: 2 }}>
+              {selectedAsset && (
+                <>
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Transferring: <strong>{selectedAsset.name}</strong> ({selectedAsset.unique_asset_id})
+                    <br />
+                    Current Location: <strong>{selectedAsset.location}</strong>
+                  </Alert>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="To Location"
+                        required
+                        value={transferData.to_location}
+                        onChange={(e) => setTransferData({...transferData, to_location: e.target.value})}
+                        placeholder="e.g., IT Department, Floor 3"
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="Assigned To (Optional)"
+                        value={transferData.to_user}
+                        onChange={(e) => setTransferData({...transferData, to_user: e.target.value})}
+                        placeholder="User ID or Email"
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={3}
+                        label="Notes"
+                        value={transferData.notes}
+                        onChange={(e) => setTransferData({...transferData, notes: e.target.value})}
+                        placeholder="Reason for transfer, special instructions, etc."
+                      />
+                    </Grid>
+                  </Grid>
+                </>
+              )}
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => {
+              setTransferDialogOpen(false);
+              setTransferData({ to_location: '', to_user: '', notes: '' });
+            }}>
+              Cancel
+            </Button>
+            <Button variant="contained" onClick={handleTransferSubmit}>
+              Transfer Asset
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Bulk Delete Confirmation Dialog */}
+        <Dialog open={bulkDeleteDialogOpen} onClose={() => setBulkDeleteDialogOpen(false)} maxWidth="sm">
+          <DialogTitle>Confirm Bulk Delete</DialogTitle>
+          <DialogContent>
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              <Typography variant="body1">
+                Are you sure you want to delete <strong>{selectedAssets.length}</strong> selected asset(s)?
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                This action cannot be undone.
+              </Typography>
+            </Alert>
+            {selectedAssets.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Selected Assets:
+                </Typography>
+                <Box sx={{ mt: 1, maxHeight: 200, overflowY: 'auto' }}>
+                  {selectedAssets.slice(0, 10).map(assetId => {
+                    const asset = assets.find(a => a.id === assetId);
+                    return asset ? (
+                      <Chip
+                        key={assetId}
+                        label={`${asset.unique_asset_id} - ${asset.name}`}
+                        size="small"
+                        sx={{ m: 0.5 }}
+                      />
+                    ) : null;
+                  })}
+                  {selectedAssets.length > 10 && (
+                    <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                      ...and {selectedAssets.length - 10} more
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setBulkDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="contained" 
+              color="error" 
+              onClick={handleBulkDelete}
+              startIcon={<DeleteIcon />}
+            >
+              Delete {selectedAssets.length} Asset(s)
             </Button>
           </DialogActions>
         </Dialog>

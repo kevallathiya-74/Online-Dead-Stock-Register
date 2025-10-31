@@ -49,6 +49,15 @@ export const rolePermissions: Record<UserRole, RolePermissions> = {
     documents: ['read'], 
     vendors: ['read'] 
   },
+  [UserRole.IT_MANAGER]: {
+    users: ['read'], 
+    assets: ['create', 'read', 'update', 'delete'], 
+    approvals: ['create', 'read', 'update'],
+    reports: ['read', 'export'],
+    system: ['settings', 'logs'], 
+    documents: ['create', 'read', 'update', 'delete'],
+    vendors: ['create', 'read', 'update', 'delete']
+  },
   [UserRole.VENDOR]: {
     users: [],
     assets: ['read'], 

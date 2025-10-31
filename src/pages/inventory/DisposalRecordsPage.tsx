@@ -28,6 +28,7 @@ import {
   FilterList as FilterIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
+import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../services/api';
 
 interface DisposalRecord {
@@ -118,11 +119,12 @@ const DisposalRecordsPage: React.FC = () => {
   const completedDisposals = filteredRecords.filter(r => r.status === 'completed').length;
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4" component="h1" fontWeight="bold">
-          Disposal Records
-        </Typography>
+    <DashboardLayout>
+      <Box sx={{ p: 3 }}>
+        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h4" component="h1" fontWeight="bold">
+            Disposal Records
+          </Typography>
         <Button
           variant="outlined"
           startIcon={<ExportIcon />}
@@ -281,7 +283,8 @@ const DisposalRecordsPage: React.FC = () => {
           onRowsPerPageChange={handleChangeRowsPerPage}
         />
       </TableContainer>
-    </Box>
+      </Box>
+    </DashboardLayout>
   );
 };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import {
   Box,
@@ -28,6 +28,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -45,24 +47,27 @@ import {
   Cancel as CancelIcon,
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/Layout';
+import { useAuth } from '../../context/AuthContext';
+import axios from 'axios';
+import { API_BASE_URL } from '../../config/api.config';
 
 const ProfilePage = () => {
+  const { user, refreshUser } = useAuth();
   const [editMode, setEditMode] = useState(false);
   const [changePasswordDialogOpen, setChangePasswordDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   // User profile data
   const [profile, setProfile] = useState({
-    firstName: 'John',
-    lastName: 'Employee',
-    email: 'employee@company.com',
-    phone: '+1 (555) 123-4567',
-    department: 'Information Technology',
-    jobTitle: 'Software Developer',
-    employeeId: 'EMP-001',
-    location: 'Floor 2, Building A',
-    manager: 'Jane Manager',
-    startDate: '2023-01-15',
-    avatar: '',
+    name: '',
+    email: '',
+    phone: '',
+    department: '',
+    role: '',
+    employeeId: '',
+    is_active: true,
+    created_at: '',
   });
 
   // Settings
@@ -114,9 +119,76 @@ const ProfilePage = () => {
     },
   ]);
 
-  const handleSaveProfile = () => {
-    toast.success('Profile updated successfully!');
-    setEditMode(false);
+  // Fetch user profile on component mount
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+          setError('Not authenticated');
+          return;
+        }
+
+        const response = await axios.get(`${API_BASE_URL}/users/profile`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (response.data.success && response.data.user) {
+          setProfile({
+            name: response.data.user.name || '',
+            email: response.data.user.email || '',
+            phone: response.data.user.phone || '',
+            department: response.data.user.department || '',
+            role: response.data.user.role || '',
+            employeeId: response.data.user.employee_id || '',
+            is_active: response.data.user.is_active !== undefined ? response.data.user.is_active : true,
+            created_at: response.data.user.created_at || '',
+          });
+        }
+      } catch (err: any) {
+        console.error('Error fetching profile:', err);
+        setError(err.response?.data?.message || 'Failed to load profile');
+        toast.error('Failed to load profile');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
+  const handleSaveProfile = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast.error('Not authenticated');
+        return;
+      }
+
+      const response = await axios.put(
+        `${API_BASE_URL}/users/${user?.id}`,
+        {
+          name: profile.name,
+          phone: profile.phone,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      if (response.data.success) {
+        toast.success('Profile updated successfully!');
+        setEditMode(false);
+        // Refresh user data globally
+        await refreshUser();
+      }
+    } catch (err: any) {
+      console.error('Error updating profile:', err);
+      toast.error(err.response?.data?.message || 'Failed to update profile');
+    }
   };
 
   const handleCancelEdit = () => {
@@ -166,6 +238,26 @@ const ProfilePage = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <DashboardLayout title="My Profile">
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+          <CircularProgress />
+        </Box>
+      </DashboardLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout title="My Profile">
+        <Box sx={{ p: 3 }}>
+          <Alert severity="error">{error}</Alert>
+        </Box>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout title="My Profile">
       <Box sx={{ p: 3 }}>
@@ -184,7 +276,7 @@ const ProfilePage = () => {
           <Grid item xs={12} md={8}>
             <Card>
               <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'between', alignItems: 'center', mb: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                   <Typography variant="h6">
                     Personal Information
                   </Typography>
@@ -206,17 +298,17 @@ const ProfilePage = () => {
                       fontSize: '2rem',
                     }}
                   >
-                    {profile.firstName.charAt(0)}{profile.lastName.charAt(0)}
+                    {profile.name ? profile.name.charAt(0).toUpperCase() : 'U'}
                   </Avatar>
                   <Box>
                     <Typography variant="h5" gutterBottom>
-                      {profile.firstName} {profile.lastName}
+                      {profile.name || 'User'}
                     </Typography>
                     <Typography variant="body1" color="text.secondary" gutterBottom>
-                      {profile.jobTitle}
+                      {profile.role || 'Employee'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      {profile.department}
+                      {profile.department || 'N/A'}
                     </Typography>
                   </Box>
                 </Box>
@@ -224,24 +316,12 @@ const ProfilePage = () => {
                 <Divider sx={{ my: 3 }} />
 
                 <Grid container spacing={3}>
-                  <Grid item xs={12} sm={6}>
+                  <Grid item xs={12}>
                     <TextField
                       fullWidth
-                      label="First Name"
-                      value={profile.firstName}
-                      onChange={(e) => setProfile({ ...profile, firstName: e.target.value })}
-                      disabled={!editMode}
-                      InputProps={{
-                        startAdornment: <PersonIcon sx={{ mr: 1, color: 'action.active' }} />,
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      label="Last Name"
-                      value={profile.lastName}
-                      onChange={(e) => setProfile({ ...profile, lastName: e.target.value })}
+                      label="Full Name"
+                      value={profile.name}
+                      onChange={(e) => setProfile({ ...profile, name: e.target.value })}
                       disabled={!editMode}
                       InputProps={{
                         startAdornment: <PersonIcon sx={{ mr: 1, color: 'action.active' }} />,
@@ -253,8 +333,7 @@ const ProfilePage = () => {
                       fullWidth
                       label="Email"
                       value={profile.email}
-                      onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                      disabled={!editMode}
+                      disabled
                       type="email"
                       InputProps={{
                         startAdornment: <EmailIcon sx={{ mr: 1, color: 'action.active' }} />,
@@ -287,6 +366,17 @@ const ProfilePage = () => {
                   <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
+                      label="Role"
+                      value={profile.role}
+                      disabled
+                      InputProps={{
+                        startAdornment: <WorkIcon sx={{ mr: 1, color: 'action.active' }} />,
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
                       label="Employee ID"
                       value={profile.employeeId}
                       disabled
@@ -295,15 +385,14 @@ const ProfilePage = () => {
                       }}
                     />
                   </Grid>
-                  <Grid item xs={12}>
+                  <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
-                      label="Location"
-                      value={profile.location}
-                      onChange={(e) => setProfile({ ...profile, location: e.target.value })}
-                      disabled={!editMode}
+                      label="Status"
+                      value={profile.is_active ? 'Active' : 'Inactive'}
+                      disabled
                       InputProps={{
-                        startAdornment: <LocationIcon sx={{ mr: 1, color: 'action.active' }} />,
+                        startAdornment: <BadgeIcon sx={{ mr: 1, color: 'action.active' }} />,
                       }}
                     />
                   </Grid>
@@ -347,8 +436,8 @@ const ProfilePage = () => {
                           <WorkIcon />
                         </ListItemIcon>
                         <ListItemText
-                          primary="Manager"
-                          secondary={profile.manager}
+                          primary="Department"
+                          secondary={profile.department || 'N/A'}
                         />
                       </ListItem>
                       <ListItem>
@@ -356,17 +445,26 @@ const ProfilePage = () => {
                           <BadgeIcon />
                         </ListItemIcon>
                         <ListItemText
-                          primary="Start Date"
-                          secondary={new Date(profile.startDate).toLocaleDateString()}
+                          primary="Employee ID"
+                          secondary={profile.employeeId || 'N/A'}
                         />
                       </ListItem>
                       <ListItem>
                         <ListItemIcon>
-                          <LocationIcon />
+                          <EmailIcon />
                         </ListItemIcon>
                         <ListItemText
-                          primary="Office Location"
-                          secondary={profile.location}
+                          primary="Email"
+                          secondary={profile.email || 'N/A'}
+                        />
+                      </ListItem>
+                      <ListItem>
+                        <ListItemIcon>
+                          <PhoneIcon />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary="Phone"
+                          secondary={profile.phone || 'Not provided'}
                         />
                       </ListItem>
                     </List>

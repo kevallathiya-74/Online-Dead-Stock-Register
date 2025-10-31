@@ -192,12 +192,12 @@ exports.getAssetStats = async (req, res) => {
     // Count under maintenance
     const underMaintenance = await Asset.countDocuments({ status: 'Under Maintenance' });
     
-    // Calculate total value (sum of purchase_value for all assets)
+    // Calculate total value (sum of purchase_cost for all assets)
     const valueResult = await Asset.aggregate([
       {
         $group: {
           _id: null,
-          totalValue: { $sum: '$purchase_value' }
+          totalValue: { $sum: '$purchase_cost' }
         }
       }
     ]);
