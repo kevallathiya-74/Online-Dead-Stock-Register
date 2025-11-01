@@ -36,13 +36,16 @@ import {
   History as HistoryIcon,
   Help as HelpIcon,
   Refresh as RefreshIcon,
+  QrCodeScanner as QrScanIcon,
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { useAuth } from '../../context/AuthContext';
+import QRScanner from '../../components/common/QRScanner';
 
 interface Asset {
   id: string;
   unique_asset_id: string;
+  name?: string;
   manufacturer: string;
   model: string;
   serial_number: string;
@@ -77,58 +80,41 @@ const EmployeeDashboard = () => {
     priority: 'medium',
   });
 
-  const [myAssets] = useState<Asset[]>([
-    {
-      id: '1',
-      unique_asset_id: 'ASSET-001',
-      manufacturer: 'Dell',
-      model: 'XPS 15',
-      serial_number: 'DLL123456789',
-      status: 'Active',
-      location: 'IT Department - Floor 2',
-      assigned_user: user?.name || 'Current User',
-      last_audit_date: '2024-01-01',
-      condition: 'Good',
-      category: 'Laptop',
-      assigned_date: '2023-06-15',
-      warranty_expiry: '2025-06-15',
-    },
-    {
-      id: '2',
-      unique_asset_id: 'ASSET-005',
-      manufacturer: 'Apple',
-      model: 'iPhone 14',
-      serial_number: 'APL987654321',
-      status: 'Active',
-      location: 'IT Department - Floor 2',
-      assigned_user: user?.name || 'Current User',
-      last_audit_date: '2024-01-01',
-      condition: 'Excellent',
-      category: 'Mobile',
-      assigned_date: '2023-08-20',
-    },
-  ]);
-
-  const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([
-    {
-      id: '1',
-      asset_id: 'ASSET-001',
-      asset_name: 'Dell XPS 15',
-      issue_description: 'Battery not holding charge properly',
-      priority: 'medium',
-      status: 'pending',
-      created_date: '2024-01-10',
-    },
-  ]);
+  const [myAssets, setMyAssets] = useState<Asset[]>([]);
+  const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 300));
-    setLoading(false);
+    try {
+      setLoading(true);
+      // Fetch my assigned assets
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/assets/my-assets', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setMyAssets(data.data || []);
+      } else {
+        toast.error('Failed to load your assets');
+      }
+      
+      // TODO: Fetch maintenance requests when endpoint is available
+      
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast.error('Error loading dashboard data');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const employeeStats = {
@@ -323,6 +309,15 @@ const EmployeeDashboard = () => {
           Quick Actions
         </Typography>
         <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <QuickActionCard
+              title="Scan Asset QR Code"
+              description="Scan QR to view asset details"
+              icon={<QrScanIcon />}
+              onClick={() => setQrScannerOpen(true)}
+              color="primary"
+            />
+          </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <QuickActionCard
               title="Request Asset"
@@ -552,6 +547,18 @@ const EmployeeDashboard = () => {
           </Suspense>
         </Box>
       </Box>
+
+      {/* QR Scanner Modal */}
+      <QRScanner
+        open={qrScannerOpen}
+        onClose={() => setQrScannerOpen(false)}
+        onAssetFound={(asset) => {
+          toast.success(`Asset scanned: ${asset.name || asset.unique_asset_id}`);
+          setQrScannerOpen(false);
+          navigate('/employee/my-assets', { state: { scannedAssetId: asset.id } });
+        }}
+        mode="lookup"
+      />
     </DashboardLayout>
   );
 };

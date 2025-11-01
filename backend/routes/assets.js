@@ -12,6 +12,9 @@ const {
 // Protected: GET all assets with pagination and filtering
 router.get('/', authMiddleware, validateQueryParams, assetCtrl.getAssets);
 
+// GET my assigned assets (employee-specific)
+router.get('/my-assets', authMiddleware, assetCtrl.getMyAssets);
+
 // GET asset statistics - DYNAMIC STATS
 router.get('/stats', authMiddleware, assetCtrl.getAssetStats);
 

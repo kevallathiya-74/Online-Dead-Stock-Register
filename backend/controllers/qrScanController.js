@@ -81,7 +81,7 @@ exports.scanAsset = async (req, res) => {
         manufacturer: asset.manufacturer,
         model: asset.model,
         serial_number: asset.serial_number,
-        category: asset.category,
+        category: asset.asset_type || asset.category,
         status: asset.status,
         condition: asset.condition,
         location: asset.location,

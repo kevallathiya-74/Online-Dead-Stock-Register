@@ -79,132 +79,52 @@ const HistoryPage = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('all');
   const [selectedActivity, setSelectedActivity] = useState<any>(null);
   const [activityDetailDialogOpen, setActivityDetailDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [assetHistory, setAssetHistory] = useState<any[]>([]);
 
-  // Sample history data
-  const [assetHistory] = useState([
-    {
-      id: '1',
-      type: 'assignment',
-      asset_id: 'ASSET-001',
-      asset_name: 'Dell XPS 15',
-      asset_category: 'Laptop',
-      action: 'Asset Assigned',
-      description: 'Asset assigned to employee',
-      timestamp: '2023-06-15T09:00:00Z',
-      status: 'completed',
-      details: {
-        from_location: 'IT Storage',
-        to_location: 'IT Department - Floor 2',
-        assigned_by: 'IT Manager',
-        condition_before: 'New',
-        condition_after: 'Good',
-      },
-    },
-    {
-      id: '2',
-      type: 'maintenance',
-      asset_id: 'ASSET-001',
-      asset_name: 'Dell XPS 15',
-      asset_category: 'Laptop',
-      action: 'Maintenance Request',
-      description: 'Battery replacement requested',
-      timestamp: '2024-01-10T14:30:00Z',
-      status: 'in_progress',
-      details: {
-        issue: 'Battery not holding charge properly',
-        priority: 'medium',
-        assigned_technician: 'John Tech',
-        estimated_completion: '2024-01-20',
-      },
-    },
-    {
-      id: '3',
-      type: 'assignment',
-      asset_id: 'ASSET-005',
-      asset_name: 'Apple iPhone 14',
-      asset_category: 'Mobile',
-      action: 'Asset Assigned',
-      description: 'Mobile device assigned for business use',
-      timestamp: '2023-08-20T11:00:00Z',
-      status: 'completed',
-      details: {
-        from_location: 'IT Storage',
-        to_location: 'IT Department - Floor 2',
-        assigned_by: 'IT Manager',
-        condition_before: 'New',
-        condition_after: 'Excellent',
-      },
-    },
-    {
-      id: '4',
-      type: 'audit',
-      asset_id: 'ASSET-012',
-      asset_name: 'HP Monitor 24"',
-      asset_category: 'Monitor',
-      action: 'Asset Audit',
-      description: 'Quarterly asset verification completed',
-      timestamp: '2024-01-01T10:00:00Z',
-      status: 'completed',
-      details: {
-        auditor: 'Jane Auditor',
-        findings: 'Asset in good condition, all details verified',
-        location_verified: true,
-        condition_verified: 'Good',
-      },
-    },
-    {
-      id: '5',
-      type: 'request',
-      asset_id: 'NEW-REQ-001',
-      asset_name: 'MacBook Pro Request',
-      asset_category: 'Laptop',
-      action: 'Asset Request',
-      description: 'New MacBook Pro requested for development work',
-      timestamp: '2024-01-15T16:00:00Z',
-      status: 'pending',
-      details: {
-        category: 'Laptop',
-        justification: 'Current laptop is outdated and affecting productivity',
-        priority: 'high',
-        estimated_cost: 2500,
-        approver: 'IT Manager',
-      },
-    },
-  ]);
+  // Fetch activity history on mount
+  React.useEffect(() => {
+    loadHistory();
+  }, []);
 
-  const [requestHistory] = useState([
-    {
-      id: '1',
-      type: 'asset_request',
-      title: 'MacBook Pro Request',
-      description: 'Request for new development laptop',
-      submitted_date: '2024-01-15',
-      status: 'pending',
-      priority: 'high',
-      estimated_cost: 2500,
-    },
-    {
-      id: '2',
-      type: 'maintenance_request',
-      title: 'Dell XPS 15 Battery Issue',
-      description: 'Battery not holding charge properly',
-      submitted_date: '2024-01-10',
-      status: 'in_progress',
-      priority: 'medium',
-      assigned_to: 'John Tech',
-    },
-    {
-      id: '3',
-      type: 'asset_request',
-      title: '4K Monitor Request',
-      description: 'Request for additional monitor for design work',
-      submitted_date: '2024-01-10',
-      status: 'approved',
-      priority: 'medium',
-      estimated_cost: 500,
-      approval_date: '2024-01-12',
-    },
-  ]);
+  const loadHistory = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/audit-logs/my-activity?limit=100', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Transform audit logs to history format
+        const transformedHistory = (data.data || []).map((log: any) => ({
+          id: log._id,
+          type: log.entity_type?.toLowerCase() || 'system',
+          asset_id: log.entity_id,
+          asset_name: log.entity_type,
+          action: log.action,
+          description: log.description,
+          timestamp: log.timestamp,
+          status: 'completed',
+          details: log.metadata || {}
+        }));
+        setAssetHistory(transformedHistory);
+      } else {
+        toast.error('Failed to load activity history');
+      }
+    } catch (error) {
+      console.error('Error loading history:', error);
+      toast.error('Error loading history');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const [requestHistory, setRequestHistory] = useState<any[]>([]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);

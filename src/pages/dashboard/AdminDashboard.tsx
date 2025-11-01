@@ -43,6 +43,7 @@ import {
   Security,
   CloudDownload,
   Category as CategoryIcon,
+  QrCodeScanner as QrScanIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import DashboardLayout from '../../components/layout/DashboardLayout';
@@ -50,6 +51,7 @@ import { dashboardDataService } from '../../services/dashboardData.service';
 import { UserRole } from '../../types';
 import api from '../../services/api';
 import CategoriesModal from '../../components/modals/CategoriesModal';
+import QRScanner from '../../components/common/QRScanner';
 
 // Utility function to format timestamp to relative time
 const formatTimeAgo = (timestamp: string | Date): string => {
@@ -170,7 +172,6 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  // State for dynamic data
   const [stats, setStats] = useState({
     totalAssets: 0,
     totalValue: '₹0',
@@ -183,11 +184,10 @@ const AdminDashboard = () => {
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
   const [categoriesModalOpen, setCategoriesModalOpen] = useState(false);
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
   
   const handleApprovalAction = (approvalId: number, action: 'approve' | 'reject') => {
-    // In a real app, this would make an API call
     toast.success(`Approval ${action}d successfully!`);
-    // Refresh the pending approvals data
     loadDashboardData();
   };
 
@@ -195,7 +195,7 @@ const AdminDashboard = () => {
     setLoading(true);
     
     try {
-      // Load dashboard statistics
+      // Fetch dashboard stats from service
       const dashboardStats = await dashboardDataService.getDashboardStats(UserRole.ADMIN);
       
       setStats({
@@ -203,7 +203,7 @@ const AdminDashboard = () => {
         totalValue: `₹${dashboardStats.totalValue.toLocaleString()}`,
         activeUsers: dashboardStats.activeUsers,
         pendingApprovals: dashboardStats.pendingApprovals,
-        scrapAssets: dashboardStats.disposedAssets || 0, // Use disposedAssets for scrap assets
+        scrapAssets: dashboardStats.disposedAssets || 0, 
         monthlyPurchase: `₹${dashboardStats.monthlyPurchaseValue?.toLocaleString() || '0'}`
       });
     } catch (error) {
@@ -282,12 +282,21 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleSecurityAudit = () => {
-    // Navigate to audit logs page with security filter
-    navigate('/admin/audit-logs', { state: { filter: 'security' } });
+  const handleQRScanComplete = (asset: any) => {
+    toast.success(`Asset scanned: ${asset.name || asset.unique_asset_id}`);
+    setQrScannerOpen(false);
+    // Navigate to assets page to show the scanned asset
+    navigate('/assets', { state: { scannedAssetId: asset.id } });
   };
 
   const quickActions = [
+    {
+      title: 'Scan Asset QR Code',
+      description: 'Quickly scan and audit assets using QR codes',
+      icon: <QrScanIcon />,
+      onClick: () => setQrScannerOpen(true),
+      color: 'primary' as const,
+    },
     {
       title: 'Add New User',
       description: 'Create new user accounts and assign roles',
@@ -329,13 +338,6 @@ const AdminDashboard = () => {
       icon: <CloudDownload />,
       onClick: handleExportData,
       color: 'primary' as const,
-    },
-    {
-      title: 'Security Audit',
-      description: 'Review security logs and user permissions',
-      icon: <Security />,
-      onClick: handleSecurityAudit,
-      color: 'error' as const,
     },
   ];
 
@@ -570,6 +572,14 @@ const AdminDashboard = () => {
       <CategoriesModal
         open={categoriesModalOpen}
         onClose={() => setCategoriesModalOpen(false)}
+      />
+
+      {/* QR Scanner Modal */}
+      <QRScanner
+        open={qrScannerOpen}
+        onClose={() => setQrScannerOpen(false)}
+        onAssetFound={handleQRScanComplete}
+        mode="audit"
       />
     </DashboardLayout>
   );

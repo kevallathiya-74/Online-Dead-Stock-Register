@@ -289,7 +289,7 @@ export interface VendorProduct {
   category: string;
   status: string;
   condition: string;
-  purchase_price: number;
+  purchase_cost: number;
   current_value: number;
   purchase_date: string;
   warranty_expiry?: string;

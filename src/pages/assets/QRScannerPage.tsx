@@ -10,6 +10,11 @@ import {
   CircularProgress,
   Paper,
   IconButton,
+  Table,
+  TableBody,
+  TableCell,
+  TableRow,
+  Chip,
 } from '@mui/material';
 import {
   QrCodeScanner as ScannerIcon,
@@ -109,36 +114,49 @@ const QRScannerPage: React.FC = () => {
     }
   };
 
-  const handleQRCodeDetected = (data: string) => {
+  const [scannedAsset, setScannedAsset] = useState<any>(null);
+
+  const handleQRCodeDetected = async (data: string) => {
     stopScanning();
     
     try {
-      // Parse QR data
-      const qrData = JSON.parse(data);
+      // Call backend API to scan asset - this will create audit log and return asset details
+      console.log('Scanned QR Code Data:', data);
+      toast.info('Processing QR code...');
       
-      if (qrData.type === 'asset' && qrData.id) {
-        toast.success('QR Code detected! Redirecting...');
-        // Navigate to asset details page
-        navigate(`/assets/${qrData.id}`);
-      } else {
-        setError('Invalid QR code format. Please scan an asset QR code.');
-        toast.error('Invalid QR code');
-      }
-    } catch (err) {
-      // If not JSON, try extracting asset ID from scan_url
-      try {
-        const urlMatch = data.match(/\/assets\/([a-zA-Z0-9]+)/);
-        if (urlMatch && urlMatch[1]) {
-          toast.success('QR Code detected! Redirecting...');
-          navigate(`/assets/${urlMatch[1]}`);
-        } else {
-          setError('Could not extract asset information from QR code.');
-          toast.error('Invalid QR code format');
+      const response = await fetch(`/api/v1/qr/scan/${encodeURIComponent(data)}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
         }
-      } catch {
-        setError('Invalid QR code. Please scan a valid asset QR code.');
-        toast.error('Invalid QR code');
+      });
+
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API Error:', errorData);
+        throw new Error(errorData.message || 'Asset not found');
       }
+
+      const result = await response.json();
+      console.log('Scan result:', result);
+      
+      if (result.success && result.asset) {
+        toast.success('Asset found!');
+        // Store the scanned asset to display in table format
+        setScannedAsset(result.asset);
+        setError('');
+        console.log('Asset data set:', result.asset);
+      } else {
+        setError('Invalid QR code. Asset not found.');
+        toast.error('Asset not found');
+      }
+    } catch (err: any) {
+      console.error('QR scan error:', err);
+      setError(err.message || 'Invalid QR code. Please scan a valid asset QR code.');
+      toast.error(err.message || 'Failed to scan QR code');
     }
   };
 
@@ -300,13 +318,187 @@ const QRScannerPage: React.FC = () => {
                 
                 <Alert severity="info" sx={{ mt: 2 }}>
                   <Typography variant="body2">
-                    <strong>Tip:</strong> Hold the QR code steady within the frame. The scanner will automatically detect and redirect you to the asset details.
+                    <strong>Tip:</strong> Hold the QR code steady within the frame. The scanner will automatically detect and show asset details.
                   </Typography>
                 </Alert>
               </Box>
             )}
           </CardContent>
         </Card>
+
+        {/* Asset Details Table - Show after successful scan */}
+        {scannedAsset && (
+          <Card sx={{ mt: 3 }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" color="success.main">
+                  ✓ Asset Scanned Successfully
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    setScannedAsset(null);
+                    setError('');
+                    startScanning();
+                  }}
+                >
+                  Scan Another
+                </Button>
+              </Box>
+
+              <Paper sx={{ width: '100%', overflow: 'hidden' }}>
+                <Table>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell component="th" sx={{ fontWeight: 'bold', width: '30%', bgcolor: 'grey.50' }}>
+                        Asset ID
+                      </TableCell>
+                      <TableCell>{scannedAsset.unique_asset_id}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" sx={{ fontWeight: 'bold', bgcolor: 'grey.50' }}>
+                        Asset Name
+                      </TableCell>
+                      <TableCell>{scannedAsset.name || `${scannedAsset.manufacturer} ${scannedAsset.model}`}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" sx={{ fontWeight: 'bold', bgcolor: 'grey.50' }}>
+                        Category
+                      </TableCell>
+                      <TableCell>{scannedAsset.category || 'N/A'}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" sx={{ fontWeight: 'bold', bgcolor: 'grey.50' }}>
+                        Manufacturer
+                      </TableCell>
+                      <TableCell>{scannedAsset.manufacturer}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" sx={{ fontWeight: 'bold', bgcolor: 'grey.50' }}>
+                        Model
+                      </TableCell>
+                      <TableCell>{scannedAsset.model}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" sx={{ fontWeight: 'bold', bgcolor: 'grey.50' }}>
+                        Serial Number
+                      </TableCell>
+                      <TableCell>{scannedAsset.serial_number}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" sx={{ fontWeight: 'bold', bgcolor: 'grey.50' }}>
+                        Status
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={scannedAsset.status} 
+                          color={scannedAsset.status === 'Active' ? 'success' : 'default'}
+                          size="small"
+                        />
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" sx={{ fontWeight: 'bold', bgcolor: 'grey.50' }}>
+                        Condition
+                      </TableCell>
+                      <TableCell>{scannedAsset.condition}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" sx={{ fontWeight: 'bold', bgcolor: 'grey.50' }}>
+                        Location
+                      </TableCell>
+                      <TableCell>{scannedAsset.location}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" sx={{ fontWeight: 'bold', bgcolor: 'grey.50' }}>
+                        Department
+                      </TableCell>
+                      <TableCell>{scannedAsset.department || 'N/A'}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" sx={{ fontWeight: 'bold', bgcolor: 'grey.50' }}>
+                        Assigned To
+                      </TableCell>
+                      <TableCell>{scannedAsset.assigned_user?.name || 'Unassigned'}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" sx={{ fontWeight: 'bold', bgcolor: 'grey.50' }}>
+                        Purchase Date
+                      </TableCell>
+                      <TableCell>
+                        {scannedAsset.purchase_date 
+                          ? new Date(scannedAsset.purchase_date).toLocaleDateString() 
+                          : 'N/A'}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" sx={{ fontWeight: 'bold', bgcolor: 'grey.50' }}>
+                        Purchase Cost
+                      </TableCell>
+                      <TableCell>
+                        {scannedAsset.purchase_cost 
+                          ? `₹${parseFloat(scannedAsset.purchase_cost).toLocaleString('en-IN')}` 
+                          : 'N/A'}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" sx={{ fontWeight: 'bold', bgcolor: 'grey.50' }}>
+                        Warranty Expiry
+                      </TableCell>
+                      <TableCell>
+                        {scannedAsset.warranty_expiry 
+                          ? new Date(scannedAsset.warranty_expiry).toLocaleDateString() 
+                          : 'N/A'}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" sx={{ fontWeight: 'bold', bgcolor: 'grey.50' }}>
+                        Last Audit Date
+                      </TableCell>
+                      <TableCell>
+                        {scannedAsset.last_audit_date 
+                          ? new Date(scannedAsset.last_audit_date).toLocaleDateString() 
+                          : 'Not audited yet'}
+                      </TableCell>
+                    </TableRow>
+                    {scannedAsset.vendor && (
+                      <TableRow>
+                        <TableCell component="th" sx={{ fontWeight: 'bold', bgcolor: 'grey.50' }}>
+                          Vendor
+                        </TableCell>
+                        <TableCell>{scannedAsset.vendor.name || scannedAsset.vendor.vendor_name}</TableCell>
+                      </TableRow>
+                    )}
+                    {scannedAsset.notes && (
+                      <TableRow>
+                        <TableCell component="th" sx={{ fontWeight: 'bold', bgcolor: 'grey.50' }}>
+                          Notes
+                        </TableCell>
+                        <TableCell>{scannedAsset.notes}</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </Paper>
+
+              <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => navigate('/assets')}
+                >
+                  View All Assets
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={() => navigate(`/assets/${scannedAsset.id}`)}
+                >
+                  View Full Details
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        )}
       </Box>
     </DashboardLayout>
   );

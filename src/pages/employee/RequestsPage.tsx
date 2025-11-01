@@ -82,89 +82,54 @@ const RequestsPage = () => {
     category: 'hardware',
   });
 
-  // Sample data
-  const [assetRequests] = useState([
-    {
-      id: '1',
-      type: 'new_asset',
-      category: 'Laptop',
-      description: 'MacBook Pro for development work',
-      justification: 'Current laptop is outdated and affecting productivity',
-      priority: 'high',
-      status: 'pending',
-      submitted_date: '2024-01-15',
-      updated_date: '2024-01-15',
-      estimated_cost: 2500,
-      expected_delivery: '2024-02-15',
-    },
-    {
-      id: '2',
-      type: 'new_asset',
-      category: 'Monitor',
-      description: '4K Monitor for design work',
-      justification: 'Need larger screen for UI/UX design tasks',
-      priority: 'medium',
-      status: 'approved',
-      submitted_date: '2024-01-10',
-      updated_date: '2024-01-12',
-      estimated_cost: 500,
-      expected_delivery: '2024-01-25',
-      approval_notes: 'Approved by IT Manager. Ordered from preferred vendor.',
-    },
-    {
-      id: '3',
-      type: 'new_asset',
-      category: 'Accessories',
-      description: 'Wireless keyboard and mouse',
-      justification: 'Ergonomic improvement for workstation',
-      priority: 'low',
-      status: 'rejected',
-      submitted_date: '2024-01-05',
-      updated_date: '2024-01-08',
-      estimated_cost: 150,
-      rejection_reason: 'Budget constraints for current quarter.',
-    },
-  ]);
+  const [loading, setLoading] = useState(true);
+  const [assetRequests, setAssetRequests] = useState<any[]>([]);
+  const [maintenanceRequests, setMaintenanceRequests] = useState<any[]>([]);
 
-  const [maintenanceRequests] = useState([
-    {
-      id: '1',
-      asset_id: 'ASSET-001',
-      asset_name: 'Dell XPS 15',
-      issue_description: 'Battery not holding charge properly',
-      priority: 'medium',
-      status: 'in_progress',
-      submitted_date: '2024-01-10',
-      updated_date: '2024-01-12',
-      assigned_technician: 'John Tech',
-      category: 'hardware',
-      estimated_completion: '2024-01-20',
-    },
-    {
-      id: '2',
-      asset_id: 'ASSET-005',
-      asset_name: 'Apple iPhone 14',
-      issue_description: 'Screen flickering issue',
-      priority: 'high',
-      status: 'pending',
-      submitted_date: '2024-01-14',
-      updated_date: '2024-01-14',
-      category: 'hardware',
-    },
-    {
-      id: '3',
-      asset_id: 'ASSET-012',
-      asset_name: 'HP Monitor 24"',
-      issue_description: 'Display color calibration needed',
-      priority: 'low',
-      status: 'completed',
-      submitted_date: '2024-01-08',
-      updated_date: '2024-01-10',
-      assigned_technician: 'Jane Tech',
-      category: 'software',
-      completion_notes: 'Color profile updated and calibrated successfully.',
-    },
-  ]);
+  // Fetch requests on mount
+  React.useEffect(() => {
+    loadRequests();
+  }, []);
+
+  const loadRequests = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      // Fetch asset requests
+      const assetResponse = await fetch('http://localhost:5000/api/asset-requests/my-requests', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (assetResponse.ok) {
+        const assetData = await assetResponse.json();
+        setAssetRequests(assetData.data || []);
+      }
+      
+      // Fetch maintenance requests
+      const maintResponse = await fetch('http://localhost:5000/api/maintenance', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (maintResponse.ok) {
+        const maintData = await maintResponse.json();
+        setMaintenanceRequests(maintData || []);
+      }
+    } catch (error) {
+      console.error('Error loading requests:', error);
+      toast.error('Error loading requests');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // MOCK DATA REMOVED - Now using real API calls above
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);

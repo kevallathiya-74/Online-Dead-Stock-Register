@@ -276,3 +276,32 @@ exports.exportAuditLogs = async (req, res) => {
     });
   }
 };
+
+/**
+ * Get current user's activity history
+ */
+exports.getMyActivity = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const limit = parseInt(req.query.limit) || 50;
+    
+    // Find all audit logs for current user
+    const logs = await AuditLog.find({ user_id: userId })
+      .populate('user_id', 'name email')
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .lean();
+    
+    res.json({
+      success: true,
+      data: logs,
+      total: logs.length
+    });
+  } catch (err) {
+    logger.error('Error fetching user activity:', err);
+    res.status(500).json({ 
+      success: false,
+      message: err.message 
+    });
+  }
+};

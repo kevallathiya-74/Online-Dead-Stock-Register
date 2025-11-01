@@ -43,7 +43,8 @@ import {
   Security as WarrantyIcon,
   ShoppingBag as PurchaseIcon,
   Business as VendorIcon,
-  Edit
+  Edit,
+  QrCodeScanner as QrScanIcon,
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { dashboardDataService } from '../../services/dashboardData.service';
@@ -59,6 +60,7 @@ import MaintenanceModal from '../../components/modals/MaintenanceModal';
 import AssetTransferModal from '../../components/modals/AssetTransferModal';
 import ReportModal from '../../components/modals/ReportModal';
 import CategoriesModal from '../../components/modals/CategoriesModal';
+import QRScanner from '../../components/common/QRScanner';
 
 interface StatCardProps {
   title: string;
@@ -195,6 +197,9 @@ const InventoryManagerDashboard = () => {
   // QR dialog for created assets via modal
   const [qrOpen, setQrOpen] = useState(false);
   const [qrAsset, setQrAsset] = useState<any | null>(null);
+  
+  // QR Scanner modal state
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
 
   const loadDashboardData = async () => {
     try {
@@ -303,7 +308,21 @@ const InventoryManagerDashboard = () => {
     }, 1000);
   };
 
+  const handleQRScanComplete = (asset: any) => {
+    toast.success(`Asset scanned: ${asset.name || asset.unique_asset_id}`);
+    setQrScannerOpen(false);
+    // Navigate to assets page to show the scanned asset
+    navigate('/assets', { state: { scannedAssetId: asset.id } });
+  };
+
   const quickActions = [
+    {
+      title: 'Scan Asset QR Code',
+      description: 'Quickly scan and audit assets using QR codes',
+      icon: <QrScanIcon />,
+      onClick: () => setQrScannerOpen(true),
+      color: 'primary' as const,
+    },
     {
       title: 'Add New Asset',
       description: 'Register new assets with QR codes',
@@ -989,6 +1008,14 @@ const InventoryManagerDashboard = () => {
           // also close add asset modal if still open
           setModals(prev => ({ ...prev, addAsset: false }));
         }}
+      />
+
+      {/* QR Scanner Modal */}
+      <QRScanner
+        open={qrScannerOpen}
+        onClose={() => setQrScannerOpen(false)}
+        onAssetFound={handleQRScanComplete}
+        mode="lookup"
       />
 
       {/* Documents Panel - Embedded for quick access */}

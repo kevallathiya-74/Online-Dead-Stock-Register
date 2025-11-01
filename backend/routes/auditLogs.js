@@ -6,6 +6,9 @@ const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
 // All routes require authentication
 router.use(authMiddleware);
 
+// Get my activity history (employee-specific)
+router.get('/my-activity', auditCtrl.getMyActivity);
+
 // Get audit logs with filtering
 router.get('/', requireRole(['ADMIN', 'AUDITOR', 'IT_MANAGER']), auditCtrl.getAuditLogs);
 

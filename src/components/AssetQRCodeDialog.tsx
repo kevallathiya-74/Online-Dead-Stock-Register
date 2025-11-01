@@ -39,23 +39,8 @@ const AssetQRCodeDialog: React.FC<Props> = ({ open, onClose, asset }) => {
     department: asset.department,
   };
 
-  const qrValue = JSON.stringify({
-    type: 'asset',
-    id: fullAssetData.id,
-    asset_id: fullAssetData.unique_asset_id,
-    name: fullAssetData.name,
-    manufacturer: fullAssetData.manufacturer,
-    model: fullAssetData.model,
-    serial: fullAssetData.serial_number,
-    category: fullAssetData.category,
-    location: fullAssetData.location,
-    status: fullAssetData.status,
-    condition: fullAssetData.condition,
-    purchase_date: fullAssetData.purchase_date,
-    purchase_value: fullAssetData.purchase_value,
-    department: fullAssetData.department,
-    scan_url: `${window.location.origin}/assets/${fullAssetData.id}`
-  });
+  // Use only unique_asset_id for QR code - this is what the backend expects
+  const qrValue = fullAssetData.unique_asset_id;
 
   const downloadQr = () => {
     const canvas = containerRef.current?.querySelector('canvas') as HTMLCanvasElement | undefined;

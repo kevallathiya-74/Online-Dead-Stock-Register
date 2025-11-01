@@ -275,6 +275,7 @@ const scheduledAuditsRoutes = require('./routes/scheduledAudits');
 const inventoryRoutes = require('./routes/inventory');
 const reportsRoutes = require('./routes/reports');
 const backupsRoutes = require('./routes/backups');
+const settingsRoutes = require('./routes/settings');
 console.log('✅ All route modules loaded successfully');
 
 // API Documentation with Swagger
@@ -323,6 +324,7 @@ v1Router.use('/scheduled-audits', scheduledAuditsRoutes);
 v1Router.use('/inventory', inventoryRoutes);
 v1Router.use('/reports', reportsRoutes);
 v1Router.use('/backups', backupsRoutes);
+v1Router.use('/settings', settingsRoutes);
 
 // Mount v1 routes
 app.use('/api/v1', v1Router);
@@ -353,7 +355,7 @@ app.get('/health', async (req, res) => {
       healthcheck.status = 'DEGRADED';
     }
     
-    // Check memory usage
+    // Check memory usage 
     const memUsage = process.memoryUsage();
     const memUsagePercent = Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100);
     healthcheck.checks.memory = {
@@ -397,14 +399,22 @@ app.use((req, res) => {
 // Global error handler
 app.use(errorHandler);
 
+console.log('✅ All middleware and routes registered');
+console.log('✅ Error handler attached');
+
 // Start server
 console.log('🚀 Starting HTTP server...');
 const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
+let server; // Declare server variable here
+
+console.log('🔧 About to call app.listen() on port', PORT);
+server = app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
   logger.info(`API Documentation available at http://localhost:${PORT}/api-docs`);
 });
+
+console.log('🔧 app.listen() called, server object:', typeof server);
 
 // ========================================
 // MONGODB CONNECTION HEALTH MONITOR
@@ -458,9 +468,20 @@ const gracefulShutdown = async (signal) => {
     logger.info('Connection health monitor stopped');
   }
   
-  server.close(async () => {
-    logger.info('HTTP server closed');
-    
+  if (server) {
+    server.close(async () => {
+      logger.info('HTTP server closed');
+      
+      try {
+        await mongoose.connection.close();
+        logger.info('MongoDB connection closed');
+        process.exit(0);
+      } catch (err) {
+        logger.error('Error closing MongoDB connection:', err);
+        process.exit(1);
+      }
+    });
+  } else {
     try {
       await mongoose.connection.close();
       logger.info('MongoDB connection closed');
@@ -469,7 +490,7 @@ const gracefulShutdown = async (signal) => {
       logger.error('Error closing MongoDB connection:', err);
       process.exit(1);
     }
-  });
+  }
 
   // Force close after 10 seconds
   setTimeout(() => {
@@ -491,9 +512,13 @@ process.on('unhandledRejection', (err) => {
   });
   
   // Close server & exit process
-  server.close(() => {
+  if (server) {
+    server.close(() => {
+      process.exit(1);
+    });
+  } else {
     process.exit(1);
-  });
+  }
 });
 
 // Handle uncaught exceptions

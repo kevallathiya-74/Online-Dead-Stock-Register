@@ -81,6 +81,7 @@ const VendorsPage = () => {
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   console.log('Selected vendor for menu:', selectedVendor?.name); // Use to avoid warning
   const [addVendorOpen, setAddVendorOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
 
   useEffect(() => {
     const loadVendors = async () => {
@@ -116,6 +117,11 @@ const VendorsPage = () => {
     
     return matchesSearch && matchesSpecialization && matchesStatus;
   });
+
+  const handleViewVendor = (vendor: Vendor) => {
+    setSelectedVendor(vendor);
+    setViewDialogOpen(true);
+  };
 
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>, vendor: Vendor) => {
     setAnchorEl(event.currentTarget);
@@ -460,7 +466,12 @@ const VendorsPage = () => {
                           </Box>
                         </TableCell>
                         <TableCell>
-                          <IconButton size="small" color="primary">
+                          <IconButton 
+                            size="small" 
+                            color="primary"
+                            onClick={() => handleViewVendor(vendor)}
+                            title="View Vendor Details"
+                          >
                             <ViewIcon />
                           </IconButton>
                           <IconButton size="small" color="success">
@@ -507,6 +518,172 @@ const VendorsPage = () => {
             <ListItemText>Remove Vendor</ListItemText>
           </MenuItem>
         </Menu>
+
+        {/* View Vendor Details Dialog */}
+        <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} maxWidth="md" fullWidth>
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Typography variant="h5">Vendor Details</Typography>
+            </Box>
+          </DialogTitle>
+          <DialogContent dividers>
+            {selectedVendor && (
+              <Grid container spacing={3}>
+                <Grid item xs={12}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom color="primary">
+                        Basic Information
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Vendor ID</Typography>
+                          <Typography variant="body1" fontWeight="bold">{selectedVendor.id}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Company Name</Typography>
+                          <Typography variant="body1" fontWeight="bold">{selectedVendor.name}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Contact Person</Typography>
+                          <Typography variant="body1">{selectedVendor.contact_person}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Status</Typography>
+                          <Chip 
+                            label={selectedVendor.status} 
+                            color={getStatusColor(selectedVendor.status) as any}
+                            size="small"
+                            sx={{ mt: 0.5 }}
+                          />
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom color="primary">
+                        Contact Information
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Email</Typography>
+                          <Typography variant="body1">{selectedVendor.email}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Phone</Typography>
+                          <Typography variant="body1">{selectedVendor.phone}</Typography>
+                        </Grid>
+                        <Grid item xs={12}>
+                          <Typography variant="body2" color="text.secondary">Address</Typography>
+                          <Typography variant="body1">{selectedVendor.address}</Typography>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom color="primary">
+                        Business Information
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12}>
+                          <Typography variant="body2" color="text.secondary">Specialization</Typography>
+                          <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                            {selectedVendor.specialization.map((spec, idx) => (
+                              <Chip key={idx} label={spec} size="small" />
+                            ))}
+                          </Box>
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <Typography variant="body2" color="text.secondary">Total Orders</Typography>
+                          <Typography variant="body1" fontWeight="bold">{selectedVendor.total_orders}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <Typography variant="body2" color="text.secondary">Total Value</Typography>
+                          <Typography variant="body1" fontWeight="bold">
+                            ₹{selectedVendor.total_value?.toLocaleString('en-IN') || '0'}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <Typography variant="body2" color="text.secondary">Payment Terms</Typography>
+                          <Typography variant="body1">{selectedVendor.payment_terms}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Rating</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                            <Rating value={selectedVendor.rating} readOnly precision={0.5} size="small" />
+                            <Typography variant="body2">({selectedVendor.rating})</Typography>
+                          </Box>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Performance Score</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                            <LinearProgress
+                              variant="determinate"
+                              value={selectedVendor.performance_score}
+                              color={getPerformanceColor(selectedVendor.performance_score) as any}
+                              sx={{ width: 100, height: 8, borderRadius: 1 }}
+                            />
+                            <Typography variant="body2" fontWeight="bold">
+                              {selectedVendor.performance_score}%
+                            </Typography>
+                          </Box>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom color="primary">
+                        Timeline
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Registration Date</Typography>
+                          <Typography variant="body1">
+                            {selectedVendor.registration_date ? new Date(selectedVendor.registration_date).toLocaleDateString() : 'N/A'}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Last Order Date</Typography>
+                          <Typography variant="body1">
+                            {selectedVendor.last_order_date ? new Date(selectedVendor.last_order_date).toLocaleDateString() : 'N/A'}
+                          </Typography>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setViewDialogOpen(false)} variant="outlined">
+              Close
+            </Button>
+            <Button 
+              variant="contained"
+              startIcon={<EmailIcon />}
+              onClick={() => {
+                if (selectedVendor) {
+                  window.location.href = `mailto:${selectedVendor.email}`;
+                }
+              }}
+            >
+              Send Email
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* Add Vendor Dialog */}
         <Dialog open={addVendorOpen} onClose={() => setAddVendorOpen(false)} maxWidth="md" fullWidth>

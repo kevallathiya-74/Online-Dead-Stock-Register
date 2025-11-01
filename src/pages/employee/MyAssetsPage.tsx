@@ -74,63 +74,38 @@ const MyAssetsPage = () => {
   const [tabValue, setTabValue] = useState(0);
   const [selectedAsset, setSelectedAsset] = useState<any>(null);
   const [assetDetailDialogOpen, setAssetDetailDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [myAssets, setMyAssets] = useState<any[]>([]);
 
-  // Sample data - in real app this would come from API
-  const [myAssets] = useState([
-    {
-      id: '1',
-      unique_asset_id: 'ASSET-001',
-      manufacturer: 'Dell',
-      model: 'XPS 15',
-      serial_number: 'DLL123456789',
-      status: 'Active',
-      location: 'IT Department - Floor 2',
-      assigned_user: 'Current User',
-      last_audit_date: '2024-01-01',
-      condition: 'Good',
-      category: 'Laptop',
-      assigned_date: '2023-06-15',
-      warranty_expiry: '2025-06-15',
-      purchase_date: '2023-06-01',
-      purchase_price: 1500,
-      current_value: 1200,
-    },
-    {
-      id: '2',
-      unique_asset_id: 'ASSET-005',
-      manufacturer: 'Apple',
-      model: 'iPhone 14',
-      serial_number: 'APL987654321',
-      status: 'Active',
-      location: 'IT Department - Floor 2',
-      assigned_user: 'Current User',
-      last_audit_date: '2024-01-01',
-      condition: 'Excellent',
-      category: 'Mobile',
-      assigned_date: '2023-08-20',
-      purchase_date: '2023-08-01',
-      purchase_price: 999,
-      current_value: 800,
-    },
-    {
-      id: '3',
-      unique_asset_id: 'ASSET-012',
-      manufacturer: 'HP',
-      model: 'Monitor 24"',
-      serial_number: 'HP445566778',
-      status: 'Active',
-      location: 'IT Department - Floor 2',
-      assigned_user: 'Current User',
-      last_audit_date: '2024-01-01',
-      condition: 'Good',
-      category: 'Monitor',
-      assigned_date: '2023-06-15',
-      warranty_expiry: '2024-02-15',
-      purchase_date: '2023-06-01',
-      purchase_price: 300,
-      current_value: 200,
-    },
-  ]);
+  // Fetch assets on component mount
+  React.useEffect(() => {
+    loadMyAssets();
+  }, []);
+
+  const loadMyAssets = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/assets/my-assets', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setMyAssets(data.data || []);
+      } else {
+        toast.error('Failed to load your assets');
+      }
+    } catch (error) {
+      console.error('Error loading assets:', error);
+      toast.error('Error loading assets');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getAssetIcon = (category: string) => {
     switch (category.toLowerCase()) {
@@ -543,7 +518,7 @@ const MyAssetsPage = () => {
                           </TableRow>
                           <TableRow>
                             <TableCell><strong>Purchase Price</strong></TableCell>
-                            <TableCell>₹{selectedAsset.purchase_price?.toLocaleString('en-IN')}</TableCell>
+                            <TableCell>₹{selectedAsset.purchase_cost?.toLocaleString('en-IN')}</TableCell>
                           </TableRow>
                           <TableRow>
                             <TableCell><strong>Current Value</strong></TableCell>

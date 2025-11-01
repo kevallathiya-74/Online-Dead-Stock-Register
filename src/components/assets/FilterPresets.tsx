@@ -130,7 +130,7 @@ const FilterPresets: React.FC<FilterPresetsProps> = ({ onApplyPreset }) => {
 
               {selectedPreset === preset.id && (
                 <div className="selected-indicator">
-                  ✓ Applied
+                   Applied
                 </div>
               )}
             </div>

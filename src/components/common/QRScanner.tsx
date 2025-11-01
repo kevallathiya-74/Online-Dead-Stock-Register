@@ -33,6 +33,7 @@ import api from '../../services/api';
 interface Asset {
   id: string;
   unique_asset_id: string;
+  name?: string;
   manufacturer: string;
   model: string;
   serial_number: string;
@@ -64,36 +65,84 @@ const QRScanner = ({ open, onClose, onAssetFound, mode = 'lookup' }: QRScannerPr
   const videoRef = useRef<HTMLVideoElement>(null);
   const codeReaderRef = useRef<BrowserQRCodeReader | null>(null);
 
+  const restartScanningRef = useRef<(() => void) | undefined>(undefined);
+
   const handleQRCodeDetected = useCallback(async (qrText: string) => {
     try {
       // Add to scan history
       setScanHistory(prev => [qrText, ...prev.slice(0, 4)]);
       
       setLoading(true);
+      setScanning(false);
+      
+      // Stop scanning to prevent multiple scans
+      if (codeReaderRef.current) {
+        codeReaderRef.current.reset();
+      }
       
       try {
-        // Fetch asset by QR code from backend API
-        const response = await api.get(`/assets/qr/${encodeURIComponent(qrText)}`);
-        const asset = response.data.data || response.data;
+        // Call backend API to scan asset - this creates audit log automatically
+        const response = await api.get(`/qr/scan/${encodeURIComponent(qrText)}`, {
+          params: {
+            mode: mode,
+            include_history: true
+          }
+        });
         
-        setScannedAsset(asset);
-        onAssetFound(asset);
+        const result = response.data;
         
-        // Auto-close after successful scan in lookup mode
-        if (mode === 'lookup') {
-          setTimeout(() => {
-            onClose();
-          }, 2000);
+        if (result.success && result.asset) {
+          // Map backend response to frontend Asset interface
+          const asset: Asset = {
+            id: result.asset.id,
+            unique_asset_id: result.asset.unique_asset_id,
+            manufacturer: result.asset.manufacturer,
+            model: result.asset.model,
+            serial_number: result.asset.serial_number,
+            status: result.asset.status,
+            location: result.asset.location,
+            assigned_user: result.asset.assigned_user?.name || 'Unassigned',
+            last_audit_date: result.asset.last_audit_date,
+            condition: result.asset.condition,
+            category: result.asset.category,
+            assigned_date: result.asset.assigned_user?.assigned_date,
+            warranty_expiry: result.asset.warranty_expiry
+          };
+          
+          setScannedAsset(asset);
+          onAssetFound(asset);
+          
+          // Auto-close after successful scan in lookup mode
+          if (mode === 'lookup') {
+            setTimeout(() => {
+              onClose();
+            }, 2000);
+          }
+        } else {
+          throw new Error('Asset not found');
         }
-      } catch (error) {
-        console.error('Error fetching asset:', error);
-        setError('Asset not found');
-        setScanning(true);
+      } catch (error: any) {
+        console.error('Error scanning asset:', error);
+        const errorMessage = error.response?.data?.message || 'Asset not found';
+        setError(errorMessage);
+        // Restart scanning after error
+        setTimeout(() => {
+          setError(null);
+          if (restartScanningRef.current) {
+            restartScanningRef.current();
+          }
+        }, 2000);
       }
       
     } catch (err: any) {
-      console.error('Asset lookup error:', err);
-      setError('Asset not found or lookup failed. Please try again.');
+      console.error('Asset scan error:', err);
+      setError('Scan failed. Please try again.');
+      setTimeout(() => {
+        setError(null);
+        if (restartScanningRef.current) {
+          restartScanningRef.current();
+        }
+      }, 2000);
     } finally {
       setLoading(false);
     }
@@ -128,21 +177,30 @@ const QRScanner = ({ open, onClose, onAssetFound, mode = 'lookup' }: QRScannerPr
     }
   }, [handleQRCodeDetected]);
 
+  // Store reference to startScanning for use in handleQRCodeDetected
+  useEffect(() => {
+    restartScanningRef.current = startScanning;
+  }, [startScanning]);
+
   const initializeScanner = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+      setScannedAsset(null);
 
-      // Check camera permissions
+      // Check camera permissions first
       try {
-        const permission = await navigator.permissions.query({ name: 'camera' as PermissionName });
-        
-        if (permission.state === 'denied') {
-          setError('Camera permission denied. Please enable camera access to scan QR codes.');
-          return;
-        }
-      } catch (permErr) {
-        console.warn('Permission query not supported, continuing...');
+        // Request camera access
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: 'environment' } 
+        });
+        // Stop the test stream
+        stream.getTracks().forEach(track => track.stop());
+      } catch (permErr: any) {
+        console.error('Camera permission error:', permErr);
+        setError('Camera access denied. Please grant camera permissions and try again.');
+        setLoading(false);
+        return;
       }
 
       // Initialize QR code reader
@@ -292,19 +350,21 @@ const QRScanner = ({ open, onClose, onAssetFound, mode = 'lookup' }: QRScannerPr
 
                 {!loading && !error && (
                   <Box position="relative" width="100%" height="100%">
-                    <Box
-                      component="video"
-                      ref={videoRef}
-                      sx={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        borderRadius: 2,
-                        backgroundColor: '#000',
-                      }}
-                      autoPlay
-                      playsInline
-                    />
+                  <Box
+                    component="video"
+                    ref={videoRef}
+                    sx={{
+                      width: '100%',
+                      height: '100%',
+                      minHeight: { xs: '250px', sm: '350px', md: '450px' },
+                      objectFit: 'cover',
+                      borderRadius: 2,
+                      backgroundColor: '#000',
+                    }}
+                    autoPlay
+                    playsInline
+                    muted
+                  />
                     
                     {/* Scanning Overlay */}
                     <Box
@@ -313,10 +373,11 @@ const QRScanner = ({ open, onClose, onAssetFound, mode = 'lookup' }: QRScannerPr
                         top: '50%',
                         left: '50%',
                         transform: 'translate(-50%, -50%)',
-                        width: 200,
-                        height: 200,
-                        border: '2px solid #fff',
+                        width: { xs: 180, sm: 200, md: 220 },
+                        height: { xs: 180, sm: 200, md: 220 },
+                        border: '3px solid #fff',
                         borderRadius: 2,
+                        boxShadow: '0 0 0 4px rgba(33, 150, 243, 0.3)',
                         '&::before': {
                           content: '""',
                           position: 'absolute',
@@ -324,19 +385,47 @@ const QRScanner = ({ open, onClose, onAssetFound, mode = 'lookup' }: QRScannerPr
                           left: -2,
                           right: -2,
                           bottom: -2,
-                          border: '2px solid #2196f3',
+                          border: '3px solid #2196f3',
                           borderRadius: 2,
                           animation: scanning ? 'pulse 2s infinite' : 'none',
                         },
                         '@keyframes pulse': {
-                          '0%': { opacity: 0.5 },
+                          '0%': { opacity: 0.4 },
                           '50%': { opacity: 1 },
-                          '100%': { opacity: 0.5 },
+                          '100%': { opacity: 0.4 },
                         },
                       }}
-                    />
-
-                    {/* Camera Controls */}
+                    >
+                      {/* Corner markers */}
+                      <Box sx={{
+                        position: 'absolute',
+                        top: -3, left: -3,
+                        width: 20, height: 20,
+                        borderTop: '4px solid #fff',
+                        borderLeft: '4px solid #fff',
+                      }} />
+                      <Box sx={{
+                        position: 'absolute',
+                        top: -3, right: -3,
+                        width: 20, height: 20,
+                        borderTop: '4px solid #fff',
+                        borderRight: '4px solid #fff',
+                      }} />
+                      <Box sx={{
+                        position: 'absolute',
+                        bottom: -3, left: -3,
+                        width: 20, height: 20,
+                        borderBottom: '4px solid #fff',
+                        borderLeft: '4px solid #fff',
+                      }} />
+                      <Box sx={{
+                        position: 'absolute',
+                        bottom: -3, right: -3,
+                        width: 20, height: 20,
+                        borderBottom: '4px solid #fff',
+                        borderRight: '4px solid #fff',
+                      }} />
+                    </Box>                    {/* Camera Controls */}
                     <Box
                       sx={{
                         position: 'absolute',

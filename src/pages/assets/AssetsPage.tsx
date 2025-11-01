@@ -50,6 +50,7 @@ import {
   Print as PrinterIcon,
   Chair as FurnitureIcon,
   CheckCircle as CheckCircleIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { QRCodeCanvas } from 'qrcode.react';
 import { toast } from 'react-toastify';
@@ -60,8 +61,8 @@ import api from '../../services/api';
 interface Asset {
   id: string;
   unique_asset_id: string;
-  name: string;
-  category: string;
+  name?: string;
+  category?: string;
   manufacturer: string;
   model: string;
   serial_number: string;
@@ -72,7 +73,7 @@ interface Asset {
   purchase_date: string;
   purchase_cost: number;
   warranty_expiry?: string;
-  last_audit_date: string;
+  last_audit_date?: string;
 }
 
 const AssetsPage = () => {
@@ -87,6 +88,7 @@ const AssetsPage = () => {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [newAssetQrDialogOpen, setNewAssetQrDialogOpen] = useState(false);
@@ -144,23 +146,41 @@ const AssetsPage = () => {
       const assetsArray = apiData.data || apiData;
       
       // Transform backend data to match frontend interface
-      const transformedAssets = Array.isArray(assetsArray) ? assetsArray.map((asset: any) => ({
-        id: asset._id || asset.id,
-        unique_asset_id: asset.unique_asset_id,
-        name: asset.name,
-        category: asset.category || asset.asset_type,
-        manufacturer: asset.manufacturer,
-        model: asset.model,
-        serial_number: asset.serial_number,
-        status: asset.status,
-        condition: asset.condition,
-        location: asset.location,
-        assigned_user: asset.assigned_to?.name || asset.assigned_user,
-        purchase_date: asset.purchase_date,
-        purchase_cost: asset.purchase_cost || asset.purchase_value || asset.value || 0,
-        warranty_expiry: asset.warranty_expiry,
-        last_audit_date: asset.last_audit_date,
-      })) : [];
+      const transformedAssets = Array.isArray(assetsArray) ? assetsArray.map((asset: any) => {
+        // Handle assigned_user - it might be a string, object, or null
+        let assignedUserName = '';
+        if (asset.assigned_user) {
+          if (typeof asset.assigned_user === 'object') {
+            assignedUserName = asset.assigned_user.name || '';
+          } else {
+            assignedUserName = asset.assigned_user;
+          }
+        } else if (asset.assigned_to) {
+          if (typeof asset.assigned_to === 'object') {
+            assignedUserName = asset.assigned_to.name || '';
+          } else {
+            assignedUserName = asset.assigned_to;
+          }
+        }
+
+        return {
+          id: asset._id || asset.id,
+          unique_asset_id: asset.unique_asset_id,
+          name: asset.name || `${asset.manufacturer} ${asset.model}`,
+          category: asset.category || asset.asset_type,
+          manufacturer: asset.manufacturer,
+          model: asset.model,
+          serial_number: asset.serial_number,
+          status: asset.status,
+          condition: asset.condition,
+          location: asset.location,
+          assigned_user: assignedUserName,
+          purchase_date: asset.purchase_date,
+          purchase_cost: asset.purchase_cost || asset.purchase_value || asset.value || 0,
+          warranty_expiry: asset.warranty_expiry,
+          last_audit_date: asset.last_audit_date,
+        };
+      }) : [];
       
       setAssets(transformedAssets);
       
@@ -186,8 +206,39 @@ const AssetsPage = () => {
   // Handler functions for asset actions
   const handleViewAsset = (asset: Asset) => {
     console.log('Viewing asset:', asset);
-    // In a real app, this would navigate to asset details page or open a modal
-    toast.info(`Viewing details for: ${asset.name} (${asset.unique_asset_id})`);
+    console.log('Asset data:', JSON.stringify(asset, null, 2));
+    setSelectedAsset(asset);
+    setViewDialogOpen(true);
+    // Close menu only if it's open
+    if (anchorEl) {
+      setAnchorEl(null);
+    }
+  };
+
+  const handleCloseViewDialog = () => {
+    setViewDialogOpen(false);
+    // Don't clear selectedAsset immediately to avoid UI flicker
+    setTimeout(() => {
+      setSelectedAsset(null);
+    }, 200);
+  };
+
+  const handleCloseQRDialog = () => {
+    setQrDialogOpen(false);
+    // Clear QR code URL and selected asset after animation
+    setTimeout(() => {
+      setQrCodeUrl('');
+      setSelectedAsset(null);
+    }, 200);
+  };
+
+  const handleCloseTransferDialog = () => {
+    setTransferDialogOpen(false);
+    // Clear transfer data and selected asset after animation
+    setTimeout(() => {
+      setTransferData({ to_location: '', to_user: '', notes: '' });
+      setSelectedAsset(null);
+    }, 200);
   };
 
   const handleAddAsset = async () => {
@@ -275,7 +326,7 @@ const AssetsPage = () => {
     setFormData({
       unique_asset_id: asset.unique_asset_id,
       name: asset.name || '',
-      asset_type: asset.category,
+      asset_type: asset.category || '',
       manufacturer: asset.manufacturer,
       model: asset.model,
       serial_number: asset.serial_number,
@@ -444,97 +495,294 @@ const AssetsPage = () => {
   };
 
   const handleTransferAsset = (asset: Asset) => {
+    console.log('Transfer asset:', asset);
     setSelectedAsset(asset);
     setTransferDialogOpen(true);
-    handleMenuClose();
+
+    if (anchorEl) {
+      setAnchorEl(null);
+    }
   };
 
   const handleTransferSubmit = async () => {
+    console.log('Transfer submit - selectedAsset:', selectedAsset);
+    console.log('Transfer submit - transferData:', transferData);
+    
     if (!selectedAsset || !transferData.to_location) {
       toast.error('Please fill in required fields');
       return;
     }
 
     try {
-      await api.post('/asset-transfers', {
-        asset_id: selectedAsset.id,
-        from_location: selectedAsset.location,
-        to_location: transferData.to_location,
-        to_user: transferData.to_user || null,
-        notes: transferData.notes,
-        transfer_date: new Date().toISOString()
-      });
+      // Prepare update payload
+      const updatePayload: any = {
+        location: transferData.to_location,
+      };
+      
+      // Only include assigned_user if it's being changed
+      if (transferData.to_user && transferData.to_user.trim() !== '') {
+        updatePayload.assigned_user = transferData.to_user;
+      }
+      
+      console.log('Update payload:', updatePayload);
+      
+      // Update asset location directly
+      const response = await api.put(`/assets/${selectedAsset.id}`, updatePayload);
+      
+      console.log('Transfer successful:', response.data);
 
-      toast.success('Asset transfer initiated successfully');
-      setTransferDialogOpen(false);
-      setTransferData({ to_location: '', to_user: '', notes: '' });
-      loadAssets(); // Reload assets
+      // Build success message
+      let successMsg = ` Asset transferred to ${transferData.to_location}`;
+      if (transferData.to_user) {
+        successMsg += `\n Assigned to ${transferData.to_user}`;
+      }
+      successMsg += '\n Audit log created';
+      
+      toast.success(successMsg);
+      handleCloseTransferDialog();
+      loadAssets(); // Reload assets to show updated location
     } catch (error: any) {
       console.error('Failed to transfer asset:', error);
-      toast.error(error.response?.data?.message || 'Failed to transfer asset');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to transfer asset';
+      toast.error(errorMessage);
     }
   };
 
   const handleGenerateQR = async (asset: Asset) => {
     try {
-      // Create comprehensive QR data with all asset details
-      const qrData = JSON.stringify({
-        type: 'asset',
-        id: asset.id,
-        asset_id: asset.unique_asset_id,
-        name: asset.name,
-        manufacturer: asset.manufacturer,
-        model: asset.model,
-        serial: asset.serial_number,
-        category: asset.category,
-        location: asset.location,
-        status: asset.status,
-        condition: asset.condition,
-        purchase_date: asset.purchase_date,
-        purchase_value: asset.purchase_cost,
-        assigned_user: asset.assigned_user,
-        scan_url: `${window.location.origin}/assets/${asset.id}`
-      });
+      console.log('Generating QR for asset:', asset);
+      // Ensure asset has a name (fallback to manufacturer + model if needed)
+      const assetName = asset.name || `${asset.manufacturer} ${asset.model}`;
+      
+      // Use unique_asset_id as QR code value - this is what backend expects for scanning
+      // Backend API endpoint: GET /api/v1/qr/scan/:qrCode
+      const qrData = asset.unique_asset_id;
+      
+      console.log('QR Data (unique_asset_id):', qrData);
+      
       setQrCodeUrl(qrData);
-      setSelectedAsset(asset);
-      setQrDialogOpen(true);
-      toast.success(`QR Code generated for: ${asset.name}`);
+      setSelectedAsset({ ...asset, name: assetName });
+      
+      // Use setTimeout to ensure state is updated before opening dialog
+      setTimeout(() => {
+        setQrDialogOpen(true);
+      }, 0);
+      
+      // Close menu only if it's open
+      if (anchorEl) {
+        setAnchorEl(null);
+      }
+      
+      toast.success(`QR Code generated for: ${assetName}`);
     } catch (error) {
       console.error('Failed to generate QR code:', error);
       toast.error('Failed to generate QR code');
     }
-    handleMenuClose();
   };
 
   const handlePrintLabel = async (asset: Asset) => {
     try {
-      // Create a printable label
+      // Use unique_asset_id as QR code value - this is what backend expects for scanning
+      const qrData = asset.unique_asset_id;
+
+      // Create a printable label with QR code
       const printWindow = window.open('', '_blank');
       if (printWindow) {
         printWindow.document.write(`
+          <!DOCTYPE html>
           <html>
             <head>
               <title>Asset Label - ${asset.unique_asset_id}</title>
+              <meta charset="UTF-8">
               <style>
-                body { font-family: Arial, sans-serif; padding: 20px; }
-                .label { border: 2px solid #000; padding: 20px; max-width: 400px; }
-                .label h2 { margin: 0 0 10px 0; }
-                .label p { margin: 5px 0; }
-                .qr { margin-top: 10px; }
+                @page {
+                  size: 4in 2in;
+                  margin: 0;
+                }
+                * {
+                  margin: 0;
+                  padding: 0;
+                  box-sizing: border-box;
+                }
+                body { 
+                  font-family: 'Arial', sans-serif;
+                  padding: 0.25in;
+                  background: white;
+                }
+                .label-container {
+                  width: 100%;
+                  height: 100%;
+                  border: 3px solid #000;
+                  padding: 10px;
+                  display: flex;
+                  gap: 10px;
+                }
+                .label-content {
+                  flex: 1;
+                  display: flex;
+                  flex-direction: column;
+                  justify-content: space-between;
+                }
+                .label-header {
+                  border-bottom: 2px solid #333;
+                  padding-bottom: 5px;
+                  margin-bottom: 8px;
+                }
+                .label-title {
+                  font-size: 16px;
+                  font-weight: bold;
+                  margin-bottom: 2px;
+                  color: #000;
+                }
+                .asset-id {
+                  font-size: 14px;
+                  font-weight: bold;
+                  font-family: 'Courier New', monospace;
+                  color: #1976d2;
+                  letter-spacing: 1px;
+                }
+                .label-details {
+                  flex: 1;
+                }
+                .detail-row {
+                  margin: 4px 0;
+                  font-size: 10px;
+                  line-height: 1.3;
+                }
+                .detail-label {
+                  font-weight: bold;
+                  color: #555;
+                  display: inline-block;
+                  width: 60px;
+                }
+                .detail-value {
+                  color: #000;
+                }
+                .label-footer {
+                  border-top: 1px solid #ddd;
+                  padding-top: 5px;
+                  font-size: 8px;
+                  color: #666;
+                  text-align: center;
+                }
+                .qr-section {
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                  padding: 5px;
+                  border-left: 2px solid #ddd;
+                }
+                #qr-code {
+                  margin-bottom: 5px;
+                }
+                .qr-label {
+                  font-size: 8px;
+                  color: #666;
+                  text-align: center;
+                  font-weight: bold;
+                }
+                .status-badge {
+                  display: inline-block;
+                  padding: 2px 8px;
+                  border-radius: 3px;
+                  font-size: 9px;
+                  font-weight: bold;
+                  background: ${asset.status === 'Active' ? '#4caf50' : '#ff9800'};
+                  color: white;
+                  margin-left: 5px;
+                }
+                @media print {
+                  body {
+                    background: white;
+                  }
+                  .no-print {
+                    display: none !important;
+                  }
+                }
               </style>
+              <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
             </head>
             <body>
-              <div class="label">
-                <h2>${asset.name}</h2>
-                <p><strong>Asset ID:</strong> ${asset.unique_asset_id}</p>
-                <p><strong>Serial:</strong> ${asset.serial_number}</p>
-                <p><strong>Model:</strong> ${asset.manufacturer} ${asset.model}</p>
-                <p><strong>Location:</strong> ${asset.location}</p>
+              <div class="label-container">
+                <div class="label-content">
+                  <div class="label-header">
+                    <div class="label-title">${asset.name || `${asset.manufacturer} ${asset.model}`}</div>
+                    <div class="asset-id">${asset.unique_asset_id}</div>
+                  </div>
+                  
+                  <div class="label-details">
+                    <div class="detail-row">
+                      <span class="detail-label">Category:</span>
+                      <span class="detail-value">${asset.category || 'N/A'}</span>
+                      <span class="status-badge">${asset.status}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">Mfr:</span>
+                      <span class="detail-value">${asset.manufacturer}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">Model:</span>
+                      <span class="detail-value">${asset.model}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">Serial:</span>
+                      <span class="detail-value">${asset.serial_number}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">Location:</span>
+                      <span class="detail-value">${asset.location}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">Assigned:</span>
+                      <span class="detail-value">${asset.assigned_user || 'Unassigned'}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">Purchase:</span>
+                      <span class="detail-value">${asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString() : 'N/A'}</span>
+                    </div>
+                  </div>
+                  
+                  <div class="label-footer">
+                    Dead Stock Register • Generated: ${new Date().toLocaleString()}
+                  </div>
+                </div>
+                
+                <div class="qr-section">
+                  <div id="qr-code"></div>
+                  <div class="qr-label">SCAN ME</div>
+                </div>
               </div>
+              
               <script>
                 window.onload = function() {
-                  window.print();
-                  setTimeout(() => window.close(), 500);
+                  // Generate QR code
+                  try {
+                    new QRCode(document.getElementById("qr-code"), {
+                      text: '${qrData.replace(/'/g, "\\'")}',
+                      width: 120,
+                      height: 120,
+                      colorDark: "#000000",
+                      colorLight: "#ffffff",
+                      correctLevel: QRCode.CorrectLevel.H
+                    });
+                    
+                    // Wait for QR code to render, then print
+                    setTimeout(function() {
+                      window.print();
+                      setTimeout(function() {
+                        window.close();
+                      }, 500);
+                    }, 500);
+                  } catch (err) {
+                    console.error('QR code generation failed:', err);
+                    window.print();
+                    setTimeout(function() {
+                      window.close();
+                    }, 500);
+                  }
                 };
               </script>
             </body>
@@ -542,12 +790,14 @@ const AssetsPage = () => {
         `);
         printWindow.document.close();
       }
-      toast.success(`Label sent to printer for: ${asset.name}`);
+      toast.success(`✓ Label sent to printer: ${asset.name || asset.unique_asset_id}`);
     } catch (error) {
       console.error('Failed to print label:', error);
       toast.error('Failed to print label');
     }
-    handleMenuClose();
+    if (anchorEl) {
+      setAnchorEl(null);
+    }
   };
 
   const filteredAssets = assets.filter((asset) => {
@@ -905,7 +1155,7 @@ const AssetsPage = () => {
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                           <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
-                            {getCategoryIcon(asset.category)}
+                            {getCategoryIcon(asset.category || 'Other')}
                           </Avatar>
                           <Box>
                             <Typography variant="subtitle2" sx={{ fontWeight: 'medium' }}>
@@ -1365,18 +1615,169 @@ const AssetsPage = () => {
           </DialogActions>
         </Dialog>
 
+        {/* View Asset Details Dialog */}
+        <Dialog open={viewDialogOpen} onClose={handleCloseViewDialog} maxWidth="md" fullWidth>
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Typography variant="h5">Asset Details</Typography>
+              <IconButton onClick={handleCloseViewDialog} size="small">
+                <CloseIcon />
+              </IconButton>
+            </Box>
+          </DialogTitle>
+          <DialogContent dividers sx={{ minHeight: 400 }}>
+            {selectedAsset ? (
+              <Grid container spacing={3}>
+                <Grid item xs={12}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom color="primary">
+                        Basic Information
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Asset ID</Typography>
+                          <Typography variant="body1" fontWeight="bold">{selectedAsset.unique_asset_id}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Asset Name</Typography>
+                          <Typography variant="body1" fontWeight="bold">
+                            {selectedAsset.name || `${selectedAsset.manufacturer} ${selectedAsset.model}`}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Manufacturer</Typography>
+                          <Typography variant="body1">{selectedAsset.manufacturer || 'N/A'}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Model</Typography>
+                          <Typography variant="body1">{selectedAsset.model || 'N/A'}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Serial Number</Typography>
+                          <Typography variant="body1">{selectedAsset.serial_number || 'N/A'}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Category</Typography>
+                          <Typography variant="body1">{selectedAsset.category || 'N/A'}</Typography>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom color="primary">
+                        Status & Condition
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Status</Typography>
+                          <Chip 
+                            label={selectedAsset.status} 
+                            color={
+                              selectedAsset.status === 'Active' ? 'success' :
+                              selectedAsset.status === 'Maintenance' ? 'warning' :
+                              selectedAsset.status === 'Inactive' ? 'default' : 'error'
+                            }
+                            size="small"
+                            sx={{ mt: 0.5 }}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Condition</Typography>
+                          <Chip 
+                            label={selectedAsset.condition}
+                            color={
+                              selectedAsset.condition === 'Excellent' ? 'success' :
+                              selectedAsset.condition === 'Good' ? 'info' :
+                              selectedAsset.condition === 'Fair' ? 'warning' : 'error'
+                            }
+                            size="small"
+                            sx={{ mt: 0.5 }}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Location</Typography>
+                          <Typography variant="body1">{selectedAsset.location || 'N/A'}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Assigned To</Typography>
+                          <Typography variant="body1">{selectedAsset.assigned_user || 'Unassigned'}</Typography>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom color="primary">
+                        Financial Information
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Purchase Date</Typography>
+                          <Typography variant="body1">
+                            {selectedAsset.purchase_date ? new Date(selectedAsset.purchase_date).toLocaleDateString() : 'N/A'}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Purchase Cost</Typography>
+                          <Typography variant="body1" fontWeight="bold">
+                            ₹{selectedAsset.purchase_cost?.toLocaleString('en-IN') || '0'}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Warranty Expiry</Typography>
+                          <Typography variant="body1">
+                            {selectedAsset.warranty_expiry ? new Date(selectedAsset.warranty_expiry).toLocaleDateString() : 'N/A'}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Last Audit Date</Typography>
+                          <Typography variant="body1">
+                            {selectedAsset.last_audit_date ? new Date(selectedAsset.last_audit_date).toLocaleDateString() : 'N/A'}
+                          </Typography>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+            ) : (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
+                <Typography variant="body1" color="text.secondary">
+                  No asset data available
+                </Typography>
+              </Box>
+            )}
+          </DialogContent>
+        </Dialog>
+
         {/* QR Code Dialog (for existing assets) */}
-        <Dialog open={qrDialogOpen} onClose={() => setQrDialogOpen(false)} maxWidth="sm" fullWidth>
+        <Dialog open={qrDialogOpen} onClose={handleCloseQRDialog} maxWidth="sm" fullWidth>
           <DialogTitle>Asset QR Code</DialogTitle>
           <DialogContent>
-            <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              {selectedAsset && qrCodeUrl && (
+            <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minHeight: 400 }}>
+              {(() => {
+                console.log('QR Dialog - selectedAsset:', selectedAsset);
+                console.log('QR Dialog - qrCodeUrl:', qrCodeUrl);
+                console.log('QR Dialog - qrDialogOpen:', qrDialogOpen);
+                return null;
+              })()}
+              {selectedAsset && qrCodeUrl ? (
                 <>
-                  <Typography variant="h6">{selectedAsset.name}</Typography>
+                  <Typography variant="h6">
+                    {selectedAsset.name || `${selectedAsset.manufacturer} ${selectedAsset.model}`}
+                  </Typography>
                   <Typography variant="body2" color="text.secondary">
                     {selectedAsset.unique_asset_id}
                   </Typography>
-                  <Box id="qr-code-container" sx={{ p: 2, bgcolor: 'white', borderRadius: 1 }}>
+                  <Box id="qr-code-container" sx={{ p: 2, bgcolor: 'white', borderRadius: 1, border: '1px solid #e0e0e0' }}>
                     <QRCodeCanvas
                       value={qrCodeUrl}
                       size={300}
@@ -1406,11 +1807,17 @@ const AssetsPage = () => {
                     Download QR Code
                   </Button>
                 </>
+              ) : (
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
+                  <Typography variant="body1" color="text.secondary">
+                    No QR code data available
+                  </Typography>
+                </Box>
               )}
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setQrDialogOpen(false)}>Close</Button>
+            <Button onClick={handleCloseQRDialog}>Close</Button>
           </DialogActions>
         </Dialog>
 
@@ -1495,7 +1902,7 @@ const AssetsPage = () => {
         </Dialog>
 
         {/* Transfer Asset Dialog */}
-        <Dialog open={transferDialogOpen} onClose={() => setTransferDialogOpen(false)} maxWidth="sm" fullWidth>
+        <Dialog open={transferDialogOpen} onClose={handleCloseTransferDialog} maxWidth="sm" fullWidth>
           <DialogTitle>Transfer Asset</DialogTitle>
           <DialogContent>
             <Box sx={{ pt: 2 }}>
@@ -1523,7 +1930,8 @@ const AssetsPage = () => {
                         label="Assigned To (Optional)"
                         value={transferData.to_user}
                         onChange={(e) => setTransferData({...transferData, to_user: e.target.value})}
-                        placeholder="User ID or Email"
+                        placeholder="Enter email or employee ID"
+                        helperText="Enter the user's email address or employee ID to assign this asset"
                       />
                     </Grid>
                     <Grid item xs={12}>
@@ -1543,10 +1951,7 @@ const AssetsPage = () => {
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => {
-              setTransferDialogOpen(false);
-              setTransferData({ to_location: '', to_user: '', notes: '' });
-            }}>
+            <Button onClick={handleCloseTransferDialog}>
               Cancel
             </Button>
             <Button variant="contained" onClick={handleTransferSubmit}>

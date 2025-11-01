@@ -79,8 +79,8 @@ const UsersPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [addUserDialogOpen, setAddUserDialogOpen] = useState(false);
-  // const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
-  // const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [bulkSelected, setBulkSelected] = useState<string[]>([]);
   const [newUser, setNewUser] = useState({
     name: '',
@@ -693,7 +693,10 @@ const UsersPage = () => {
                             <IconButton 
                               size="small" 
                               color="info"
-                              onClick={() => toast.info(`Viewing ${user.name}'s details`)}
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setViewDialogOpen(true);
+                              }}
                             >
                               <VisibilityIcon />
                             </IconButton>
@@ -889,6 +892,116 @@ const UsersPage = () => {
               startIcon={<AddIcon />}
             >
               Create User
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* View User Details Dialog */}
+        <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} maxWidth="md" fullWidth>
+          <DialogTitle>User Details</DialogTitle>
+          <DialogContent dividers>
+            {selectedUser && (
+              <Grid container spacing={3}>
+                <Grid item xs={12}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom color="primary">
+                        Basic Information
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Name</Typography>
+                          <Typography variant="body1" fontWeight="bold">{selectedUser.name}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Employee ID</Typography>
+                          <Typography variant="body1" fontWeight="bold">{selectedUser.employee_id}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Email</Typography>
+                          <Typography variant="body1">{selectedUser.email}</Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Phone</Typography>
+                          <Typography variant="body1">{selectedUser.phone || 'N/A'}</Typography>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom color="primary">
+                        Role & Department
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Role</Typography>
+                          <Chip 
+                            label={selectedUser.role} 
+                            color="primary"
+                            size="small"
+                            sx={{ mt: 0.5 }}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Department</Typography>
+                          <Chip 
+                            label={selectedUser.department}
+                            color="secondary"
+                            size="small"
+                            sx={{ mt: 0.5 }}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Status</Typography>
+                          <Chip 
+                            label={selectedUser.status}
+                            color={selectedUser.status === 'Active' ? 'success' : 'default'}
+                            size="small"
+                            sx={{ mt: 0.5 }}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Manager</Typography>
+                          <Typography variant="body1">{selectedUser.manager || 'N/A'}</Typography>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom color="primary">
+                        Activity Information
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Created Date</Typography>
+                          <Typography variant="body1">
+                            {selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleDateString() : 'N/A'}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Last Login</Typography>
+                          <Typography variant="body1">
+                            {selectedUser.last_login ? new Date(selectedUser.last_login).toLocaleString() : 'Never'}
+                          </Typography>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setViewDialogOpen(false)} variant="outlined">
+              Close
             </Button>
           </DialogActions>
         </Dialog>

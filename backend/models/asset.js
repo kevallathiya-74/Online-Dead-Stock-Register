@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const assetSchema = new mongoose.Schema({
   unique_asset_id: { type: String, required: true, unique: true },
+  name: { type: String },
   manufacturer: { type: String, required: true },
   model: { type: String, required: true },
   serial_number: { type: String, required: true },
@@ -15,6 +16,10 @@ const assetSchema = new mongoose.Schema({
   warranty_expiry: { type: Date },
   last_audit_date: { type: Date },
   condition: { type: String },
+  notes: { type: String },
+  vendor: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor' },
+  images: [{ type: String }],
+  last_maintenance_date: { type: Date },
   configuration: { type: Object },
   expected_lifespan: { type: Number },
 },{
