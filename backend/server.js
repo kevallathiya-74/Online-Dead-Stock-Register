@@ -383,9 +383,20 @@ app.get('/ping', (req, res) => {
   res.status(200).send('pong');
 });
 
-// Serve the main page
+// API root endpoint - Backend only (no static files)
 app.get('/', (req, res) => {
-  res.sendFile('index.html', { root: 'public' });
+  res.status(200).json({
+    success: true,
+    message: 'Dead Stock Register API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      health: '/api/v1/health',
+      apiDocs: '/api-docs',
+      api: '/api/v1'
+    },
+    documentation: 'Visit /api-docs for full API documentation'
+  });
 });
 
 // Handle 404
