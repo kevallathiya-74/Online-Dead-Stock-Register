@@ -234,7 +234,7 @@ const VendorProductsPage: React.FC = () => {
                             color={getConditionColor(product.condition)}
                           />
                         </TableCell>
-                        <TableCell>{formatCurrency(product.purchase_price)}</TableCell>
+                        <TableCell>{formatCurrency(product.purchase_cost)}</TableCell>
                         <TableCell>{formatCurrency(product.current_value)}</TableCell>
                         <TableCell>
                           {format(new Date(product.purchase_date), 'MMM dd, yyyy')}
