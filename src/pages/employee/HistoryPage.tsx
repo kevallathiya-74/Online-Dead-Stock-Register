@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { API_BASE_URL } from '../../config/api.config';
 import {
   Box,
   Grid,
@@ -91,7 +92,7 @@ const HistoryPage = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/audit-logs/my-activity?limit=100', {
+      const response = await fetch(`${API_BASE_URL}/audit-logs/my-activity?limit=100`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { API_BASE_URL } from '../../config/api.config';
 import {
   Box,
   Grid,
@@ -93,7 +94,7 @@ const EmployeeDashboard = () => {
       setLoading(true);
       // Fetch my assigned assets
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/assets/my-assets', {
+      const response = await fetch(`${API_BASE_URL}/assets/my-assets`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

@@ -45,7 +45,7 @@ const FilterResultsPreview: React.FC<FilterResultsPreviewProps> = ({
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        `http://localhost:5000/api/filters/apply?page=${page}&limit=20&sort_by=${sortBy}&sort_order=${sortOrder}&include_count=true`,
+        `${API_BASE_URL}/filters/apply?page=${page}&limit=20&sort_by=${sortBy}&sort_order=${sortOrder}&include_count=true`,
         filterConfig,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -66,7 +66,7 @@ const FilterResultsPreview: React.FC<FilterResultsPreviewProps> = ({
       
       // Fetch all results (no pagination limit)
       const response = await axios.post(
-        `http://localhost:5000/api/filters/apply?page=1&limit=10000&include_count=false`,
+        `${API_BASE_URL}/filters/apply?page=1&limit=10000&include_count=false`,
         filterConfig,
         { headers: { Authorization: `Bearer ${token}` } }
       );

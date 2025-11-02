@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api.config';
 
 interface User {
   _id: string;
@@ -66,7 +67,7 @@ const ScheduleAuditForm: React.FC<ScheduleAuditFormProps> = ({
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/users', {
+      const response = await axios.get('${API_BASE_URL}/users', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUsers(response.data.users || []);
@@ -78,7 +79,7 @@ const ScheduleAuditForm: React.FC<ScheduleAuditFormProps> = ({
   const fetchMetadata = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/assets/metadata', {
+      const response = await axios.get('${API_BASE_URL}/assets/metadata', {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -131,8 +132,8 @@ const ScheduleAuditForm: React.FC<ScheduleAuditFormProps> = ({
     try {
       const token = localStorage.getItem('token');
       const url = editingAudit 
-        ? `http://localhost:5000/api/scheduled-audits/${editingAudit._id}`
-        : 'http://localhost:5000/api/scheduled-audits';
+        ? `${API_BASE_URL}/scheduled-audits/${editingAudit._id}`
+        : '${API_BASE_URL}/scheduled-audits';
       
       const method = editingAudit ? 'put' : 'post';
       

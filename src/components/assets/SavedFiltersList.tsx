@@ -47,7 +47,7 @@ const SavedFiltersList: React.FC<SavedFiltersListProps> = ({
     setIsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/filters/my-filters', {
+      const response = await axios.get('${API_BASE_URL}/filters/my-filters', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setFilters(response.data.filters);
@@ -62,7 +62,7 @@ const SavedFiltersList: React.FC<SavedFiltersListProps> = ({
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(
-        `http://localhost:5000/api/filters/${filterId}`,
+        `${API_BASE_URL}/filters/${filterId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       onSelectFilter(response.data.filter.filter_config);
@@ -78,7 +78,7 @@ const SavedFiltersList: React.FC<SavedFiltersListProps> = ({
 
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/filters/${filterId}`, {
+      await axios.delete(`${API_BASE_URL}/filters/${filterId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchSavedFilters();
@@ -105,7 +105,7 @@ const SavedFiltersList: React.FC<SavedFiltersListProps> = ({
     try {
       const token = localStorage.getItem('token');
       await axios.put(
-        `http://localhost:5000/api/filters/${editingFilter.id}`,
+        `${API_BASE_URL}/filters/${editingFilter.id}`,
         newFilterData,
         { headers: { Authorization: `Bearer ${token}` } }
       );

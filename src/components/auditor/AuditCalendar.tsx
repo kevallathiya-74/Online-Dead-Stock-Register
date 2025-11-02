@@ -39,7 +39,7 @@ const AuditCalendar: React.FC<AuditCalendarProps> = ({ onSelectAudit, onCreateNe
     setIsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/scheduled-audits', {
+      const response = await axios.get('${API_BASE_URL}/scheduled-audits', {
         headers: { Authorization: `Bearer ${token}` },
         params: { status: 'active', limit: 100 }
       });

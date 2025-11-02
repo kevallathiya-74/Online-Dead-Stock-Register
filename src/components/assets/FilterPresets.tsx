@@ -27,7 +27,7 @@ const FilterPresets: React.FC<FilterPresetsProps> = ({ onApplyPreset }) => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/filters/presets', {
+      const response = await axios.get('${API_BASE_URL}/filters/presets', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setPresets(response.data.presets);

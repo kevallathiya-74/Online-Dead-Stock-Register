@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { API_BASE_URL } from '../../config/api.config';
 import {
   Box,
   Grid,
@@ -97,7 +98,7 @@ const RequestsPage = () => {
       const token = localStorage.getItem('token');
       
       // Fetch asset requests
-      const assetResponse = await fetch('http://localhost:5000/api/asset-requests/my-requests', {
+      const assetResponse = await fetch(`${API_BASE_URL}/asset-requests/my-requests`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -110,7 +111,7 @@ const RequestsPage = () => {
       }
       
       // Fetch maintenance requests
-      const maintResponse = await fetch('http://localhost:5000/api/maintenance', {
+      const maintResponse = await fetch(`${API_BASE_URL}/maintenance`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -128,8 +129,6 @@ const RequestsPage = () => {
       setLoading(false);
     }
   };
-
-  // MOCK DATA REMOVED - Now using real API calls above
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);

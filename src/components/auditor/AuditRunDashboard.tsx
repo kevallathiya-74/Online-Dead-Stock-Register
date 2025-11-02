@@ -47,7 +47,7 @@ const AuditRunDashboard: React.FC<AuditRunDashboardProps> = ({ onSelectRun }) =>
         params.status = filter;
       }
 
-      const response = await axios.get('http://localhost:5000/api/scheduled-audits/runs', {
+      const response = await axios.get('${API_BASE_URL}/scheduled-audits/runs', {
         headers: { Authorization: `Bearer ${token}` },
         params
       });
