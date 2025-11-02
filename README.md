@@ -1123,19 +1123,52 @@ NODE_ENV=development
 
 ## 🚀 Deployment
 
-### Development Deployment
-```bash
-# Frontend (Vite dev server)
-npm run dev
+### Quick Deploy (Recommended) 🌟
 
-# Backend (Node.js)
-cd backend
-npm start
+Deploy your application in **10 minutes** using these cloud platforms:
+
+1. **Backend** → [Render](https://render.com) (Free tier available)
+2. **Frontend** → [Vercel](https://vercel.com) (Free tier available)
+3. **Database** → [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) (Free tier available)
+
+📖 **[Read the Quick Deployment Guide →](./DEPLOY.md)**
+
+#### Pre-Deployment Verification
+```bash
+# Run verification script
+node verify-deployment.js
 ```
 
-### Production Deployment
+#### Deployment Files Included
+- ✅ `vercel.json` - Vercel configuration for frontend
+- ✅ `backend/render.yaml` - Render configuration for backend
+- ✅ `.env.production.example` - Production environment template
+- ✅ `DEPLOY.md` - Quick start guide
+- ✅ `DEPLOYMENT_GUIDE.md` - Comprehensive deployment instructions
+- ✅ `DEPLOYMENT_CHECKLIST.md` - Step-by-step checklist
 
-#### Option 1: Traditional Server (Linux)
+### Development Deployment
+```bash
+# Frontend (Vite dev server - Port 3000)
+npm run dev
+
+# Backend (Node.js - Port 5000)
+cd backend
+npm run dev
+```
+
+### Production Deployment Options
+
+#### ✨ Option 1: Render + Vercel (Recommended)
+**Best for**: Quick deployment, automatic scaling, zero DevOps
+- **Backend**: Deploy to Render using `backend/render.yaml`
+- **Frontend**: Deploy to Vercel using `vercel.json`
+- **Time**: ~10 minutes
+- **Cost**: FREE tier available
+- **Guide**: See [DEPLOY.md](./DEPLOY.md)
+
+#### Option 2: Traditional Server (Linux/VPS)
+**Best for**: Full control, existing infrastructure
 
 ```bash
 # 1. Install dependencies
@@ -1145,19 +1178,19 @@ npm install --production
 npm run build
 
 # 3. Serve frontend with Nginx
-sudo cp -r dist/* /var/www/html/
+sudo cp -r build/* /var/www/html/
 
 # 4. Start backend with PM2
 cd backend
-pm2 start server.js --name asset-management-api
+pm2 start server.js --name dead-stock-api
 pm2 save
 pm2 startup
 
 # 5. Configure Nginx reverse proxy
-# See PRODUCTION_DEPLOYMENT_GUIDE.md for complete nginx config
+# See DEPLOYMENT_GUIDE.md for complete nginx config
 ```
 
-#### Option 2: Docker (Coming Soon)
+#### Option 3: Docker (Coming Soon)
 
 ```bash
 # Build images
@@ -1170,7 +1203,11 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
-#### Option 3: Cloud Platforms
+#### Option 4: Other Cloud Platforms
+
+**Railway**
+- Similar to Render
+- Good alternative with free tier
 
 **Heroku**
 ```bash
@@ -1179,13 +1216,8 @@ git push heroku main
 heroku config:set JWT_SECRET=your-secret
 ```
 
-**AWS EC2 / DigitalOcean / Linode**
-- Follow the [PRODUCTION_DEPLOYMENT_GUIDE.md](./PRODUCTION_DEPLOYMENT_GUIDE.md)
-
-**Vercel (Frontend) + MongoDB Atlas (Database)**
-- Deploy frontend to Vercel
-- Use MongoDB Atlas for database
-- Deploy backend to Railway/Render
+**AWS / DigitalOcean / Linode**
+- See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for detailed VPS setup
 
 ### Environment Variables
 

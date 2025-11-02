@@ -4,15 +4,24 @@ package-lock.json
 yarn.lock
 
 # Environment Variables - CRITICAL: Never commit these!
-# .env
-# .env.local
-# .env.development
-# .env.production
-# .env.test
-# backend/.env
-# backend/.env.*
-# *.env
-# *.env.*
+.env
+.env.local
+.env.development
+.env.test
+backend/.env
+backend/.env.local
+backend/.env.development
+backend/.env.test
+
+# Allow example env files to be committed
+!.env.example
+!.env.production.example
+!backend/.env.example
+!backend/.env.production.example
+
+# Production env should also be ignored (sensitive data)
+.env.production
+backend/.env.production
 
 # Logs
 logs/
