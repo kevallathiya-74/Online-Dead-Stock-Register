@@ -40,6 +40,10 @@ const dbUtils = require('./utils/dbUtils');
 // Initialize express
 const app = express();
 
+// Trust proxy - Required for deployment behind reverse proxy (Render, Heroku, etc.)
+// This allows Express to trust the X-Forwarded-* headers from the proxy
+app.set('trust proxy', 1);
+
 // CORS configuration - Environment-based allowed origins
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
