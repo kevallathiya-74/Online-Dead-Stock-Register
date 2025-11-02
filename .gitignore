@@ -19,8 +19,10 @@ backend/.env.test
 !backend/.env.example
 !backend/.env.production.example
 
-# Production env should also be ignored (sensitive data)
-.env.production
+# Production env for frontend can be committed (contains only backend URL, no secrets)
+!.env.production
+
+# Backend production env should be ignored (contains database passwords, JWT secrets)
 backend/.env.production
 
 # Logs
