@@ -91,7 +91,7 @@ npm run dev
 
 6. **Access the application**
 
-- Frontend: http://localhost:5173
+- Frontend: http://localhost:3000
 - Backend API: http://localhost:5000
 - API Docs: http://localhost:5000/api-docs
 
@@ -201,7 +201,6 @@ The application implements enterprise-grade security features:
 - ✅ **Input Validation** and sanitization
 - 📝 **Comprehensive Audit Logging**
 - 🔐 **Role-Based Access Control (RBAC)**
-
 
 ## 🚀 Deployment
 
