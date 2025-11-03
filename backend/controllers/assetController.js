@@ -156,15 +156,49 @@ exports.createAsset = async (req, res) => {
       });
     }
 
+    // Auto-generate unique_asset_id if not provided
+    if (!req.body.unique_asset_id) {
+      const prefix = 'AST';
+      const timestamp = Date.now().toString().slice(-8);
+      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      req.body.unique_asset_id = `${prefix}-${timestamp}${random}`;
+    }
+
     const asset = new Asset({
       ...req.body,
       department: req.user.role === 'ADMIN' ? req.body.department : req.user.department
     });
     
     const saved = await asset.save();
-    res.status(201).json(saved);
+    
+    // Log asset creation
+    const AuditLog = require('../models/auditLog');
+    await AuditLog.create({
+      user_id: req.user.id,
+      action: 'asset_created',
+      entity_type: 'Asset',
+      entity_id: saved._id,
+      description: `Asset ${saved.unique_asset_id} created: ${saved.name || `${saved.manufacturer} ${saved.model}`}`,
+      severity: 'info',
+      details: {
+        asset_id: saved.unique_asset_id,
+        asset_name: saved.name || `${saved.manufacturer} ${saved.model}`,
+        category: saved.asset_type,
+        location: saved.location,
+        department: saved.department
+      }
+    });
+    
+    res.status(201).json({ 
+      success: true,
+      data: saved,
+      message: 'Asset created successfully'
+    });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.status(400).json({ 
+      success: false,
+      message: err.message 
+    });
   }
 };
 

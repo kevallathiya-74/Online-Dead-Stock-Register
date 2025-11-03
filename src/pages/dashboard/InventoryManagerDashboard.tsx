@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import {
   Box,
   Grid,
@@ -23,8 +23,8 @@ import {
   LinearProgress,
   CircularProgress,
   Skeleton,
-} from '@mui/material';
-import AssetQRCodeDialog from '../../components/AssetQRCodeDialog';
+} from "@mui/material";
+import AssetQRCodeDialog from "../../components/AssetQRCodeDialog";
 import {
   Inventory as InventoryIcon,
   Warning,
@@ -45,22 +45,22 @@ import {
   Business as VendorIcon,
   Edit,
   QrCodeScanner as QrScanIcon,
-} from '@mui/icons-material';
-import DashboardLayout from '../../components/layout/DashboardLayout';
-import { dashboardDataService } from '../../services/dashboardData.service';
-import { UserRole } from '../../types';
-import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
+} from "@mui/icons-material";
+import DashboardLayout from "../../components/layout/DashboardLayout";
+import { dashboardDataService } from "../../services/dashboardData.service";
+import { UserRole } from "../../types";
+import { useAuth } from "../../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 // Modal Components
-import AddAssetModal from '../../components/modals/AddAssetModal';
-import PurchaseOrderModal from '../../components/modals/PurchaseOrderModal';
-import MaintenanceModal from '../../components/modals/MaintenanceModal';
-import AssetTransferModal from '../../components/modals/AssetTransferModal';
-import ReportModal from '../../components/modals/ReportModal';
-import CategoriesModal from '../../components/modals/CategoriesModal';
-import QRScanner from '../../components/common/QRScanner';
+import AddAssetModal from "../../components/modals/AddAssetModal";
+import PurchaseOrderModal from "../../components/modals/PurchaseOrderModal";
+import MaintenanceModal from "../../components/modals/MaintenanceModal";
+import AssetTransferModal from "../../components/modals/AssetTransferModal";
+import ReportModal from "../../components/modals/ReportModal";
+import CategoriesModal from "../../components/modals/CategoriesModal";
+import EnhancedQRScanner from "../../components/common/EnhancedQRScanner";
 
 interface StatCardProps {
   title: string;
@@ -70,25 +70,40 @@ interface StatCardProps {
     value: number;
     isPositive: boolean;
   };
-  color?: 'primary' | 'secondary' | 'success' | 'warning' | 'error';
+  color?: "primary" | "secondary" | "success" | "warning" | "error";
   onClick?: () => void;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, color = 'primary', onClick }) => (
-  <Card 
-    sx={{ 
-      height: '100%', 
-      cursor: onClick ? 'pointer' : 'default',
-      transition: 'all 0.2s',
-      '&:hover': onClick ? {
-        transform: 'translateY(-2px)',
-        boxShadow: 4,
-      } : {}
+const StatCard: React.FC<StatCardProps> = ({
+  title,
+  value,
+  icon,
+  trend,
+  color = "primary",
+  onClick,
+}) => (
+  <Card
+    sx={{
+      height: "100%",
+      cursor: onClick ? "pointer" : "default",
+      transition: "all 0.2s",
+      "&:hover": onClick
+        ? {
+            transform: "translateY(-2px)",
+            boxShadow: 4,
+          }
+        : {},
     }}
     onClick={onClick}
   >
     <CardContent>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <Box>
           <Typography color="textSecondary" gutterBottom variant="overline">
             {title}
@@ -97,16 +112,16 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, color = 
             {value}
           </Typography>
           {trend && (
-            <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+            <Box sx={{ display: "flex", alignItems: "center", mt: 1 }}>
               {trend.isPositive ? (
-                <TrendingUp sx={{ color: 'success.main', mr: 0.5 }} />
+                <TrendingUp sx={{ color: "success.main", mr: 0.5 }} />
               ) : (
-                <TrendingDown sx={{ color: 'error.main', mr: 0.5 }} />
+                <TrendingDown sx={{ color: "error.main", mr: 0.5 }} />
               )}
               <Typography
                 variant="body2"
                 sx={{
-                  color: trend.isPositive ? 'success.main' : 'error.main',
+                  color: trend.isPositive ? "success.main" : "error.main",
                 }}
               >
                 {trend.value}%
@@ -133,22 +148,29 @@ interface QuickActionProps {
   description: string;
   icon: React.ReactNode;
   onClick: () => void;
-  color?: 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info';
+  color?: "primary" | "secondary" | "success" | "warning" | "error" | "info";
   disabled?: boolean;
 }
 
-const QuickActionCard: React.FC<QuickActionProps> = ({ title, description, icon, onClick, color = 'primary', disabled = false }) => (
-  <Card 
-    sx={{ 
-      height: '100%', 
-      cursor: disabled ? 'default' : 'pointer',
+const QuickActionCard: React.FC<QuickActionProps> = ({
+  title,
+  description,
+  icon,
+  onClick,
+  color = "primary",
+  disabled = false,
+}) => (
+  <Card
+    sx={{
+      height: "100%",
+      cursor: disabled ? "default" : "pointer",
       opacity: disabled ? 0.6 : 1,
-      transition: 'opacity 0.2s'
-    }} 
+      transition: "opacity 0.2s",
+    }}
     onClick={disabled ? undefined : onClick}
   >
     <CardContent>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+      <Box sx={{ display: "flex", alignItems: "flex-start" }}>
         <Avatar
           sx={{
             backgroundColor: `${color}.main`,
@@ -160,10 +182,17 @@ const QuickActionCard: React.FC<QuickActionProps> = ({ title, description, icon,
           {icon}
         </Avatar>
         <Box sx={{ flexGrow: 1 }}>
-          <Typography variant="h6" gutterBottom sx={{ color: disabled ? 'text.disabled' : 'inherit' }}>
+          <Typography
+            variant="h6"
+            gutterBottom
+            sx={{ color: disabled ? "text.disabled" : "inherit" }}
+          >
             {title}
           </Typography>
-          <Typography variant="body2" color={disabled ? 'text.disabled' : 'text.secondary'}>
+          <Typography
+            variant="body2"
+            color={disabled ? "text.disabled" : "text.secondary"}
+          >
             {description}
           </Typography>
         </Box>
@@ -174,7 +203,7 @@ const QuickActionCard: React.FC<QuickActionProps> = ({ title, description, icon,
 
 const InventoryManagerDashboard = () => {
   const { user } = useAuth();
-  console.log('Current user:', user?.email); // Use user to avoid warning
+  console.log("Current user:", user?.email); // Use user to avoid warning
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>({});
@@ -197,47 +226,82 @@ const InventoryManagerDashboard = () => {
   // QR dialog for created assets via modal
   const [qrOpen, setQrOpen] = useState(false);
   const [qrAsset, setQrAsset] = useState<any | null>(null);
-  
+
   // QR Scanner modal state
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      
+
       // Load all dynamic data with await
-      const dashboardStats = await dashboardDataService.getDashboardStats(UserRole.INVENTORY_MANAGER);
+      const dashboardStats = await dashboardDataService.getDashboardStats(
+        UserRole.INVENTORY_MANAGER
+      );
       const locationData = await dashboardDataService.getAssetsByLocation();
-      const warrantyData = await dashboardDataService.getWarrantyExpiringAssets();
-      const maintenanceData = await dashboardDataService.getMaintenanceSchedule();
+      const warrantyData =
+        await dashboardDataService.getWarrantyExpiringAssets();
+      const maintenanceData =
+        await dashboardDataService.getMaintenanceSchedule();
       const vendorData = await dashboardDataService.getVendorPerformance();
 
       setStats({
         assetsByLocation: dashboardStats.locationCount,
-        assetsByStatus: `${Math.round((dashboardStats.activeAssets / dashboardStats.totalAssets) * 100)}% Active`,
+        assetsByStatus: `${Math.round(
+          (dashboardStats.activeAssets / dashboardStats.totalAssets) * 100
+        )}% Active`,
         warrantyExpiring: dashboardStats.warrantyExpiring,
         maintenanceDue: dashboardStats.maintenanceDue,
         monthlyPurchases: dashboardStats.purchaseOrders,
-        topVendors: vendorData.length
+        topVendors: vendorData.length,
       });
 
       setAssetsByLocation(locationData);
       setWarrantyExpiring(warrantyData);
       setMaintenanceSchedule(maintenanceData);
       setTopVendors(vendorData);
-      
+
       // Generate pending approvals data
       const approvalsData = [
-        { id: 'APP-001', type: 'Asset Transfer', requester: 'John Doe', priority: 'High', daysAgo: 2 },
-        { id: 'APP-002', type: 'Maintenance', requester: 'Jane Smith', priority: 'Medium', daysAgo: 1 },
-        { id: 'APP-003', type: 'Purchase Order', requester: 'Mike Johnson', priority: 'Critical', daysAgo: 3 },
-        { id: 'APP-004', type: 'Asset Disposal', requester: 'Sarah Wilson', priority: 'Low', daysAgo: 4 },
-        { id: 'APP-005', type: 'Asset Transfer', requester: 'David Brown', priority: 'High', daysAgo: 1 },
+        {
+          id: "APP-001",
+          type: "Asset Transfer",
+          requester: "John Doe",
+          priority: "High",
+          daysAgo: 2,
+        },
+        {
+          id: "APP-002",
+          type: "Maintenance",
+          requester: "Jane Smith",
+          priority: "Medium",
+          daysAgo: 1,
+        },
+        {
+          id: "APP-003",
+          type: "Purchase Order",
+          requester: "Mike Johnson",
+          priority: "Critical",
+          daysAgo: 3,
+        },
+        {
+          id: "APP-004",
+          type: "Asset Disposal",
+          requester: "Sarah Wilson",
+          priority: "Low",
+          daysAgo: 4,
+        },
+        {
+          id: "APP-005",
+          type: "Asset Transfer",
+          requester: "David Brown",
+          priority: "High",
+          daysAgo: 1,
+        },
       ];
       setPendingApprovals(approvalsData);
-
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
+      console.error("Error loading dashboard data:", error);
     } finally {
       setLoading(false);
     }
@@ -245,57 +309,57 @@ const InventoryManagerDashboard = () => {
 
   useEffect(() => {
     loadDashboardData();
-    
+
     // Auto-refresh data every 2 minutes
     const interval = setInterval(loadDashboardData, 120000);
-    
+
     return () => clearInterval(interval);
   }, []);
 
   const handleRefresh = () => {
-    toast.info('Refreshing dashboard data...');
+    toast.info("Refreshing dashboard data...");
     dashboardDataService.refreshCache();
     loadDashboardData();
     setTimeout(() => {
-      toast.success('Dashboard data refreshed successfully!');
+      toast.success("Dashboard data refreshed successfully!");
     }, 1000);
   };
 
   // Modal handlers
   const openModal = (modalName: keyof typeof modals) => {
-    setModals(prev => ({ ...prev, [modalName]: true }));
+    setModals((prev) => ({ ...prev, [modalName]: true }));
   };
 
   const closeModal = (modalName: keyof typeof modals) => {
-    setModals(prev => ({ ...prev, [modalName]: false }));
+    setModals((prev) => ({ ...prev, [modalName]: false }));
   };
 
   const handleModalSubmit = (modalName: string, data: any) => {
     console.log(`${modalName} submitted:`, data);
-    
+
     // Show success toast based on modal type
-    switch(modalName) {
-      case 'addAsset':
-        toast.success('New asset added successfully!');
+    switch (modalName) {
+      case "addAsset":
+        toast.success("New asset added successfully!");
         break;
-      case 'purchaseOrder':
-        toast.success('Purchase order created successfully!');
+      case "purchaseOrder":
+        toast.success("Purchase order created successfully!");
         break;
-      case 'maintenance':
-        toast.success('Maintenance scheduled successfully!');
+      case "maintenance":
+        toast.success("Maintenance scheduled successfully!");
         break;
-      case 'assetTransfer':
-        toast.success('Asset transfer initiated successfully!');
+      case "assetTransfer":
+        toast.success("Asset transfer initiated successfully!");
         break;
-      case 'report':
-        toast.success('Report generated successfully!');
+      case "report":
+        toast.success("Report generated successfully!");
         break;
       default:
-        toast.success('Action completed successfully!');
+        toast.success("Action completed successfully!");
     }
-    
+
     // If an asset was created via the modal, show QR dialog
-    if (modalName === 'addAsset' && data) {
+    if (modalName === "addAsset" && data) {
       // data is expected to be the created asset returned by the modal
       setQrAsset(data);
       setQrOpen(true);
@@ -312,65 +376,72 @@ const InventoryManagerDashboard = () => {
     toast.success(`Asset scanned: ${asset.name || asset.unique_asset_id}`);
     setQrScannerOpen(false);
     // Navigate to assets page to show the scanned asset
-    navigate('/assets', { state: { scannedAssetId: asset.id } });
+    navigate("/assets", { state: { scannedAssetId: asset.id } });
   };
 
   const quickActions = [
     {
-      title: 'Scan Asset QR Code',
-      description: 'Quickly scan and audit assets using QR codes',
+      title: "Scan Asset QR Code",
+      description: "Quickly scan and audit assets using QR codes",
       icon: <QrScanIcon />,
       onClick: () => setQrScannerOpen(true),
-      color: 'primary' as const,
+      color: "primary" as const,
     },
     {
-      title: 'Add New Asset',
-      description: 'Register new assets with QR codes',
+      title: "Add New Asset",
+      description: "Register new assets with QR codes",
       icon: <AddIcon />,
-      onClick: () => openModal('addAsset'),
-      color: 'primary' as const,
+      onClick: () => openModal("addAsset"),
+      color: "primary" as const,
     },
     {
-      title: 'Manage Categories',
-      description: 'Organize asset categories',
+      title: "Manage Categories",
+      description: "Organize asset categories",
       icon: <InventoryIcon />,
-      onClick: () => openModal('categories'),
-      color: 'info' as const,
+      onClick: () => openModal("categories"),
+      color: "info" as const,
     },
     {
-      title: 'Create Purchase Order',
-      description: 'Generate new purchase orders',
+      title: "Create Purchase Order",
+      description: "Generate new purchase orders",
       icon: <OrderIcon />,
-      onClick: () => openModal('purchaseOrder'),
-      color: 'secondary' as const,
+      onClick: () => openModal("purchaseOrder"),
+      color: "secondary" as const,
     },
     {
-      title: 'Schedule Maintenance',
-      description: 'Plan asset maintenance activities',
+      title: "Schedule Maintenance",
+      description: "Plan asset maintenance activities",
       icon: <ScheduleIcon />,
-      onClick: () => openModal('maintenance'),
-      color: 'success' as const,
+      onClick: () => openModal("maintenance"),
+      color: "success" as const,
     },
     {
-      title: 'Asset Transfer',
-      description: 'Move assets between locations',
+      title: "Asset Transfer",
+      description: "Move assets between locations",
       icon: <TransferIcon />,
-      onClick: () => openModal('assetTransfer'),
-      color: 'warning' as const,
+      onClick: () => openModal("assetTransfer"),
+      color: "warning" as const,
     },
     {
-      title: 'Generate Report',
-      description: 'Create inventory analysis reports',
+      title: "Generate Report",
+      description: "Create inventory analysis reports",
       icon: <ReportIcon />,
-      onClick: () => openModal('report'),
-      color: 'error' as const,
+      onClick: () => openModal("report"),
+      color: "error" as const,
     },
   ];
 
   return (
     <DashboardLayout>
       <Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 3,
+          }}
+        >
           <Typography variant="h4" gutterBottom>
             Inventory Manager Dashboard - Asset & Vendor Management
           </Typography>
@@ -388,11 +459,16 @@ const InventoryManagerDashboard = () => {
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={6} md={4}>
             {loading ? (
-              <Card sx={{ height: '100%' }}>
+              <Card sx={{ height: "100%" }}>
                 <CardContent>
                   <Skeleton variant="text" width="60%" />
                   <Skeleton variant="text" width="40%" height={40} />
-                  <Skeleton variant="circular" width={56} height={56} sx={{ float: 'right', mt: -5 }} />
+                  <Skeleton
+                    variant="circular"
+                    width={56}
+                    height={56}
+                    sx={{ float: "right", mt: -5 }}
+                  />
                 </CardContent>
               </Card>
             ) : (
@@ -401,36 +477,49 @@ const InventoryManagerDashboard = () => {
                 value={`${stats.assetsByLocation || 0} Locations`}
                 icon={<LocationIcon />}
                 color="primary"
-                onClick={() => navigate('/assets')}
+                onClick={() => navigate("/assets")}
               />
             )}
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             {loading ? (
-              <Card sx={{ height: '100%' }}>
+              <Card sx={{ height: "100%" }}>
                 <CardContent>
                   <Skeleton variant="text" width="60%" />
                   <Skeleton variant="text" width="40%" height={40} />
-                  <Skeleton variant="circular" width={56} height={56} sx={{ float: 'right', mt: -5 }} />
+                  <Skeleton
+                    variant="circular"
+                    width={56}
+                    height={56}
+                    sx={{ float: "right", mt: -5 }}
+                  />
                 </CardContent>
               </Card>
             ) : (
               <StatCard
                 title="Assets by Status"
-                value={stats.assetsByStatus || '0% Active'}
+                value={stats.assetsByStatus || "0% Active"}
                 icon={<InventoryIcon />}
-                trend={{ value: Math.floor(Math.random() * 10) + 1, isPositive: true }}
+                trend={{
+                  value: Math.floor(Math.random() * 10) + 1,
+                  isPositive: true,
+                }}
                 color="success"
               />
             )}
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             {loading ? (
-              <Card sx={{ height: '100%' }}>
+              <Card sx={{ height: "100%" }}>
                 <CardContent>
                   <Skeleton variant="text" width="60%" />
                   <Skeleton variant="text" width="40%" height={40} />
-                  <Skeleton variant="circular" width={56} height={56} sx={{ float: 'right', mt: -5 }} />
+                  <Skeleton
+                    variant="circular"
+                    width={56}
+                    height={56}
+                    sx={{ float: "right", mt: -5 }}
+                  />
                 </CardContent>
               </Card>
             ) : (
@@ -440,20 +529,25 @@ const InventoryManagerDashboard = () => {
                 icon={<WarrantyIcon />}
                 color="warning"
                 onClick={() => {
-                  console.log('Navigating to warranty management');
+                  console.log("Navigating to warranty management");
                   // Navigate to warranty management or show warranty details
-                  navigate('/assets?filter=warranty_expiring');
+                  navigate("/assets?filter=warranty_expiring");
                 }}
               />
             )}
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             {loading ? (
-              <Card sx={{ height: '100%' }}>
+              <Card sx={{ height: "100%" }}>
                 <CardContent>
                   <Skeleton variant="text" width="60%" />
                   <Skeleton variant="text" width="40%" height={40} />
-                  <Skeleton variant="circular" width={56} height={56} sx={{ float: 'right', mt: -5 }} />
+                  <Skeleton
+                    variant="circular"
+                    width={56}
+                    height={56}
+                    sx={{ float: "right", mt: -5 }}
+                  />
                 </CardContent>
               </Card>
             ) : (
@@ -462,17 +556,22 @@ const InventoryManagerDashboard = () => {
                 value={stats.maintenanceDue || 0}
                 icon={<MaintenanceIcon />}
                 color="error"
-                onClick={() => navigate('/maintenance')}
+                onClick={() => navigate("/maintenance")}
               />
             )}
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             {loading ? (
-              <Card sx={{ height: '100%' }}>
+              <Card sx={{ height: "100%" }}>
                 <CardContent>
                   <Skeleton variant="text" width="60%" />
                   <Skeleton variant="text" width="40%" height={40} />
-                  <Skeleton variant="circular" width={56} height={56} sx={{ float: 'right', mt: -5 }} />
+                  <Skeleton
+                    variant="circular"
+                    width={56}
+                    height={56}
+                    sx={{ float: "right", mt: -5 }}
+                  />
                 </CardContent>
               </Card>
             ) : (
@@ -480,19 +579,27 @@ const InventoryManagerDashboard = () => {
                 title="Purchase Orders This Month"
                 value={stats.monthlyPurchases || 0}
                 icon={<PurchaseIcon />}
-                trend={{ value: Math.floor(Math.random() * 30) + 10, isPositive: true }}
+                trend={{
+                  value: Math.floor(Math.random() * 30) + 10,
+                  isPositive: true,
+                }}
                 color="secondary"
-                onClick={() => navigate('/purchase-orders')}
+                onClick={() => navigate("/purchase-orders")}
               />
             )}
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
             {loading ? (
-              <Card sx={{ height: '100%' }}>
+              <Card sx={{ height: "100%" }}>
                 <CardContent>
                   <Skeleton variant="text" width="60%" />
                   <Skeleton variant="text" width="40%" height={40} />
-                  <Skeleton variant="circular" width={56} height={56} sx={{ float: 'right', mt: -5 }} />
+                  <Skeleton
+                    variant="circular"
+                    width={56}
+                    height={56}
+                    sx={{ float: "right", mt: -5 }}
+                  />
                 </CardContent>
               </Card>
             ) : (
@@ -501,50 +608,76 @@ const InventoryManagerDashboard = () => {
                 value={`${stats.topVendors || 0} Active`}
                 icon={<VendorIcon />}
                 color="primary"
-                onClick={() => navigate('/vendors')}
+                onClick={() => navigate("/vendors")}
               />
             )}
           </Grid>
         </Grid>
 
         {/* Quick Actions */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h5">
-            Quick Actions
-          </Typography>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 2,
+          }}
+        >
+          <Typography variant="h5">Quick Actions</Typography>
           {loading && <CircularProgress size={20} />}
         </Box>
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          {loading ? (
-            [1, 2, 3, 4, 5].map((item) => (
-              <Grid item xs={12} sm={6} md={2.4} key={item}>
-                <Card sx={{ height: '100%' }}>
-                  <CardContent sx={{ textAlign: 'center' }}>
-                    <Skeleton variant="circular" width={56} height={56} sx={{ mx: 'auto', mb: 2 }} />
-                    <Skeleton variant="text" width="80%" sx={{ mx: 'auto' }} />
-                    <Skeleton variant="text" width="60%" sx={{ mx: 'auto', mb: 2 }} />
-                    <Skeleton variant="rectangular" width="100%" height={36} sx={{ borderRadius: 1 }} />
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))
-          ) : (
-            quickActions.map((action, index) => (
-              <Grid item xs={12} sm={6} md={2.4} key={index}>
-                <QuickActionCard {...action} disabled={loading} />
-              </Grid>
-            ))
-          )}
+          {loading
+            ? [1, 2, 3, 4, 5].map((item) => (
+                <Grid item xs={12} sm={6} md={2.4} key={item}>
+                  <Card sx={{ height: "100%" }}>
+                    <CardContent sx={{ textAlign: "center" }}>
+                      <Skeleton
+                        variant="circular"
+                        width={56}
+                        height={56}
+                        sx={{ mx: "auto", mb: 2 }}
+                      />
+                      <Skeleton
+                        variant="text"
+                        width="80%"
+                        sx={{ mx: "auto" }}
+                      />
+                      <Skeleton
+                        variant="text"
+                        width="60%"
+                        sx={{ mx: "auto", mb: 2 }}
+                      />
+                      <Skeleton
+                        variant="rectangular"
+                        width="100%"
+                        height={36}
+                        sx={{ borderRadius: 1 }}
+                      />
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))
+            : quickActions.map((action, index) => (
+                <Grid item xs={12} sm={6} md={2.4} key={index}>
+                  <QuickActionCard {...action} disabled={loading} />
+                </Grid>
+              ))}
         </Grid>
 
         <Grid container spacing={3}>
           {/* Assets by Location */}
           <Grid item xs={12} md={6}>
             <Paper sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6">
-                  Assets by Location
-                </Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  mb: 2,
+                }}
+              >
+                <Typography variant="h6">Assets by Location</Typography>
                 {loading && <CircularProgress size={20} />}
               </Box>
               {loading ? (
@@ -557,10 +690,14 @@ const InventoryManagerDashboard = () => {
                       <ListItemText
                         primary={<Skeleton variant="text" width="60%" />}
                         secondary={
-                          <Box sx={{ mt: 1 }}>
+                          <span style={{ marginTop: "8px", display: "block" }}>
                             <Skeleton variant="text" width="40%" />
-                            <Skeleton variant="rectangular" height={6} sx={{ mt: 0.5, borderRadius: 1 }} />
-                          </Box>
+                            <Skeleton
+                              variant="rectangular"
+                              height={6}
+                              style={{ marginTop: "4px", borderRadius: "4px" }}
+                            />
+                          </span>
                         }
                       />
                     </ListItem>
@@ -569,32 +706,49 @@ const InventoryManagerDashboard = () => {
               ) : (
                 <List>
                   {assetsByLocation.map((location, index) => (
-                    <ListItem key={index} divider={index < assetsByLocation.length - 1}>
+                    <ListItem
+                      key={index}
+                      divider={index < assetsByLocation.length - 1}
+                    >
                       <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: 'primary.main' }}>
+                        <Avatar sx={{ bgcolor: "primary.main" }}>
                           <LocationIcon />
                         </Avatar>
                       </ListItemAvatar>
                       <ListItemText
                         primary={location.location}
                         secondary={
-                          <Box sx={{ mt: 1 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                              <Typography variant="body2">{location.count} assets</Typography>
-                              <Typography variant="body2">{location.percentage}%</Typography>
-                            </Box>
-                            <LinearProgress 
-                              variant="determinate" 
-                              value={location.percentage} 
+                          <span style={{ marginTop: "8px", display: "block" }}>
+                            <span
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                marginBottom: "4px",
+                              }}
+                            >
+                              <span style={{ fontSize: "0.875rem" }}>
+                                {location.count} assets
+                              </span>
+                              <span style={{ fontSize: "0.875rem" }}>
+                                {location.percentage}%
+                              </span>
+                            </span>
+                            <LinearProgress
+                              variant="determinate"
+                              value={location.percentage}
                               sx={{ height: 6, borderRadius: 1 }}
                             />
-                          </Box>
+                          </span>
                         }
                       />
                     </ListItem>
                   ))}
                   {assetsByLocation.length === 0 && !loading && (
-                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ textAlign: "center", py: 2 }}
+                    >
                       No location data available
                     </Typography>
                   )}
@@ -604,7 +758,7 @@ const InventoryManagerDashboard = () => {
                 fullWidth
                 variant="outlined"
                 sx={{ mt: 2 }}
-                onClick={() => navigate('/locations')}
+                onClick={() => navigate("/locations")}
                 disabled={loading}
               >
                 View All Locations
@@ -615,10 +769,15 @@ const InventoryManagerDashboard = () => {
           {/* Warranty Expiring */}
           <Grid item xs={12} md={6}>
             <Paper sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6">
-                  Warranty Expiring Soon
-                </Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  mb: 2,
+                }}
+              >
+                <Typography variant="h6">Warranty Expiring Soon</Typography>
                 {loading && <CircularProgress size={20} />}
               </Box>
               <TableContainer>
@@ -632,84 +791,135 @@ const InventoryManagerDashboard = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {loading ? (
-                      [1, 2, 3].map((item) => (
-                        <TableRow key={item}>
-                          <TableCell>
-                            <Skeleton variant="text" width="80%" />
-                            <Skeleton variant="text" width="60%" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton variant="text" width="40%" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton variant="rectangular" width={60} height={24} sx={{ borderRadius: 1 }} />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton variant="circular" width={24} height={24} sx={{ display: 'inline-block', mr: 1 }} />
-                            <Skeleton variant="circular" width={24} height={24} sx={{ display: 'inline-block' }} />
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      warrantyExpiring.map((item, index) => (
-                        <TableRow key={index}>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                              {item.asset}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {item.category}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              {item.daysLeft <= 30 && <Warning sx={{ color: 'error.main', mr: 0.5, fontSize: 16 }} />}
-                              {item.daysLeft}
-                            </Box>
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              label={item.priority}
-                              size="small"
-                              color={
-                                item.priority === 'high' ? 'error' :
-                                item.priority === 'medium' ? 'warning' : 'default'
-                              }
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <IconButton 
-                              size="small" 
-                              color="primary"
-                              onClick={() => {
-                                console.log(`Viewing warranty details for ${item.asset}`);
-                                toast.info(`Viewing warranty details for: ${item.asset}`);
-                                // Navigate to asset details or open modal
-                                navigate(`/assets?view=${item.asset.replace(/\s+/g, '_').toLowerCase()}`);
-                              }}
-                            >
-                              <Visibility />
-                            </IconButton>
-                            <IconButton 
-                              size="small" 
-                              color="success"
-                              onClick={() => {
-                                console.log(`Editing warranty for ${item.asset}`);
-                                toast.info(`Opening editor for: ${item.asset}`);
-                                // Navigate to asset editor or open modal
-                                navigate(`/assets?edit=${item.asset.replace(/\s+/g, '_').toLowerCase()}`);
-                              }}
-                            >
-                              <Edit />
-                            </IconButton>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
+                    {loading
+                      ? [1, 2, 3].map((item) => (
+                          <TableRow key={item}>
+                            <TableCell>
+                              <Skeleton variant="text" width="80%" />
+                              <Skeleton variant="text" width="60%" />
+                            </TableCell>
+                            <TableCell>
+                              <Skeleton variant="text" width="40%" />
+                            </TableCell>
+                            <TableCell>
+                              <Skeleton
+                                variant="rectangular"
+                                width={60}
+                                height={24}
+                                sx={{ borderRadius: 1 }}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Skeleton
+                                variant="circular"
+                                width={24}
+                                height={24}
+                                sx={{ display: "inline-block", mr: 1 }}
+                              />
+                              <Skeleton
+                                variant="circular"
+                                width={24}
+                                height={24}
+                                sx={{ display: "inline-block" }}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      : warrantyExpiring.map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell>
+                              <Typography
+                                variant="body2"
+                                sx={{ fontWeight: "medium" }}
+                              >
+                                {item.asset}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                {item.category}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Box
+                                sx={{ display: "flex", alignItems: "center" }}
+                              >
+                                {item.daysLeft <= 30 && (
+                                  <Warning
+                                    sx={{
+                                      color: "error.main",
+                                      mr: 0.5,
+                                      fontSize: 16,
+                                    }}
+                                  />
+                                )}
+                                {item.daysLeft}
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={item.priority}
+                                size="small"
+                                color={
+                                  item.priority === "high"
+                                    ? "error"
+                                    : item.priority === "medium"
+                                    ? "warning"
+                                    : "default"
+                                }
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={() => {
+                                  console.log(
+                                    `Viewing warranty details for ${item.asset}`
+                                  );
+                                  toast.info(
+                                    `Viewing warranty details for: ${item.asset}`
+                                  );
+                                  // Navigate to asset details or open modal
+                                  navigate(
+                                    `/assets?view=${item.asset
+                                      .replace(/\s+/g, "_")
+                                      .toLowerCase()}`
+                                  );
+                                }}
+                              >
+                                <Visibility />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                color="success"
+                                onClick={() => {
+                                  console.log(
+                                    `Editing warranty for ${item.asset}`
+                                  );
+                                  toast.info(
+                                    `Opening editor for: ${item.asset}`
+                                  );
+                                  // Navigate to asset editor or open modal
+                                  navigate(
+                                    `/assets?edit=${item.asset
+                                      .replace(/\s+/g, "_")
+                                      .toLowerCase()}`
+                                  );
+                                }}
+                              >
+                                <Edit />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
                     {warrantyExpiring.length === 0 && !loading && (
                       <TableRow>
-                        <TableCell colSpan={4} sx={{ textAlign: 'center', py: 2 }}>
+                        <TableCell
+                          colSpan={4}
+                          sx={{ textAlign: "center", py: 2 }}
+                        >
                           <Typography variant="body2" color="text.secondary">
                             No warranties expiring soon
                           </Typography>
@@ -725,7 +935,14 @@ const InventoryManagerDashboard = () => {
           {/* Maintenance Schedule */}
           <Grid item xs={12} md={7}>
             <Paper sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  mb: 2,
+                }}
+              >
                 <Typography variant="h6">
                   Upcoming Maintenance Schedule
                 </Typography>
@@ -743,50 +960,63 @@ const InventoryManagerDashboard = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {loading ? (
-                      [1, 2, 3].map((item) => (
-                        <TableRow key={item}>
-                          <TableCell>
-                            <Skeleton variant="text" width="80%" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton variant="text" width="70%" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton variant="text" width="60%" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton variant="text" width="80%" />
-                          </TableCell>
-                          <TableCell>
-                            <Skeleton variant="rectangular" width={70} height={24} sx={{ borderRadius: 1 }} />
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      maintenanceSchedule.map((item, index) => (
-                        <TableRow key={index}>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                              {item.asset}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>{item.type}</TableCell>
-                          <TableCell>{item.scheduledDate}</TableCell>
-                          <TableCell>{item.technician}</TableCell>
-                          <TableCell>
-                            <Chip
-                              label={item.status}
-                              size="small"
-                              color={item.status === 'scheduled' ? 'success' : 'warning'}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
+                    {loading
+                      ? [1, 2, 3].map((item) => (
+                          <TableRow key={item}>
+                            <TableCell>
+                              <Skeleton variant="text" width="80%" />
+                            </TableCell>
+                            <TableCell>
+                              <Skeleton variant="text" width="70%" />
+                            </TableCell>
+                            <TableCell>
+                              <Skeleton variant="text" width="60%" />
+                            </TableCell>
+                            <TableCell>
+                              <Skeleton variant="text" width="80%" />
+                            </TableCell>
+                            <TableCell>
+                              <Skeleton
+                                variant="rectangular"
+                                width={70}
+                                height={24}
+                                sx={{ borderRadius: 1 }}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      : maintenanceSchedule.map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell>
+                              <Typography
+                                variant="body2"
+                                sx={{ fontWeight: "medium" }}
+                              >
+                                {item.asset}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>{item.type}</TableCell>
+                            <TableCell>{item.scheduledDate}</TableCell>
+                            <TableCell>{item.technician}</TableCell>
+                            <TableCell>
+                              <Chip
+                                label={item.status}
+                                size="small"
+                                color={
+                                  item.status === "scheduled"
+                                    ? "success"
+                                    : "warning"
+                                }
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
                     {maintenanceSchedule.length === 0 && !loading && (
                       <TableRow>
-                        <TableCell colSpan={5} sx={{ textAlign: 'center', py: 2 }}>
+                        <TableCell
+                          colSpan={5}
+                          sx={{ textAlign: "center", py: 2 }}
+                        >
                           <Typography variant="body2" color="text.secondary">
                             No maintenance scheduled
                           </Typography>
@@ -802,10 +1032,15 @@ const InventoryManagerDashboard = () => {
           {/* Top Vendors */}
           <Grid item xs={12} md={5}>
             <Paper sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6">
-                  Top Vendors by Value
-                </Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  mb: 2,
+                }}
+              >
+                <Typography variant="h6">Top Vendors by Value</Typography>
                 {loading && <CircularProgress size={20} />}
               </Box>
               {loading ? (
@@ -818,10 +1053,10 @@ const InventoryManagerDashboard = () => {
                       <ListItemText
                         primary={<Skeleton variant="text" width="70%" />}
                         secondary={
-                          <Box>
+                          <>
                             <Skeleton variant="text" width="60%" />
                             <Skeleton variant="text" width="40%" />
-                          </Box>
+                          </>
                         }
                       />
                     </ListItem>
@@ -830,16 +1065,19 @@ const InventoryManagerDashboard = () => {
               ) : (
                 <List>
                   {topVendors.map((vendor, index) => (
-                    <ListItem key={index} divider={index < topVendors.length - 1}>
+                    <ListItem
+                      key={index}
+                      divider={index < topVendors.length - 1}
+                    >
                       <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                        <Avatar sx={{ bgcolor: "secondary.main" }}>
                           <VendorIcon />
                         </Avatar>
                       </ListItemAvatar>
                       <ListItemText
                         primary={vendor.name}
                         secondary={
-                          <Box>
+                          <>
                             <Typography variant="body2" component="span">
                               {vendor.orders} orders • {vendor.value}
                             </Typography>
@@ -847,13 +1085,17 @@ const InventoryManagerDashboard = () => {
                             <Typography variant="caption" component="span">
                               Rating: ⭐ {vendor.rating}/5
                             </Typography>
-                          </Box>
+                          </>
                         }
                       />
                     </ListItem>
                   ))}
                   {topVendors.length === 0 && !loading && (
-                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ textAlign: "center", py: 2 }}
+                    >
                       No vendor data available
                     </Typography>
                   )}
@@ -863,7 +1105,7 @@ const InventoryManagerDashboard = () => {
                 fullWidth
                 variant="outlined"
                 sx={{ mt: 2 }}
-                onClick={() => navigate('/vendors')}
+                onClick={() => navigate("/vendors")}
                 disabled={loading}
               >
                 View All Vendors
@@ -876,10 +1118,15 @@ const InventoryManagerDashboard = () => {
         <Grid container spacing={3} sx={{ mt: 2 }}>
           <Grid item xs={12}>
             <Paper sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6">
-                  My Approvals
-                </Typography>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  mb: 2,
+                }}
+              >
+                <Typography variant="h6">My Approvals</Typography>
                 {loading && <CircularProgress size={20} />}
               </Box>
               {loading ? (
@@ -899,50 +1146,72 @@ const InventoryManagerDashboard = () => {
               ) : (
                 <List>
                   {pendingApprovals.map((approval, index) => (
-                    <ListItem key={index} divider={index < pendingApprovals.length - 1}>
+                    <ListItem
+                      key={index}
+                      divider={index < pendingApprovals.length - 1}
+                    >
                       <ListItemAvatar>
-                        <Avatar sx={{ 
-                          bgcolor: approval.priority === 'Critical' ? 'error.main' : 
-                                   approval.priority === 'High' ? 'warning.main' :
-                                   approval.priority === 'Medium' ? 'info.main' : 'success.main'
-                        }}>
+                        <Avatar
+                          sx={{
+                            bgcolor:
+                              approval.priority === "Critical"
+                                ? "error.main"
+                                : approval.priority === "High"
+                                ? "warning.main"
+                                : approval.priority === "Medium"
+                                ? "info.main"
+                                : "success.main",
+                          }}
+                        >
                           <Assignment />
                         </Avatar>
                       </ListItemAvatar>
                       <ListItemText
                         primary={
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="subtitle2">
+                          <span
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                            }}
+                          >
+                            <Typography variant="subtitle2" component="span">
                               {approval.type} - {approval.id}
                             </Typography>
-                            <Chip 
-                              label={approval.priority} 
-                              size="small" 
+                            <Chip
+                              label={approval.priority}
+                              size="small"
                               color={
-                                approval.priority === 'Critical' ? 'error' :
-                                approval.priority === 'High' ? 'warning' :
-                                approval.priority === 'Medium' ? 'info' : 'success'
+                                approval.priority === "Critical"
+                                  ? "error"
+                                  : approval.priority === "High"
+                                  ? "warning"
+                                  : approval.priority === "Medium"
+                                  ? "info"
+                                  : "success"
                               }
                             />
-                          </Box>
+                          </span>
                         }
-                        secondary={
-                          <Typography variant="body2" color="text.secondary">
-                            Requested by {approval.requester} • {approval.daysAgo} day{approval.daysAgo !== 1 ? 's' : ''} ago
-                          </Typography>
-                        }
+                        secondary={`Requested by ${approval.requester} • ${
+                          approval.daysAgo
+                        } day${approval.daysAgo !== 1 ? "s" : ""} ago`}
                       />
-                      <IconButton 
-                        size="small" 
+                      <IconButton
+                        size="small"
                         color="primary"
-                        onClick={() => navigate('/approvals')}
+                        onClick={() => navigate("/approvals")}
                       >
                         <Visibility />
                       </IconButton>
                     </ListItem>
                   ))}
                   {pendingApprovals.length === 0 && !loading && (
-                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ textAlign: "center", py: 2 }}
+                    >
                       No pending approvals
                     </Typography>
                   )}
@@ -952,7 +1221,7 @@ const InventoryManagerDashboard = () => {
                 fullWidth
                 variant="outlined"
                 sx={{ mt: 2 }}
-                onClick={() => navigate('/approvals')}
+                onClick={() => navigate("/approvals")}
                 disabled={loading}
               >
                 View All Approvals
@@ -965,37 +1234,37 @@ const InventoryManagerDashboard = () => {
       {/* Modal Components */}
       <AddAssetModal
         open={modals.addAsset}
-        onClose={() => closeModal('addAsset')}
-        onSubmit={(data) => handleModalSubmit('addAsset', data)}
+        onClose={() => closeModal("addAsset")}
+        onSubmit={(data) => handleModalSubmit("addAsset", data)}
       />
 
       <PurchaseOrderModal
         open={modals.purchaseOrder}
-        onClose={() => closeModal('purchaseOrder')}
-        onSubmit={(data) => handleModalSubmit('purchaseOrder', data)}
+        onClose={() => closeModal("purchaseOrder")}
+        onSubmit={(data) => handleModalSubmit("purchaseOrder", data)}
       />
 
       <MaintenanceModal
         open={modals.maintenance}
-        onClose={() => closeModal('maintenance')}
-        onSubmit={(data) => handleModalSubmit('maintenance', data)}
+        onClose={() => closeModal("maintenance")}
+        onSubmit={(data) => handleModalSubmit("maintenance", data)}
       />
 
       <AssetTransferModal
         open={modals.assetTransfer}
-        onClose={() => closeModal('assetTransfer')}
-        onSubmit={(data) => handleModalSubmit('assetTransfer', data)}
+        onClose={() => closeModal("assetTransfer")}
+        onSubmit={(data) => handleModalSubmit("assetTransfer", data)}
       />
 
       <ReportModal
         open={modals.report}
-        onClose={() => closeModal('report')}
-        onSubmit={(data) => handleModalSubmit('report', data)}
+        onClose={() => closeModal("report")}
+        onSubmit={(data) => handleModalSubmit("report", data)}
       />
 
       <CategoriesModal
         open={modals.categories}
-        onClose={() => closeModal('categories')}
+        onClose={() => closeModal("categories")}
       />
 
       {/* QR Dialog for newly created asset from modal */}
@@ -1006,23 +1275,26 @@ const InventoryManagerDashboard = () => {
           setQrOpen(false);
           setQrAsset(null);
           // also close add asset modal if still open
-          setModals(prev => ({ ...prev, addAsset: false }));
+          setModals((prev) => ({ ...prev, addAsset: false }));
         }}
       />
 
       {/* QR Scanner Modal */}
-      <QRScanner
+      <EnhancedQRScanner
         open={qrScannerOpen}
         onClose={() => setQrScannerOpen(false)}
         onAssetFound={handleQRScanComplete}
         mode="lookup"
+        enableBatchScan={true}
+        enableHistory={true}
+        enableOfflineCache={false}
       />
 
       {/* Documents Panel - Embedded for quick access */}
       <Box sx={{ mt: 4 }}>
         <Suspense fallback={<CircularProgress />}>
           {(() => {
-            const Documents = lazy(() => import('../documents/Documents'));
+            const Documents = lazy(() => import("../documents/Documents"));
             return <Documents embedded />;
           })()}
         </Suspense>

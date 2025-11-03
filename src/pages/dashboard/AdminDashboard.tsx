@@ -1,5 +1,5 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, lazy, Suspense } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Grid,
@@ -23,7 +23,7 @@ import {
   IconButton,
   CircularProgress,
   Alert,
-} from '@mui/material';
+} from "@mui/material";
 import {
   TrendingUp,
   TrendingDown,
@@ -43,40 +43,38 @@ import {
   Security,
   CloudDownload,
   Category as CategoryIcon,
-  QrCodeScanner as QrScanIcon,
-} from '@mui/icons-material';
-import { toast } from 'react-toastify';
-import DashboardLayout from '../../components/layout/DashboardLayout';
-import { dashboardDataService } from '../../services/dashboardData.service';
-import { UserRole } from '../../types';
-import api from '../../services/api';
-import CategoriesModal from '../../components/modals/CategoriesModal';
-import QRScanner from '../../components/common/QRScanner';
+} from "@mui/icons-material";
+import { toast } from "react-toastify";
+import DashboardLayout from "../../components/layout/DashboardLayout";
+import { dashboardDataService } from "../../services/dashboardData.service";
+import { UserRole } from "../../types";
+import api from "../../services/api";
+import CategoriesModal from "../../components/modals/CategoriesModal";
 
 // Utility function to format timestamp to relative time
 const formatTimeAgo = (timestamp: string | Date): string => {
   const date = new Date(timestamp);
   const now = new Date();
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-  
-  if (seconds < 60) return 'just now';
+
+  if (seconds < 60) return "just now";
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+  if (minutes < 60) return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} day${days > 1 ? 's' : ''} ago`;
+  if (days < 30) return `${days} day${days > 1 ? "s" : ""} ago`;
   const months = Math.floor(days / 30);
-  if (months < 12) return `${months} month${months > 1 ? 's' : ''} ago`;
+  if (months < 12) return `${months} month${months > 1 ? "s" : ""} ago`;
   const years = Math.floor(months / 12);
-  return `${years} year${years > 1 ? 's' : ''} ago`;
+  return `${years} year${years > 1 ? "s" : ""} ago`;
 };
 
 // Utility function to format currency
 const formatCurrency = (amount: number | string): string => {
-  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-  if (isNaN(numAmount)) return '₹0';
-  return `₹${numAmount.toLocaleString('en-IN')}`;
+  const numAmount = typeof amount === "string" ? parseFloat(amount) : amount;
+  if (isNaN(numAmount)) return "₹0";
+  return `₹${numAmount.toLocaleString("en-IN")}`;
 };
 
 interface StatCardProps {
@@ -87,13 +85,25 @@ interface StatCardProps {
     value: number;
     isPositive: boolean;
   };
-  color?: 'primary' | 'secondary' | 'success' | 'warning' | 'error';
+  color?: "primary" | "secondary" | "success" | "warning" | "error";
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, color = 'primary' }) => (
-  <Card sx={{ height: '100%' }}>
+const StatCard: React.FC<StatCardProps> = ({
+  title,
+  value,
+  icon,
+  trend,
+  color = "primary",
+}) => (
+  <Card sx={{ height: "100%" }}>
     <CardContent>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <Box>
           <Typography color="textSecondary" gutterBottom variant="overline">
             {title}
@@ -102,16 +112,16 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, icon, trend, color = 
             {value}
           </Typography>
           {trend && (
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ display: "flex", alignItems: "center" }}>
               {trend.isPositive ? (
-                <TrendingUp sx={{ color: 'success.main', mr: 0.5 }} />
+                <TrendingUp sx={{ color: "success.main", mr: 0.5 }} />
               ) : (
-                <TrendingDown sx={{ color: 'error.main', mr: 0.5 }} />
+                <TrendingDown sx={{ color: "error.main", mr: 0.5 }} />
               )}
               <Typography
                 variant="body2"
                 sx={{
-                  color: trend.isPositive ? 'success.main' : 'error.main',
+                  color: trend.isPositive ? "success.main" : "error.main",
                 }}
               >
                 {trend.value}%
@@ -138,13 +148,19 @@ interface QuickActionProps {
   description: string;
   icon: React.ReactNode;
   onClick: () => void;
-  color?: 'primary' | 'secondary' | 'success' | 'warning' | 'error' | 'info';
+  color?: "primary" | "secondary" | "success" | "warning" | "error" | "info";
 }
 
-const QuickActionCard: React.FC<QuickActionProps> = ({ title, description, icon, onClick, color = 'primary' }) => (
-  <Card sx={{ height: '100%', cursor: 'pointer' }} onClick={onClick}>
+const QuickActionCard: React.FC<QuickActionProps> = ({
+  title,
+  description,
+  icon,
+  onClick,
+  color = "primary",
+}) => (
+  <Card sx={{ height: "100%", cursor: "pointer" }} onClick={onClick}>
     <CardContent>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+      <Box sx={{ display: "flex", alignItems: "flex-start" }}>
         <Avatar
           sx={{
             backgroundColor: `${color}.main`,
@@ -171,63 +187,73 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   const [stats, setStats] = useState({
     totalAssets: 0,
-    totalValue: '₹0',
+    totalValue: "₹0",
     activeUsers: 0,
     pendingApprovals: 0,
     scrapAssets: 0,
-    monthlyPurchase: '₹0'
+    monthlyPurchase: "₹0",
   });
 
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
   const [categoriesModalOpen, setCategoriesModalOpen] = useState(false);
-  const [qrScannerOpen, setQrScannerOpen] = useState(false);
-  
-  const handleApprovalAction = (approvalId: number, action: 'approve' | 'reject') => {
+
+  const handleApprovalAction = (
+    approvalId: number,
+    action: "approve" | "reject"
+  ) => {
     toast.success(`Approval ${action}d successfully!`);
     loadDashboardData();
   };
 
   const loadDashboardData = async () => {
     setLoading(true);
-    
+
     try {
       // Fetch dashboard stats from service
-      const dashboardStats = await dashboardDataService.getDashboardStats(UserRole.ADMIN);
-      
+      const dashboardStats = await dashboardDataService.getDashboardStats(
+        UserRole.ADMIN
+      );
+
       setStats({
         totalAssets: dashboardStats.totalAssets,
         totalValue: `₹${dashboardStats.totalValue.toLocaleString()}`,
         activeUsers: dashboardStats.activeUsers,
         pendingApprovals: dashboardStats.pendingApprovals,
-        scrapAssets: dashboardStats.disposedAssets || 0, 
-        monthlyPurchase: `₹${dashboardStats.monthlyPurchaseValue?.toLocaleString() || '0'}`
+        scrapAssets: dashboardStats.disposedAssets || 0,
+        monthlyPurchase: `₹${
+          dashboardStats.monthlyPurchaseValue?.toLocaleString() || "0"
+        }`,
       });
     } catch (error) {
-      console.error('Error loading dashboard stats:', error);
-      toast.error('Failed to load dashboard statistics');
+      console.error("Error loading dashboard stats:", error);
+      toast.error("Failed to load dashboard statistics");
     }
 
     try {
       // Fetch recent activities from API
-      const activitiesResponse = await api.get('/dashboard/activities');
-      const activitiesData = activitiesResponse.data.data || activitiesResponse.data;
+      const activitiesResponse = await api.get("/dashboard/activities");
+      const activitiesData =
+        activitiesResponse.data.data || activitiesResponse.data;
       setRecentActivities(Array.isArray(activitiesData) ? activitiesData : []);
     } catch (error) {
-      console.error('Error loading activities:', error);
+      console.error("Error loading activities:", error);
       setRecentActivities([]);
     }
 
     try {
       // Fetch pending approvals from API
-      const approvalsResponse = await api.get('/dashboard/approvals');
-      const approvalsData = approvalsResponse.data.data || approvalsResponse.data;
-      setPendingApprovals(Array.isArray(approvalsData) ? approvalsData.slice(0, 3) : []);
+      const approvalsResponse = await api.get("/dashboard/approvals");
+      const approvalsData =
+        approvalsResponse.data.data || approvalsResponse.data;
+      setPendingApprovals(
+        Array.isArray(approvalsData) ? approvalsData.slice(0, 3) : []
+      );
     } catch (error) {
-      console.error('Error loading approvals:', error);
+      console.error("Error loading approvals:", error);
       setPendingApprovals([]);
     }
 
@@ -237,114 +263,112 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     loadDashboardData();
-    
+
     // Auto-refresh every 5 minutes
     const interval = setInterval(loadDashboardData, 300000);
-    
+
     return () => clearInterval(interval);
   }, []);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    toast.info('Refreshing dashboard data...');
+    toast.info("Refreshing dashboard data...");
     dashboardDataService.refreshCache();
     loadDashboardData();
   };
 
   const handleExportData = async () => {
     try {
-      toast.info('Preparing data export...');
-      
-      const response = await api.post('/export-import/export', {
-        format: 'xlsx',
-        includeAssets: true,
-        includeUsers: true,
-        includeTransactions: true,
-        includeVendors: true
-      }, {
-        responseType: 'blob'
-      });
-      
+      toast.info("Preparing data export...");
+
+      const response = await api.post(
+        "/export-import/export",
+        {
+          format: "xlsx",
+          includeAssets: true,
+          includeUsers: true,
+          includeTransactions: true,
+          includeVendors: true,
+        },
+        {
+          responseType: "blob",
+        }
+      );
+
       // Create download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `system-export-${new Date().toISOString().split('T')[0]}.xlsx`);
+      link.setAttribute(
+        "download",
+        `system-export-${new Date().toISOString().split("T")[0]}.xlsx`
+      );
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      
-      toast.success('Data exported successfully!');
-    } catch (error) {
-      console.error('Export error:', error);
-      toast.error('Failed to export data');
-    }
-  };
 
-  const handleQRScanComplete = (asset: any) => {
-    toast.success(`Asset scanned: ${asset.name || asset.unique_asset_id}`);
-    setQrScannerOpen(false);
-    // Navigate to assets page to show the scanned asset
-    navigate('/assets', { state: { scannedAssetId: asset.id } });
+      toast.success("Data exported successfully!");
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error("Failed to export data");
+    }
   };
 
   const quickActions = [
     {
-      title: 'Scan Asset QR Code',
-      description: 'Quickly scan and audit assets using QR codes',
-      icon: <QrScanIcon />,
-      onClick: () => setQrScannerOpen(true),
-      color: 'primary' as const,
-    },
-    {
-      title: 'Add New User',
-      description: 'Create new user accounts and assign roles',
+      title: "Add New User",
+      description: "Create new user accounts and assign roles",
       icon: <PersonAdd />,
-      onClick: () => navigate('/admin/users/add'),
-      color: 'primary' as const,
+      onClick: () => navigate("/admin/users/add"),
+      color: "primary" as const,
     },
     {
-      title: 'Manage Categories',
-      description: 'Organize asset categories and classifications',
+      title: "Manage Categories",
+      description: "Organize asset categories and classifications",
       icon: <CategoryIcon />,
       onClick: () => setCategoriesModalOpen(true),
-      color: 'info' as const,
+      color: "info" as const,
     },
     {
-      title: 'System Backup',
-      description: 'Create system backup and manage recovery',
+      title: "System Backup",
+      description: "Create system backup and manage recovery",
       icon: <Backup />,
-      onClick: () => navigate('/admin/backups'),
-      color: 'secondary' as const,
+      onClick: () => navigate("/admin/backups"),
+      color: "secondary" as const,
     },
     {
-      title: 'View Audit Logs',
-      description: 'Review system activity and user actions',
+      title: "View Audit Logs",
+      description: "Review system activity and user actions",
       icon: <Assessment />,
-      onClick: () => navigate('/admin/audit-logs'),
-      color: 'success' as const,
+      onClick: () => navigate("/admin/audit-logs"),
+      color: "success" as const,
     },
     {
-      title: 'System Settings',
-      description: 'Configure global system preferences',
+      title: "System Settings",
+      description: "Configure global system preferences",
       icon: <Settings />,
-      onClick: () => navigate('/admin/settings'),
-      color: 'warning' as const,
+      onClick: () => navigate("/admin/settings"),
+      color: "warning" as const,
     },
     {
-      title: 'Export Data',
-      description: 'Download system data and generate reports',
+      title: "Export Data",
+      description: "Download system data and generate reports",
       icon: <CloudDownload />,
       onClick: handleExportData,
-      color: 'primary' as const,
+      color: "primary" as const,
     },
   ];
 
   if (loading) {
     return (
       <DashboardLayout>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+        <Box
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          minHeight="60vh"
+        >
           <CircularProgress size={60} />
         </Box>
       </DashboardLayout>
@@ -354,23 +378,33 @@ const AdminDashboard = () => {
   return (
     <DashboardLayout>
       <Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 3,
+          }}
+        >
           <Typography variant="h4" gutterBottom>
             Admin Dashboard - System Overview
           </Typography>
           <Button
             variant="outlined"
-            startIcon={refreshing ? <CircularProgress size={20} /> : <Refresh />}
+            startIcon={
+              refreshing ? <CircularProgress size={20} /> : <Refresh />
+            }
             onClick={handleRefresh}
             disabled={refreshing}
           >
-            {refreshing ? 'Refreshing...' : 'Refresh'}
+            {refreshing ? "Refreshing..." : "Refresh"}
           </Button>
         </Box>
 
         {stats.pendingApprovals > 20 && (
           <Alert severity="warning" sx={{ mb: 3 }}>
-            You have {stats.pendingApprovals} pending approvals that require attention.
+            You have {stats.pendingApprovals} pending approvals that require
+            attention.
           </Alert>
         )}
 
@@ -451,20 +485,29 @@ const AdminDashboard = () => {
               </Typography>
               <List>
                 {recentActivities.map((activity, index) => (
-                  <ListItem key={index} divider={index < recentActivities.length - 1}>
+                  <ListItem
+                    key={index}
+                    divider={index < recentActivities.length - 1}
+                  >
                     <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: 'primary.main' }}>
+                      <Avatar sx={{ bgcolor: "primary.main" }}>
                         {activity.user[0]}
                       </Avatar>
                     </ListItemAvatar>
                     <ListItemText
                       primary={
                         <Box>
-                          <Typography component="span" sx={{ fontWeight: 'medium' }}>
+                          <Typography
+                            component="span"
+                            sx={{ fontWeight: "medium" }}
+                          >
                             {activity.user}
-                          </Typography>
-                          {' '}{activity.action}{' '}
-                          <Typography component="span" sx={{ fontWeight: 'medium', color: 'primary.main' }}>
+                          </Typography>{" "}
+                          {activity.action}{" "}
+                          <Typography
+                            component="span"
+                            sx={{ fontWeight: "medium", color: "primary.main" }}
+                          >
                             {activity.asset}
                           </Typography>
                         </Box>
@@ -475,9 +518,13 @@ const AdminDashboard = () => {
                       label={activity.type}
                       size="small"
                       color={
-                        activity.type === 'create' ? 'success' :
-                        activity.type === 'approve' ? 'primary' :
-                        activity.type === 'update' ? 'warning' : 'default'
+                        activity.type === "create"
+                          ? "success"
+                          : activity.type === "approve"
+                          ? "primary"
+                          : activity.type === "update"
+                          ? "warning"
+                          : "default"
                       }
                     />
                   </ListItem>
@@ -506,7 +553,10 @@ const AdminDashboard = () => {
                     {pendingApprovals.map((approval) => (
                       <TableRow key={approval.id}>
                         <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                          <Typography
+                            variant="body2"
+                            sx={{ fontWeight: "medium" }}
+                          >
                             {approval.type}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
@@ -519,23 +569,30 @@ const AdminDashboard = () => {
                             label={approval.priority}
                             size="small"
                             color={
-                              approval.priority === 'high' ? 'error' :
-                              approval.priority === 'medium' ? 'warning' : 'default'
+                              approval.priority === "high"
+                                ? "error"
+                                : approval.priority === "medium"
+                                ? "warning"
+                                : "default"
                             }
                           />
                         </TableCell>
                         <TableCell>
-                          <IconButton 
-                            size="small" 
+                          <IconButton
+                            size="small"
                             color="primary"
-                            onClick={() => navigate(`/approvals/${approval.id}`)}
+                            onClick={() =>
+                              navigate(`/approvals/${approval.id}`)
+                            }
                           >
                             <Visibility />
                           </IconButton>
-                          <IconButton 
-                            size="small" 
+                          <IconButton
+                            size="small"
                             color="success"
-                            onClick={() => handleApprovalAction(approval.id, 'approve')}
+                            onClick={() =>
+                              handleApprovalAction(approval.id, "approve")
+                            }
                           >
                             <Edit />
                           </IconButton>
@@ -549,7 +606,7 @@ const AdminDashboard = () => {
                 fullWidth
                 variant="outlined"
                 sx={{ mt: 2 }}
-                onClick={() => navigate('/approvals')}
+                onClick={() => navigate("/approvals")}
               >
                 View All Approvals
               </Button>
@@ -561,7 +618,7 @@ const AdminDashboard = () => {
         <Box sx={{ mt: 4 }}>
           <Suspense fallback={<CircularProgress />}>
             {(() => {
-              const Documents = lazy(() => import('../documents/Documents'));
+              const Documents = lazy(() => import("../documents/Documents"));
               return <Documents embedded />;
             })()}
           </Suspense>
@@ -572,14 +629,6 @@ const AdminDashboard = () => {
       <CategoriesModal
         open={categoriesModalOpen}
         onClose={() => setCategoriesModalOpen(false)}
-      />
-
-      {/* QR Scanner Modal */}
-      <QRScanner
-        open={qrScannerOpen}
-        onClose={() => setQrScannerOpen(false)}
-        onAssetFound={handleQRScanComplete}
-        mode="audit"
       />
     </DashboardLayout>
   );

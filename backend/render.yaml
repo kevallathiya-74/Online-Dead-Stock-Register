@@ -40,5 +40,5 @@ services:
         value: 900000
       - key: RATE_LIMIT_MAX_REQUESTS
         value: 100
-    healthCheckPath: /api/v1/health
+    healthCheckPath: /health
     autoDeploy: true

@@ -1,12 +1,9 @@
 {
   "compilerOptions": {
-    "target": "es5",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "target": "esnext",
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
+    "checkJs": false,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -24,10 +21,23 @@
       "@/*": ["*"]
     },
     "noImplicitAny": false,
-    "useUnknownInCatchVariables": false
+    "useUnknownInCatchVariables": false,
+    "types": ["node"]
   },
-  "include": [
-    "src",
-    "vite.config.ts"
-  ]
+  "exclude": [
+    "node_modules",
+    "build",
+    "dist",
+    "public",
+    "assets",
+    ".vscode",
+    "**/*.png",
+    "**/*.jpg",
+    "**/*.jpeg",
+    "**/*.svg",
+    "**/*.gif",
+    "**/*.webp",
+    "**/*.ico"
+  ],
+  "include": ["src", "vite.config.ts"]
 }

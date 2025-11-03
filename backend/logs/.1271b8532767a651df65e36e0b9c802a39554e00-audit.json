@@ -39,6 +39,16 @@
             "date": 1762067076147,
             "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\rejections-2025-11-02.log",
             "hash": "1d7db4abfeb57f09b6457830a9f670b679ceed0dbedf07c3c20aadf3b26115ea"
+        },
+        {
+            "date": 1762110465910,
+            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\rejections-2025-11-03.log",
+            "hash": "2b50a055eb5e84c7df8eb14d06418ba97a7e9944aec43a53294b8fd5298ccbbd"
+        },
+        {
+            "date": 1762194716202,
+            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\rejections-2025-11-04.log",
+            "hash": "6d3ce1410a66609d43fb03661cb2d61fc52937c4003ea6293d651ccd74962674"
         }
     ],
     "hashType": "sha256"

@@ -26,14 +26,13 @@ exports.scanAsset = async (req, res) => {
     if (!asset) {
       // Log failed scan attempt
       await AuditLog.create({
+        user_id: req.user.id,
         action: 'qr_scan_failed',
-        performed_by: req.user.id,
-        details: {
-          qr_code: qrCode,
-          mode,
-          reason: 'Asset not found'
-        },
-        timestamp: new Date()
+        entity_type: 'Unknown',
+        description: `Failed QR scan attempt: Asset not found for code ${qrCode}`,
+        severity: 'warning',
+        ip_address: req.ip || req.connection.remoteAddress,
+        user_agent: req.get('user-agent')
       });
 
       return res.status(404).json({
@@ -58,16 +57,15 @@ exports.scanAsset = async (req, res) => {
 
     // Log successful scan
     await AuditLog.create({
-      asset_id: asset._id,
+      user_id: req.user.id,
       action: mode === 'audit' ? 'audit_scanned' : 
               mode === 'checkout' ? 'checkout_scanned' : 'qr_scan_success',
-      performed_by: req.user.id,
-      details: {
-        qr_code: qrCode,
-        mode,
-        location: req.body.location || 'Not specified',
-        device_info: req.body.device_info || null
-      },
+      entity_type: 'Asset',
+      entity_id: asset._id,
+      description: `QR code scanned for asset ${asset.unique_asset_id} (${asset.name || asset.manufacturer + ' ' + asset.model})`,
+      severity: 'info',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
       timestamp: new Date()
     });
 
@@ -181,15 +179,14 @@ exports.batchScan = async (req, res) => {
 
           // Log scan
           await AuditLog.create({
-            asset_id: asset._id,
+            user_id: req.user.id,
             action: 'batch_scan',
-            performed_by: req.user.id,
-            details: {
-              qr_code: qrCode,
-              mode,
-              batch_size: qr_codes.length
-            },
-            timestamp: new Date()
+            entity_type: 'Asset',
+            entity_id: asset._id,
+            description: `Batch scan: ${asset.unique_asset_id}`,
+            severity: 'info',
+            ip_address: req.ip || req.connection.remoteAddress,
+            user_agent: req.get('user-agent')
           });
         } else {
           results.not_found++;
@@ -208,8 +205,13 @@ exports.batchScan = async (req, res) => {
 
     // Log batch scan completion
     await AuditLog.create({
+      user_id: req.user.id,
       action: 'batch_scan_completed',
-      performed_by: req.user.id,
+      entity_type: 'System',
+      description: `Batch scan completed: ${results.found} found, ${results.not_found} not found`,
+      severity: 'info',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
       details: {
         total_scanned: qr_codes.length,
         found: results.found,
@@ -435,18 +437,22 @@ exports.quickAuditScan = async (req, res) => {
 
     // Log audit
     await AuditLog.create({
-      asset_id: asset._id,
+      user_id: req.user.id,
       action: 'quick_audit_completed',
-      performed_by: req.user.id,
-      details: {
-        qr_code: qrCode,
-        condition,
-        status,
-        location_verified,
-        notes,
-        photo_count: photos.length
+      entity_type: 'Asset',
+      entity_id: asset._id,
+      description: `Quick audit completed for ${asset.unique_asset_id}: Condition=${condition || 'unchanged'}, Status=${status || 'unchanged'}`,
+      severity: 'info',
+      ip_address: req.ip || req.connection.remoteAddress,
+      user_agent: req.get('user-agent'),
+      old_values: {
+        condition: asset.condition,
+        status: asset.status
       },
-      timestamp: new Date()
+      new_values: {
+        condition: condition || asset.condition,
+        status: status || asset.status
+      }
     });
 
     res.json({

@@ -1,7 +1,7 @@
-﻿import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import { API_BASE_URL } from '../../config/api.config';
+﻿import React, { useState, useEffect, lazy, Suspense } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { API_BASE_URL } from "../../config/api.config";
 import {
   Box,
   Grid,
@@ -24,7 +24,7 @@ import {
   Paper,
   ListItemAvatar,
   CircularProgress,
-} from '@mui/material';
+} from "@mui/material";
 import {
   Laptop as LaptopIcon,
   Smartphone as PhoneIcon,
@@ -38,10 +38,10 @@ import {
   Help as HelpIcon,
   Refresh as RefreshIcon,
   QrCodeScanner as QrScanIcon,
-} from '@mui/icons-material';
-import DashboardLayout from '../../components/layout/DashboardLayout';
-import { useAuth } from '../../context/AuthContext';
-import QRScanner from '../../components/common/QRScanner';
+} from "@mui/icons-material";
+import DashboardLayout from "../../components/layout/DashboardLayout";
+import { useAuth } from "../../context/AuthContext";
+import EnhancedQRScanner from "../../components/common/EnhancedQRScanner";
 
 interface Asset {
   id: string;
@@ -65,8 +65,8 @@ interface MaintenanceRequest {
   asset_id: string;
   asset_name: string;
   issue_description: string;
-  priority: 'low' | 'medium' | 'high' | 'critical';
-  status: 'pending' | 'in_progress' | 'completed';
+  priority: "low" | "medium" | "high" | "critical";
+  status: "pending" | "in_progress" | "completed";
   created_date: string;
 }
 
@@ -77,12 +77,14 @@ const EmployeeDashboard = () => {
   const [requestDialogOpen, setRequestDialogOpen] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [requestForm, setRequestForm] = useState({
-    issue_description: '',
-    priority: 'medium',
+    issue_description: "",
+    priority: "medium",
   });
 
   const [myAssets, setMyAssets] = useState<Asset[]>([]);
-  const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
+  const [maintenanceRequests, setMaintenanceRequests] = useState<
+    MaintenanceRequest[]
+  >([]);
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
 
   useEffect(() => {
@@ -93,26 +95,25 @@ const EmployeeDashboard = () => {
     try {
       setLoading(true);
       // Fetch my assigned assets
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       const response = await fetch(`${API_BASE_URL}/assets/my-assets`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setMyAssets(data.data || []);
       } else {
-        toast.error('Failed to load your assets');
+        toast.error("Failed to load your assets");
       }
-      
+
       // TODO: Fetch maintenance requests when endpoint is available
-      
     } catch (error) {
-      console.error('Error loading data:', error);
-      toast.error('Error loading dashboard data');
+      console.error("Error loading data:", error);
+      toast.error("Error loading dashboard data");
     } finally {
       setLoading(false);
     }
@@ -120,14 +121,15 @@ const EmployeeDashboard = () => {
 
   const employeeStats = {
     total_assets: myAssets.length,
-    active_assets: myAssets.filter((a) => a.status === 'Active').length,
-    pending_requests: maintenanceRequests.filter((r) => r.status === 'pending').length,
+    active_assets: myAssets.filter((a) => a.status === "Active").length,
+    pending_requests: maintenanceRequests.filter((r) => r.status === "pending")
+      .length,
     warranties_expiring: 0,
   };
 
   const handleMaintenanceRequest = (asset: Asset) => {
     setSelectedAsset(asset);
-    setRequestForm({ issue_description: '', priority: 'medium' });
+    setRequestForm({ issue_description: "", priority: "medium" });
     setRequestDialogOpen(true);
   };
 
@@ -140,21 +142,21 @@ const EmployeeDashboard = () => {
       asset_name: `${selectedAsset.manufacturer} ${selectedAsset.model}`,
       issue_description: requestForm.issue_description,
       priority: requestForm.priority as any,
-      status: 'pending',
-      created_date: new Date().toISOString().split('T')[0],
+      status: "pending",
+      created_date: new Date().toISOString().split("T")[0],
     };
 
     setMaintenanceRequests([...maintenanceRequests, newRequest]);
     setRequestDialogOpen(false);
-    toast.success('Maintenance request submitted successfully!');
+    toast.success("Maintenance request submitted successfully!");
   };
 
   const getCategoryIcon = (category: string) => {
     switch (category.toLowerCase()) {
-      case 'laptop':
+      case "laptop":
         return <LaptopIcon />;
-      case 'mobile':
-      case 'phone':
+      case "mobile":
+      case "phone":
         return <PhoneIcon />;
       default:
         return <InventoryIcon />;
@@ -163,20 +165,29 @@ const EmployeeDashboard = () => {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'critical': return 'error';
-      case 'high': return 'warning';
-      case 'medium': return 'info';
-      case 'low': return 'default';
-      default: return 'default';
+      case "critical":
+        return "error";
+      case "high":
+        return "warning";
+      case "medium":
+        return "info";
+      case "low":
+        return "default";
+      default:
+        return "default";
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'success';
-      case 'in_progress': return 'warning';
-      case 'pending': return 'default';
-      default: return 'default';
+      case "completed":
+        return "success";
+      case "in_progress":
+        return "warning";
+      case "pending":
+        return "default";
+      default:
+        return "default";
     }
   };
 
@@ -184,11 +195,17 @@ const EmployeeDashboard = () => {
     title: string;
     value: string | number;
     icon: React.ReactNode;
-    color?: 'primary' | 'secondary' | 'success' | 'warning' | 'error';
-  }> = ({ title, value, icon, color = 'primary' }) => (
-    <Card sx={{ height: '100%' }}>
+    color?: "primary" | "secondary" | "success" | "warning" | "error";
+  }> = ({ title, value, icon, color = "primary" }) => (
+    <Card sx={{ height: "100%" }}>
       <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           <Box>
             <Typography color="textSecondary" gutterBottom variant="overline">
               {title}
@@ -197,7 +214,9 @@ const EmployeeDashboard = () => {
               {value}
             </Typography>
           </Box>
-          <Avatar sx={{ backgroundColor: `${color}.main`, height: 56, width: 56 }}>
+          <Avatar
+            sx={{ backgroundColor: `${color}.main`, height: 56, width: 56 }}
+          >
             {icon}
           </Avatar>
         </Box>
@@ -210,11 +229,11 @@ const EmployeeDashboard = () => {
     description: string;
     icon: React.ReactNode;
     onClick: () => void;
-    color?: 'primary' | 'secondary' | 'success' | 'warning' | 'error';
-  }> = ({ title, description, icon, onClick, color = 'primary' }) => (
-    <Card sx={{ height: '100%', cursor: 'pointer' }} onClick={onClick}>
+    color?: "primary" | "secondary" | "success" | "warning" | "error";
+  }> = ({ title, description, icon, onClick, color = "primary" }) => (
+    <Card sx={{ height: "100%", cursor: "pointer" }} onClick={onClick}>
       <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
+        <Box sx={{ display: "flex", alignItems: "flex-start" }}>
           <Avatar sx={{ backgroundColor: `${color}.main`, mr: 2, mt: 0.5 }}>
             {icon}
           </Avatar>
@@ -234,7 +253,12 @@ const EmployeeDashboard = () => {
   if (loading) {
     return (
       <DashboardLayout>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+        <Box
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          minHeight="60vh"
+        >
           <CircularProgress size={60} />
         </Box>
       </DashboardLayout>
@@ -245,14 +269,19 @@ const EmployeeDashboard = () => {
     <DashboardLayout>
       <Box>
         {/* Header */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
+          mb={3}
+        >
           <Box display="flex" alignItems="center" gap={2}>
-            <Avatar sx={{ bgcolor: 'primary.main', width: 56, height: 56 }}>
+            <Avatar sx={{ bgcolor: "primary.main", width: 56, height: 56 }}>
               <PersonIcon />
             </Avatar>
             <Box>
               <Typography variant="h4">
-                Welcome, {user?.name || user?.full_name || 'Employee'}!
+                Welcome, {user?.name || user?.full_name || "Employee"}!
               </Typography>
               <Typography variant="body1" color="text.secondary">
                 Manage your assigned assets and maintenance requests
@@ -324,7 +353,7 @@ const EmployeeDashboard = () => {
               title="Request Asset"
               description="Submit request for new equipment"
               icon={<AddIcon />}
-              onClick={() => navigate('/employee/requests/new')}
+              onClick={() => navigate("/employee/requests/new")}
               color="primary"
             />
           </Grid>
@@ -337,7 +366,7 @@ const EmployeeDashboard = () => {
                 if (myAssets.length > 0) {
                   handleMaintenanceRequest(myAssets[0]);
                 } else {
-                  toast.info('No assets available');
+                  toast.info("No assets available");
                 }
               }}
               color="warning"
@@ -348,7 +377,7 @@ const EmployeeDashboard = () => {
               title="View History"
               description="Track all asset activities"
               icon={<HistoryIcon />}
-              onClick={() => navigate('/employee/history')}
+              onClick={() => navigate("/employee/history")}
               color="primary"
             />
           </Grid>
@@ -357,7 +386,7 @@ const EmployeeDashboard = () => {
               title="Help & Support"
               description="Get help and documentation"
               icon={<HelpIcon />}
-              onClick={() => navigate('/employee/help')}
+              onClick={() => navigate("/employee/help")}
               color="secondary"
             />
           </Grid>
@@ -388,8 +417,8 @@ const EmployeeDashboard = () => {
                     }
                   >
                     <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: 'primary.main' }}>
-                        {getCategoryIcon(asset.category || 'other')}
+                      <Avatar sx={{ bgcolor: "primary.main" }}>
+                        {getCategoryIcon(asset.category || "other")}
                       </Avatar>
                     </ListItemAvatar>
                     <ListItemText
@@ -398,16 +427,22 @@ const EmployeeDashboard = () => {
                           <Typography variant="subtitle1">
                             {asset.manufacturer} {asset.model}
                           </Typography>
-                          <Chip label={asset.status} size="small" color="success" />
+                          <Chip
+                            label={asset.status}
+                            size="small"
+                            color="success"
+                          />
                         </Box>
                       }
                       secondary={
                         <Box>
                           <Typography variant="body2" color="text.secondary">
-                            ID: {asset.unique_asset_id} | S/N: {asset.serial_number}
+                            ID: {asset.unique_asset_id} | S/N:{" "}
+                            {asset.serial_number}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            Location: {asset.location} | Condition: {asset.condition}
+                            Location: {asset.location} | Condition:{" "}
+                            {asset.condition}
                           </Typography>
                         </Box>
                       }
@@ -426,7 +461,9 @@ const EmployeeDashboard = () => {
               </Typography>
               {maintenanceRequests.length === 0 ? (
                 <Box textAlign="center" py={4}>
-                  <MaintenanceIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+                  <MaintenanceIcon
+                    sx={{ fontSize: 48, color: "text.secondary", mb: 1 }}
+                  />
                   <Typography variant="body2" color="text.secondary">
                     No maintenance requests yet
                   </Typography>
@@ -434,11 +471,16 @@ const EmployeeDashboard = () => {
               ) : (
                 <List>
                   {maintenanceRequests.map((request, index) => (
-                    <ListItem key={request.id} divider={index < maintenanceRequests.length - 1}>
+                    <ListItem
+                      key={request.id}
+                      divider={index < maintenanceRequests.length - 1}
+                    >
                       <ListItemText
                         primary={
                           <Box display="flex" alignItems="center" gap={1}>
-                            <Typography variant="subtitle2">{request.asset_name}</Typography>
+                            <Typography variant="subtitle2">
+                              {request.asset_name}
+                            </Typography>
                             <Chip
                               label={request.priority.toUpperCase()}
                               size="small"
@@ -451,14 +493,24 @@ const EmployeeDashboard = () => {
                             <Typography variant="caption" display="block">
                               {request.issue_description}
                             </Typography>
-                            <Box display="flex" alignItems="center" gap={1} mt={0.5}>
+                            <Box
+                              display="flex"
+                              alignItems="center"
+                              gap={1}
+                              mt={0.5}
+                            >
                               <Chip
-                                label={request.status.replace('_', ' ')}
+                                label={request.status.replace("_", " ")}
                                 size="small"
                                 color={getStatusColor(request.status) as any}
                               />
-                              <Typography variant="caption" color="text.secondary">
-                                {new Date(request.created_date).toLocaleDateString()}
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                {new Date(
+                                  request.created_date
+                                ).toLocaleDateString()}
                               </Typography>
                             </Box>
                           </Box>
@@ -472,7 +524,7 @@ const EmployeeDashboard = () => {
                 fullWidth
                 variant="outlined"
                 sx={{ mt: 2 }}
-                onClick={() => navigate('/employee/requests')}
+                onClick={() => navigate("/employee/requests")}
               >
                 View All Requests
               </Button>
@@ -492,8 +544,8 @@ const EmployeeDashboard = () => {
             {selectedAsset && (
               <Box>
                 <Alert severity="info" sx={{ mb: 2 }}>
-                  Reporting issue for: {selectedAsset.manufacturer} {selectedAsset.model} (
-                  {selectedAsset.unique_asset_id})
+                  Reporting issue for: {selectedAsset.manufacturer}{" "}
+                  {selectedAsset.model} ({selectedAsset.unique_asset_id})
                 </Alert>
                 <TextField
                   fullWidth
@@ -502,7 +554,10 @@ const EmployeeDashboard = () => {
                   rows={4}
                   value={requestForm.issue_description}
                   onChange={(e) =>
-                    setRequestForm((prev) => ({ ...prev, issue_description: e.target.value }))
+                    setRequestForm((prev) => ({
+                      ...prev,
+                      issue_description: e.target.value,
+                    }))
                   }
                   margin="normal"
                   placeholder="Describe the issue you're experiencing..."
@@ -514,7 +569,10 @@ const EmployeeDashboard = () => {
                   label="Priority"
                   value={requestForm.priority}
                   onChange={(e) =>
-                    setRequestForm((prev) => ({ ...prev, priority: e.target.value }))
+                    setRequestForm((prev) => ({
+                      ...prev,
+                      priority: e.target.value,
+                    }))
                   }
                   margin="normal"
                 >
@@ -542,7 +600,7 @@ const EmployeeDashboard = () => {
         <Box sx={{ mt: 4 }}>
           <Suspense fallback={<CircularProgress />}>
             {(() => {
-              const Documents = lazy(() => import('../documents/Documents'));
+              const Documents = lazy(() => import("../documents/Documents"));
               return <Documents embedded />;
             })()}
           </Suspense>
@@ -550,15 +608,22 @@ const EmployeeDashboard = () => {
       </Box>
 
       {/* QR Scanner Modal */}
-      <QRScanner
+      <EnhancedQRScanner
         open={qrScannerOpen}
         onClose={() => setQrScannerOpen(false)}
         onAssetFound={(asset) => {
-          toast.success(`Asset scanned: ${asset.name || asset.unique_asset_id}`);
+          toast.success(
+            `Asset scanned: ${asset.name || asset.unique_asset_id}`
+          );
           setQrScannerOpen(false);
-          navigate('/employee/my-assets', { state: { scannedAssetId: asset.id } });
+          navigate("/employee/my-assets", {
+            state: { scannedAssetId: asset.id },
+          });
         }}
         mode="lookup"
+        enableBatchScan={false}
+        enableHistory={true}
+        enableOfflineCache={false}
       />
     </DashboardLayout>
   );

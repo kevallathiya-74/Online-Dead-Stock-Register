@@ -158,7 +158,7 @@ export const useOfflinePhotoStorage = () => {
     setIsSyncing(true);
     console.log(`🔄 Syncing ${offlinePhotos.length} offline photo(s)...`);
 
-    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+    const apiUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://localhost:5000';
     const token = localStorage.getItem('token');
     
     const results = {

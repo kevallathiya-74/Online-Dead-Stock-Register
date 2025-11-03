@@ -19,12 +19,10 @@ const options = {
     },
     servers: [
       {
-        url: 'http://localhost:5000',
-        description: 'Development server'
-      },
-      {
-        url: 'https://api.assetmanagement.com',
-        description: 'Production server'
+        url: process.env.NODE_ENV === 'production' 
+          ? 'https://online-dead-stock-register.onrender.com'
+          : 'http://localhost:5000',
+        description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server'
       }
     ],
     components: {

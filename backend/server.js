@@ -47,7 +47,7 @@ app.set('trust proxy', 1);
 // CORS configuration - Environment-based allowed origins
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
-  : ['http://localhost:3000', 'http://localhost:5173'];
+  : ['http://localhost:3000', 'http://localhost:5000'];
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -192,43 +192,6 @@ const loginLimiter = rateLimit({
 
 app.use('/api/', generalLimiter);
 
-// ========================================
-// HEALTH CHECK ENDPOINT (No Rate Limiting)
-// ========================================
-app.get('/health', async (req, res) => {
-  try {
-    const isHealthy = await dbUtils.isConnectionHealthy();
-    const connectionInfo = dbUtils.getConnectionInfo();
-    const poolStats = dbUtils.getPoolStats();
-    
-    if (isHealthy) {
-      res.status(200).json({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        database: connectionInfo,
-        pool: poolStats,
-        memory: {
-          used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB',
-          total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + ' MB'
-        }
-      });
-    } else {
-      res.status(503).json({
-        status: 'unhealthy',
-        timestamp: new Date().toISOString(),
-        database: connectionInfo,
-        error: 'Database connection is not healthy'
-      });
-    }
-  } catch (error) {
-    res.status(503).json({
-      status: 'error',
-      timestamp: new Date().toISOString(),
-      error: error.message
-    });
-  }
-});
 
 // Connect to MongoDB
 connectDB().then(() => {
