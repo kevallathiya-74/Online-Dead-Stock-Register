@@ -43,6 +43,7 @@ import {
   CheckCircle as SuccessIcon,
   Error as ErrorIcon,
   Delete as DeleteIcon,
+  Cameraswitch as SwitchCameraIcon,
 } from "@mui/icons-material";
 import { BrowserQRCodeReader, NotFoundException } from "@zxing/library";
 import api from "../../services/api";
@@ -104,6 +105,10 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
   const [loading, setLoading] = useState(false);
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [scannedAsset, setScannedAsset] = useState<Asset | null>(null);
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
+  const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
+  const [stream, setStream] = useState<MediaStream | null>(null);
 
   // Tab state
   const [activeTab, setActiveTab] = useState(0);
@@ -120,6 +125,8 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const codeReaderRef = useRef<BrowserQRCodeReader | null>(null);
+  const scanningRef = useRef(false);
+  const handleQRCodeDetectedRef = useRef<((qrText: string) => Promise<void>) | null>(null);
 
   // Vibrate on successful scan (mobile)
   const vibrate = (pattern: number | number[] = 200) => {
@@ -131,13 +138,39 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
   // Handle QR code detected
   const handleQRCodeDetected = useCallback(
     async (qrText: string) => {
+      // Prevent duplicate scans
+      if (!scanningRef.current) {
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
 
+        console.log("Processing QR code:", qrText);
+
+        // Parse QR code data if it's JSON
+        let assetIdentifier = qrText;
+        try {
+          const parsed = JSON.parse(qrText);
+          if (parsed.asset_id) {
+            assetIdentifier = parsed.asset_id;
+            console.log("Parsed JSON QR code, using asset_id:", assetIdentifier);
+          } else if (parsed.unique_asset_id) {
+            assetIdentifier = parsed.unique_asset_id;
+            console.log("Parsed JSON QR code, using unique_asset_id:", assetIdentifier);
+          } else if (parsed.serial) {
+            assetIdentifier = parsed.serial;
+            console.log("Parsed JSON QR code, using serial:", assetIdentifier);
+          }
+        } catch (parseError) {
+          // Not JSON, use as-is
+          console.log("QR code is plain text, using directly");
+        }
+
         // Call API to get asset details
         const response = await api.get(
-          `/qr/scan/${encodeURIComponent(qrText)}`,
+          `/qr/scan/${encodeURIComponent(assetIdentifier)}`,
           {
             params: {
               mode,
@@ -145,6 +178,8 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
             },
           }
         );
+
+        console.log("API response:", response.data);
 
         if (response.data.success) {
           const asset = response.data.asset;
@@ -166,6 +201,12 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
                 status: "success",
               },
             ]);
+            
+            // Continue scanning in batch mode
+            scanningRef.current = true;
+          } else {
+            // Stop scanning in single scan mode
+            scanningRef.current = false;
           }
 
           // Cache offline if enabled
@@ -199,6 +240,11 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
               status: "error",
             },
           ]);
+          
+          // Continue scanning
+          scanningRef.current = true;
+        } else {
+          scanningRef.current = false;
         }
       } finally {
         setLoading(false);
@@ -214,6 +260,11 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
       isBatchScanning,
     ]
   );
+
+  // Update the ref whenever the callback changes
+  useEffect(() => {
+    handleQRCodeDetectedRef.current = handleQRCodeDetected;
+  }, [handleQRCodeDetected]);
 
   // Cache asset offline
   const cacheAssetOffline = (asset: Asset) => {
@@ -245,25 +296,99 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
   const startScanning = useCallback(
     async (deviceId?: string) => {
       try {
-        // Wait for video element to be mounted in the DOM
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        if (!codeReaderRef.current || !videoRef.current) {
-          console.error("Video element not ready after waiting");
+        // Prevent multiple simultaneous scan attempts
+        if (scanningRef.current) {
+          console.log("Scanning already in progress");
           return;
         }
 
+        console.log("Starting camera initialization...");
+
+        // Wait for video element to be ready
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        if (!videoRef.current) {
+          console.error("Video element not ready");
+          throw new Error("Video element not available");
+        }
+
+        scanningRef.current = true;
         setScanning(true);
         setError(null);
 
-        console.log("Starting camera with device:", deviceId);
+        // Initialize QR code reader if not already initialized
+        if (!codeReaderRef.current) {
+          codeReaderRef.current = new BrowserQRCodeReader();
+        }
 
-        const controls = await codeReaderRef.current.decodeFromVideoDevice(
+        // Request camera permission and enumerate devices if not provided
+        if (!deviceId) {
+          console.log("Requesting camera permission...");
+          const permissionStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: facingMode },
+          });
+
+          // Stop the permission stream immediately
+          permissionStream.getTracks().forEach((track) => track.stop());
+
+          // Enumerate devices with proper labels
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const cameras = devices.filter(
+            (device) => device.kind === "videoinput"
+          );
+          console.log("Available cameras:", cameras.length, cameras);
+          setAvailableCameras(cameras);
+
+          // Determine which camera to use
+          if (cameras.length > 0) {
+            if (cameras.length > 1) {
+              // Try to find camera by label matching facingMode
+              const preferredCamera = cameras.find((camera) => {
+                const label = camera.label.toLowerCase();
+                if (facingMode === "environment") {
+                  return (
+                    label.includes("back") ||
+                    label.includes("rear") ||
+                    label.includes("environment")
+                  );
+                } else {
+                  return (
+                    label.includes("front") ||
+                    label.includes("user") ||
+                    label.includes("face")
+                  );
+                }
+              });
+
+              deviceId = preferredCamera
+                ? preferredCamera.deviceId
+                : cameras[currentCameraIndex]?.deviceId;
+              console.log("Selected camera:", preferredCamera?.label || deviceId);
+            } else {
+              deviceId = cameras[0].deviceId;
+              console.log("Using only available camera:", cameras[0].label);
+            }
+          }
+        }
+
+        console.log("Starting QR code reader with device:", deviceId);
+
+        // Start decoding
+        await codeReaderRef.current.decodeFromVideoDevice(
           deviceId || null,
           videoRef.current,
           (result, error) => {
-            if (result) {
-              handleQRCodeDetected(result.getText());
+            if (result && scanningRef.current) {
+              const qrText = result.getText();
+              console.log("✓ QR Code detected:", qrText);
+              console.log("Invoking handler via ref...");
+              // Call handler via ref to always get the latest version
+              if (handleQRCodeDetectedRef.current) {
+                console.log("Handler ref exists, calling it now");
+                handleQRCodeDetectedRef.current(qrText);
+              } else {
+                console.error("Handler ref is null!");
+              }
             }
             // Only log actual errors, not NotFoundException which is normal
             if (error && !(error instanceof NotFoundException)) {
@@ -272,22 +397,70 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
           }
         );
 
-        // Wait for video to initialize
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // Wait for video to start
+        if (videoRef.current) {
+          await new Promise<void>((resolve) => {
+            const video = videoRef.current;
+            if (!video) {
+              resolve();
+              return;
+            }
 
-        // Verify stream is attached
+            const checkVideo = () => {
+              if (video.readyState >= 2) {
+                resolve();
+              } else {
+                video.addEventListener("loadeddata", () => resolve(), {
+                  once: true,
+                });
+              }
+            };
+
+            checkVideo();
+            setTimeout(() => resolve(), 2000);
+          });
+        }
+
+        // Store stream reference
         if (videoRef.current && videoRef.current.srcObject) {
-          console.log("Stream attached successfully");
-        } else {
-          console.warn("Stream not attached to video element");
+          const mediaStream = videoRef.current.srcObject as MediaStream;
+          setStream(mediaStream);
+          console.log("✓ Camera stream attached successfully");
         }
       } catch (err: any) {
         console.error("Scanning start error:", err);
-        setError("Failed to start camera scanning. Please try again.");
+        scanningRef.current = false;
         setScanning(false);
+
+        let errorMessage = "Failed to start camera. Please try again.";
+
+        if (
+          err.name === "NotAllowedError" ||
+          err.name === "PermissionDeniedError"
+        ) {
+          errorMessage =
+            "Camera permission denied. Please grant camera access.";
+        } else if (
+          err.name === "NotFoundError" ||
+          err.name === "DevicesNotFoundError"
+        ) {
+          errorMessage = "No camera found on this device.";
+        } else if (err.name === "NotReadableError") {
+          errorMessage =
+            "Camera is in use by another application.";
+        } else if (err.name === "OverconstrainedError") {
+          errorMessage =
+            "Could not start camera with requested settings.";
+          // Try again with opposite facing mode
+          if (facingMode === "user") {
+            setFacingMode("environment");
+          }
+        }
+
+        setError(errorMessage);
       }
     },
-    [handleQRCodeDetected]
+    [handleQRCodeDetected, facingMode, currentCameraIndex]
   );
 
   // Initialize scanner
@@ -296,50 +469,19 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
       setLoading(true);
       setError(null);
 
-      // Check camera permissions
-      try {
-        const permission = await navigator.permissions.query({
-          name: "camera" as PermissionName,
-        });
-
-        if (permission.state === "denied") {
-          setError(
-            "Camera permission denied. Please enable camera access to scan QR codes."
-          );
-          return;
-        }
-      } catch (permErr) {
-        console.warn("Permission query not supported, continuing...");
-      }
+      console.log("Initializing scanner...");
 
       // Initialize QR code reader
-      codeReaderRef.current = new BrowserQRCodeReader();
-
-      // Get available video devices
-      try {
-        const videoDevices = await navigator.mediaDevices.enumerateDevices();
-        const cameras = videoDevices.filter(
-          (device) => device.kind === "videoinput"
-        );
-
-        if (cameras.length === 0) {
-          setError(
-            "No camera devices found. Please connect a camera to scan QR codes."
-          );
-          return;
-        }
-
-        // Start scanning with the first available camera
-        startScanning(cameras[0].deviceId);
-      } catch (deviceErr) {
-        console.error("Device enumeration error:", deviceErr);
-        // Fallback to default camera
-        startScanning();
+      if (!codeReaderRef.current) {
+        codeReaderRef.current = new BrowserQRCodeReader();
       }
+
+      // Start scanning
+      await startScanning();
     } catch (err: any) {
       console.error("Scanner initialization error:", err);
       setError(
-        "Failed to initialize camera. Please check your camera permissions and try again."
+        "Failed to initialize camera. Please check permissions and try again."
       );
     } finally {
       setLoading(false);
@@ -347,24 +489,103 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
   }, [startScanning]);
 
   // Stop scanning
-  const stopScanning = () => {
-    if (codeReaderRef.current) {
-      codeReaderRef.current.reset();
+  const stopScanning = useCallback(() => {
+    console.log("Stopping scanner...");
+    scanningRef.current = false;
+
+    // Stop all video tracks
+    if (stream) {
+      stream.getTracks().forEach((track) => {
+        track.stop();
+        console.log("Stopped track:", track.kind);
+      });
+      setStream(null);
     }
+
+    // Reset code reader
+    if (codeReaderRef.current) {
+      try {
+        codeReaderRef.current.reset();
+        console.log("Code reader reset");
+      } catch (err) {
+        console.warn("Error resetting code reader:", err);
+      }
+    }
+
+    // Clear video source
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
     setScanning(false);
-  };
+    setFlashEnabled(false);
+  }, [stream]);
 
   // Toggle flash (placeholder - depends on browser support)
-  const toggleFlash = () => {
-    setFlashEnabled(!flashEnabled);
-    // Note: Flash toggle implementation would require MediaStreamTrack constraints
+  const toggleFlash = async () => {
+    if (!scanning || !stream) {
+      return;
+    }
+
+    try {
+      const track = stream.getVideoTracks()[0];
+      if (!track) {
+        return;
+      }
+
+      const capabilities: any = track.getCapabilities();
+
+      if (capabilities.torch) {
+        await track.applyConstraints({
+          advanced: [{ torch: !flashEnabled } as any],
+        });
+        setFlashEnabled(!flashEnabled);
+      }
+    } catch (err) {
+      console.error("Flash toggle error:", err);
+    }
   };
 
   // Restart scanning
   const restartScanning = () => {
     setScannedAsset(null);
     setError(null);
-    initializeScanner();
+    stopScanning();
+    // Wait for cleanup
+    setTimeout(() => {
+      initializeScanner();
+    }, 300);
+  };
+
+  // Switch camera
+  const switchCamera = async () => {
+    if (availableCameras.length <= 1) {
+      return;
+    }
+
+    try {
+      console.log("Switching camera...");
+      stopScanning();
+
+      // Wait for cleanup
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Toggle facing mode
+      const newFacingMode = facingMode === "environment" ? "user" : "environment";
+      setFacingMode(newFacingMode);
+
+      // Switch camera index
+      const nextIndex = (currentCameraIndex + 1) % availableCameras.length;
+      setCurrentCameraIndex(nextIndex);
+
+      // Restart with new camera
+      await startScanning();
+    } catch (err: any) {
+      console.error("Camera switch error:", err);
+      setError("Failed to switch camera");
+      setScanning(false);
+      scanningRef.current = false;
+    }
   };
 
   // Start batch scanning
@@ -643,6 +864,22 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
                             {flashEnabled ? <FlashOnIcon /> : <FlashOffIcon />}
                           </IconButton>
                         </Tooltip>
+                        {availableCameras.length > 1 && (
+                          <Tooltip title="Switch Camera">
+                            <IconButton
+                              onClick={switchCamera}
+                              sx={{
+                                backgroundColor: "rgba(0,0,0,0.5)",
+                                color: "white",
+                                "&:hover": {
+                                  backgroundColor: "rgba(0,0,0,0.7)",
+                                },
+                              }}
+                            >
+                              <SwitchCameraIcon />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                         <Tooltip title="Restart Camera">
                           <IconButton
                             onClick={restartScanning}

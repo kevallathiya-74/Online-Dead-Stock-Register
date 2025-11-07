@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+﻿import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -43,41 +43,11 @@ const QRScannerPage: React.FC = () => {
     "environment"
   );
   const codeReaderRef = useRef<BrowserQRCodeReader | null>(null);
+  const scanningRef = useRef(false);
+  const handleQRCodeDetectedRef = useRef<((data: string) => Promise<void>) | null>(null);
 
   useEffect(() => {
-    // Get available cameras on mount
-    const getCameras = async () => {
-      try {
-        // Request camera permission first to get device labels
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
-        stream.getTracks().forEach((track) => track.stop());
-
-        // Now enumerate devices with proper labels
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const cameras = devices.filter(
-          (device) => device.kind === "videoinput"
-        );
-        console.log("Available cameras:", cameras.length);
-        setAvailableCameras(cameras);
-      } catch (err) {
-        console.error("Error enumerating devices:", err);
-        // Fallback: try to get cameras without permission
-        try {
-          const devices = await navigator.mediaDevices.enumerateDevices();
-          const cameras = devices.filter(
-            (device) => device.kind === "videoinput"
-          );
-          setAvailableCameras(cameras);
-        } catch (e) {
-          console.error("Fallback enumeration failed:", e);
-        }
-      }
-    };
-
-    getCameras();
-
+    // Cleanup on unmount
     return () => {
       stopScanning();
     };
@@ -85,99 +55,213 @@ const QRScannerPage: React.FC = () => {
 
   const startScanning = async () => {
     try {
+      // Prevent multiple simultaneous scan attempts
+      if (scanningRef.current) {
+        console.log("Scanning already in progress");
+        return;
+      }
+
+      scanningRef.current = true;
       setError("");
       setScanning(true);
 
-      // Wait for video element to be mounted in the DOM
+      console.log("Starting camera initialization...");
+
+      // Wait for video element to be ready
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       if (!videoRef.current) {
-        console.error("Video element not ready after waiting");
         throw new Error("Video element not found");
       }
 
-      toast.info("Starting camera...");
+      // Initialize QR code reader if not already initialized
+      if (!codeReaderRef.current) {
+        codeReaderRef.current = new BrowserQRCodeReader();
+      }
 
-      // Initialize QR code reader
-      const codeReader = new BrowserQRCodeReader();
-      codeReaderRef.current = codeReader;
+      // Request camera permission and enumerate devices
+      console.log("Requesting camera permission...");
+      const permissionStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facingMode },
+      });
+      
+      // Stop the permission stream immediately
+      permissionStream.getTracks().forEach((track) => track.stop());
 
-      // Get device ID for selected camera
-      const deviceId =
-        availableCameras.length > 0 && availableCameras[currentCameraIndex]
-          ? availableCameras[currentCameraIndex].deviceId
-          : null;
+      // Now enumerate devices with proper labels
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cameras = devices.filter(
+        (device) => device.kind === "videoinput"
+      );
+      console.log("Available cameras:", cameras.length, cameras);
+      setAvailableCameras(cameras);
 
-      console.log("Starting camera with device:", deviceId || "default");
+      // Determine which camera to use
+      let selectedDeviceId: string | undefined;
+      
+      if (cameras.length > 0) {
+        // If we have multiple cameras, try to use the one matching facingMode
+        if (cameras.length > 1) {
+          // Try to find camera by label (back camera usually has "back" or "rear" in label)
+          const preferredCamera = cameras.find((camera) => {
+            const label = camera.label.toLowerCase();
+            if (facingMode === "environment") {
+              return label.includes("back") || label.includes("rear") || label.includes("environment");
+            } else {
+              return label.includes("front") || label.includes("user") || label.includes("face");
+            }
+          });
+          
+          if (preferredCamera) {
+            selectedDeviceId = preferredCamera.deviceId;
+            console.log("Using preferred camera:", preferredCamera.label);
+          } else {
+            // Fallback to index-based selection
+            selectedDeviceId = cameras[currentCameraIndex]?.deviceId;
+            console.log("Using camera by index:", currentCameraIndex);
+          }
+        } else {
+          // Only one camera available
+          selectedDeviceId = cameras[0].deviceId;
+          console.log("Using only available camera:", cameras[0].label);
+        }
+      }
 
-      // Use ZXing's built-in continuous scanning method
-      // This method returns a promise that resolves when scanning starts
-      const controls = await codeReader.decodeFromVideoDevice(
-        deviceId,
+      console.log("Starting QR code reader with device:", selectedDeviceId);
+      toast.info("Initializing camera...");
+
+      // Start decoding with proper error handling
+      await codeReaderRef.current.decodeFromVideoDevice(
+        selectedDeviceId || null,
         videoRef.current,
         (result, err) => {
-          if (result) {
-            console.log("✓ QR Code detected:", result.getText());
-            handleQRCodeDetected(result.getText());
+          if (result && scanningRef.current) {
+            const qrText = result.getText();
+            console.log("✓ QR Code detected:", qrText);
+            console.log("Invoking handler via ref...");
+            // Call handler via ref to always get the latest version
+            if (handleQRCodeDetectedRef.current) {
+              console.log("Handler ref exists, calling it now");
+              handleQRCodeDetectedRef.current(qrText);
+            } else {
+              console.error("Handler ref is null!");
+            }
           }
           // Only log actual errors, not NotFoundException which is normal
           if (err && !(err instanceof NotFoundException)) {
-            console.error("QR Scan error:", err);
+            console.warn("QR Scan error:", err);
           }
         }
       );
 
-      // Wait a moment for the video to start
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Wait for the video to start playing
+      if (videoRef.current) {
+        await new Promise<void>((resolve) => {
+          const video = videoRef.current;
+          if (!video) {
+            resolve();
+            return;
+          }
 
-      // Store the stream reference from video element
-      if (videoRef.current && videoRef.current.srcObject) {
-        setStream(videoRef.current.srcObject as MediaStream);
-        console.log("Stream attached successfully");
+          const checkVideo = () => {
+            if (video.readyState >= 2) {
+              // HAVE_CURRENT_DATA or better
+              resolve();
+            } else {
+              video.addEventListener("loadeddata", () => resolve(), {
+                once: true,
+              });
+            }
+          };
+
+          checkVideo();
+
+          // Timeout fallback
+          setTimeout(() => resolve(), 2000);
+        });
       }
 
-      toast.success("Camera started. Point at QR code");
+      // Store the stream reference
+      if (videoRef.current && videoRef.current.srcObject) {
+        const mediaStream = videoRef.current.srcObject as MediaStream;
+        setStream(mediaStream);
+        console.log("✓ Camera stream attached successfully");
+        toast.success("Camera ready! Point at a QR code");
+      } else {
+        console.warn("Stream not attached to video element");
+      }
     } catch (err: any) {
       console.error("Camera access error:", err);
+      scanningRef.current = false;
       setScanning(false);
+
+      let errorMessage = "Failed to access camera. Please try again.";
 
       if (
         err.name === "NotAllowedError" ||
         err.name === "PermissionDeniedError"
       ) {
-        setError(
-          "Camera access denied. Please grant camera permissions in your browser settings."
-        );
-        toast.error("Camera access denied");
+        errorMessage =
+          "Camera access denied. Please grant camera permissions in your browser settings.";
+        toast.error("Camera permission denied");
       } else if (
         err.name === "NotFoundError" ||
         err.name === "DevicesNotFoundError"
       ) {
-        setError("No camera found on this device.");
+        errorMessage = "No camera found on this device.";
         toast.error("No camera found");
+      } else if (err.name === "NotReadableError") {
+        errorMessage =
+          "Camera is already in use by another application. Please close other apps using the camera.";
+        toast.error("Camera in use");
+      } else if (err.name === "OverconstrainedError") {
+        errorMessage =
+          "Could not start camera with the requested settings. Trying alternative...";
+        toast.error("Camera constraint error");
+        
+        // Try again with default camera
+        if (facingMode === "user") {
+          setFacingMode("environment");
+        }
       } else {
-        setError(
-          "Failed to access camera. Please check your camera and try again."
-        );
         toast.error("Camera error: " + (err.message || "Unknown error"));
       }
+
+      setError(errorMessage);
     }
   };
 
-  const stopScanning = () => {
+  const stopScanning = useCallback(() => {
+    console.log("Stopping scanner...");
+    scanningRef.current = false;
+
+    // Stop all video tracks
+    if (stream) {
+      stream.getTracks().forEach((track) => {
+        track.stop();
+        console.log("Stopped track:", track.kind);
+      });
+      setStream(null);
+    }
+
+    // Reset code reader
     if (codeReaderRef.current) {
       try {
-        // Reset stops all streams and cleans up
         codeReaderRef.current.reset();
-        console.log("Scanner stopped and reset");
+        console.log("Code reader reset");
       } catch (err) {
         console.warn("Error resetting code reader:", err);
       }
-      codeReaderRef.current = null;
     }
+
+    // Clear video source
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
     setScanning(false);
-    setStream(null);
-  };
+    setTorchOn(false);
+  }, [stream]);
 
   const switchCamera = async () => {
     if (availableCameras.length <= 1) {
@@ -186,56 +270,64 @@ const QRScannerPage: React.FC = () => {
     }
 
     try {
-      // Stop current scanning
+      console.log("Switching camera...");
+
+      // Stop current scanning completely
       stopScanning();
 
-      // Switch to next camera
+      // Wait for cleanup to complete
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Toggle facing mode
+      const newFacingMode = facingMode === "environment" ? "user" : "environment";
+      setFacingMode(newFacingMode);
+
+      // Switch to next camera index
       const nextIndex = (currentCameraIndex + 1) % availableCameras.length;
       setCurrentCameraIndex(nextIndex);
 
-      // Toggle facing mode
-      const newFacingMode =
-        facingMode === "environment" ? "user" : "environment";
-      setFacingMode(newFacingMode);
-
-      // Give time for state to update and previous stream to close
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      console.log(`Switching to ${newFacingMode} camera (index: ${nextIndex})`);
 
       // Restart scanning with new camera
       await startScanning();
 
-      toast.info(
-        `Switched to ${
-          newFacingMode === "environment" ? "back" : "front"
-        } camera`
+      toast.success(
+        `Switched to ${newFacingMode === "environment" ? "back" : "front"} camera`
       );
     } catch (err: any) {
       console.error("Camera switch error:", err);
-      toast.error("Failed to switch camera");
+      toast.error("Failed to switch camera: " + (err.message || "Unknown error"));
       setScanning(false);
+      scanningRef.current = false;
     }
   };
 
   const toggleTorch = async () => {
-    if (!scanning || !videoRef.current || !videoRef.current.srcObject) {
+    if (!scanning || !stream) {
       toast.info("Start camera first");
       return;
     }
 
     try {
-      const stream = videoRef.current.srcObject as MediaStream;
       const track = stream.getVideoTracks()[0];
+      if (!track) {
+        toast.info("No video track available");
+        return;
+      }
+
       const capabilities: any = track.getCapabilities();
 
-      if (capabilities.torch) {
-        await track.applyConstraints({
-          advanced: [{ torch: !torchOn }],
-        } as any);
-        setTorchOn(!torchOn);
-        toast.success(torchOn ? "Flashlight off" : "Flashlight on");
-      } else {
+      if (!capabilities.torch) {
         toast.info("Flashlight not available on this device");
+        return;
       }
+
+      await track.applyConstraints({
+        advanced: [{ torch: !torchOn } as any],
+      });
+
+      setTorchOn(!torchOn);
+      toast.success(torchOn ? "Flashlight off" : "Flashlight on");
     } catch (err) {
       console.error("Torch error:", err);
       toast.error("Failed to toggle flashlight");
@@ -244,26 +336,59 @@ const QRScannerPage: React.FC = () => {
 
   const [scannedAsset, setScannedAsset] = useState<any>(null);
 
-  const handleQRCodeDetected = async (data: string) => {
+  const handleQRCodeDetected = useCallback(async (data: string) => {
+    console.log("==> handleQRCodeDetected called with:", data);
+    console.log("==> scanningRef.current:", scanningRef.current);
+    
+    // Prevent multiple scans - check and set atomically
+    if (!scanningRef.current) {
+      console.log("Scan already in progress, ignoring duplicate");
+      return;
+    }
+    
+    // Immediately set to false to prevent duplicate processing
+    scanningRef.current = false;
+    console.log("==> Set scanningRef to false, calling stopScanning...");
+    
     stopScanning();
 
     try {
-      // Call backend API to scan asset - this will create audit log and return asset details
       console.log("Scanned QR Code Data:", data);
       toast.info("Processing QR code...");
 
+      // Parse QR code data if it's JSON
+      let assetIdentifier = data;
+      try {
+        const parsed = JSON.parse(data);
+        if (parsed.asset_id) {
+          assetIdentifier = parsed.asset_id;
+          console.log("Parsed JSON QR code, using asset_id:", assetIdentifier);
+        } else if (parsed.unique_asset_id) {
+          assetIdentifier = parsed.unique_asset_id;
+          console.log("Parsed JSON QR code, using unique_asset_id:", assetIdentifier);
+        } else if (parsed.serial) {
+          assetIdentifier = parsed.serial;
+          console.log("Parsed JSON QR code, using serial:", assetIdentifier);
+        }
+      } catch (parseError) {
+        // Not JSON, use as-is
+        console.log("QR code is plain text, using directly");
+      }
+
       const token =
         localStorage.getItem("auth_token") || localStorage.getItem("token");
-      const response = await fetch(
-        `http://localhost:5000/api/v1/qr/scan/${encodeURIComponent(data)}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      
+      // Use the correct API endpoint
+      const apiUrl = `http://localhost:5000/api/v1/qr/scan/${encodeURIComponent(assetIdentifier)}`;
+      console.log("Calling API:", apiUrl);
+
+      const response = await fetch(apiUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       console.log("Response status:", response.status);
 
@@ -277,7 +402,7 @@ const QRScannerPage: React.FC = () => {
       console.log("Scan result:", result);
 
       if (result.success && result.asset) {
-        toast.success("Asset scanned successfully! Audit log created.");
+        toast.success("✓ Asset scanned successfully!");
         // Store the scanned asset to display in table format
         setScannedAsset(result.asset);
         setError("");
@@ -300,7 +425,12 @@ const QRScannerPage: React.FC = () => {
       );
       toast.error(err.message || "Failed to scan QR code");
     }
-  };
+  }, [stopScanning]);
+
+  // Update the ref whenever the callback changes
+  useEffect(() => {
+    handleQRCodeDetectedRef.current = handleQRCodeDetected;
+  }, [handleQRCodeDetected]);
 
   return (
     <DashboardLayout>

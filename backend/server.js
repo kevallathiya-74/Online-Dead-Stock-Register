@@ -192,21 +192,6 @@ const loginLimiter = rateLimit({
 
 app.use('/api/', generalLimiter);
 
-
-// Connect to MongoDB
-connectDB().then(() => {
-  console.log('✅ Database connection callback reached');
-  logger.info('Database connection established');
-  
-  // Initialize cron jobs for scheduled audits
-  const { initializeCronJobs } = require('./services/cronService');
-  initializeCronJobs();
-}).catch(err => {
-  console.error('❌ Database connection error in server.js:', err);
-  logger.error('Database connection error:', err);
-  process.exit(1);
-});
-
 // Static folder
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -215,35 +200,51 @@ app.use('/uploads', express.static(path.join(__dirname, process.env.UPLOAD_DIR |
 
 // Import route files
 console.log('📦 Loading route modules...');
-const assetRoutes = require('./routes/assets');
-const userRoutes = require('./routes/users');
-const txnRoutes = require('./routes/transactions');
-const approvalRoutes = require('./routes/approvals');
-const auditRoutes = require('./routes/auditLogs');
-const docRoutes = require('./routes/documents');
-const vendorRoutes = require('./routes/vendors');
-const maintRoutes = require('./routes/maintenance');
-const authRoutes = require('./routes/auth');
-const dashboardRoutes = require('./routes/dashboard');
-const assetRequestRoutes = require('./routes/assetRequests');
-const assetTransferRoutes = require('./routes/assetTransfers');
-const purchaseManagementRoutes = require('./routes/purchaseManagement');
-const notificationRoutes = require('./routes/notifications');
-const uploadRoutes = require('./routes/upload');
-const exportImportRoutes = require('./routes/exportImport');
-const userManagementRoutes = require('./routes/userManagement');
-const vendorManagementRoutes = require('./routes/vendorManagement');
-const vendorPortalRoutes = require('./routes/vendorPortal');
-const qrScanRoutes = require('./routes/qrScan');
-const photoRoutes = require('./routes/photos');
-const bulkOperationsRoutes = require('./routes/bulkOperations');
-const customFiltersRoutes = require('./routes/customFilters');
-const scheduledAuditsRoutes = require('./routes/scheduledAudits');
-const inventoryRoutes = require('./routes/inventory');
-const reportsRoutes = require('./routes/reports');
-const backupsRoutes = require('./routes/backups');
-const settingsRoutes = require('./routes/settings');
-console.log('✅ All route modules loaded successfully');
+
+// Load routes one by one with error handling
+let assetRoutes, userRoutes, txnRoutes, approvalRoutes, auditRoutes, docRoutes;
+let vendorRoutes, maintRoutes, authRoutes, dashboardRoutes, assetRequestRoutes;
+let assetTransferRoutes, purchaseManagementRoutes, notificationRoutes, uploadRoutes;
+let exportImportRoutes, userManagementRoutes, vendorManagementRoutes, vendorPortalRoutes;
+let qrScanRoutes, photoRoutes, bulkOperationsRoutes, customFiltersRoutes;
+let scheduledAuditsRoutes, inventoryRoutes, reportsRoutes, backupsRoutes, settingsRoutes;
+
+try {
+  assetRoutes = require('./routes/assets');
+  userRoutes = require('./routes/users');
+  txnRoutes = require('./routes/transactions');
+  approvalRoutes = require('./routes/approvals');
+  auditRoutes = require('./routes/auditLogs');
+  docRoutes = require('./routes/documents');
+  vendorRoutes = require('./routes/vendors');
+  maintRoutes = require('./routes/maintenance');
+  authRoutes = require('./routes/auth');
+  dashboardRoutes = require('./routes/dashboard');
+  assetRequestRoutes = require('./routes/assetRequests');
+  assetTransferRoutes = require('./routes/assetTransfers');
+  purchaseManagementRoutes = require('./routes/purchaseManagement');
+  notificationRoutes = require('./routes/notifications');
+  uploadRoutes = require('./routes/upload');
+  exportImportRoutes = require('./routes/exportImport');
+  userManagementRoutes = require('./routes/userManagement');
+  vendorManagementRoutes = require('./routes/vendorManagement');
+  vendorPortalRoutes = require('./routes/vendorPortal');
+  qrScanRoutes = require('./routes/qrScan');
+  photoRoutes = require('./routes/photos');
+  bulkOperationsRoutes = require('./routes/bulkOperations');
+  customFiltersRoutes = require('./routes/customFilters');
+  scheduledAuditsRoutes = require('./routes/scheduledAudits');
+  inventoryRoutes = require('./routes/inventory');
+  reportsRoutes = require('./routes/reports');
+  backupsRoutes = require('./routes/backups');
+  settingsRoutes = require('./routes/settings');
+  
+  console.log('✅ All route modules loaded successfully');
+} catch (error) {
+  console.error('❌ Error loading route modules:', error.message);
+  console.error('Stack:', error.stack);
+  process.exit(1);
+}
 
 // API Documentation with Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
@@ -381,18 +382,47 @@ console.log('✅ All middleware and routes registered');
 console.log('✅ Error handler attached');
 
 // Start server
-console.log('🚀 Starting HTTP server...');
 const PORT = process.env.PORT || 5000;
 let server; // Declare server variable here
 
-console.log('🔧 About to call app.listen() on port', PORT);
-server = app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-  logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-  logger.info(`API Documentation available at http://localhost:${PORT}/api-docs`);
-});
+// Function to start the server
+const startServer = () => {
+  console.log('� Starting HTTP server...');
+  console.log('�🔧 About to call app.listen() on port', PORT);
+  
+  try {
+    server = app.listen(PORT, () => {
+      console.log(`✅ Server running on port ${PORT}`);
+      logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+      logger.info(`API Documentation available at http://localhost:${PORT}/api-docs`);
+    });
 
-console.log('🔧 app.listen() called, server object:', typeof server);
+    // Handle server errors
+    server.on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use`);
+        logger.error(`Port ${PORT} is already in use`);
+        process.exit(1);
+      } else {
+        console.error('❌ Server error:', error);
+        logger.error('Server error:', error);
+        process.exit(1);
+      }
+    });
+
+    console.log('🔧 app.listen() called, server object:', typeof server);
+    
+    // Start connection health monitor after server is up
+    startConnectionMonitor();
+  } catch (error) {
+    console.error('❌ Failed to start server:', error);
+    logger.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+// Don't start server until we're ready
+// Server will be started after DB connection
 
 // ========================================
 // MONGODB CONNECTION HEALTH MONITOR
@@ -432,9 +462,6 @@ const startConnectionMonitor = () => {
   
   logger.info('🔍 MongoDB connection health monitor started (checks every 30s)');
 };
-
-// Start the connection monitor after initial connection
-startConnectionMonitor();
 
 // Graceful shutdown handler
 const gracefulShutdown = async (signal) => {
@@ -507,5 +534,25 @@ process.on('uncaughtException', (err) => {
     stack: err.stack
   });
   
+  process.exit(1);
+});
+
+// ========================================
+// INITIALIZE APPLICATION
+// ========================================
+// Connect to MongoDB and start server
+connectDB().then(() => {
+  console.log('✅ Database connection callback reached');
+  logger.info('Database connection established');
+  
+  // Initialize cron jobs for scheduled audits
+  const { initializeCronJobs } = require('./services/cronService');
+  initializeCronJobs();
+  
+  // Start the HTTP server after DB connection and cron initialization
+  startServer();
+}).catch(err => {
+  console.error('❌ Database connection error in server.js:', err);
+  logger.error('Database connection error:', err);
   process.exit(1);
 });
