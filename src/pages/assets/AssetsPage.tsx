@@ -57,8 +57,10 @@ import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../services/api';
+import assetUpdateService from '../../services/assetUpdateService';
 
 interface Asset {
+  _id?: string;
   id: string;
   unique_asset_id: string;
   name?: string;
@@ -74,6 +76,11 @@ interface Asset {
   purchase_cost: number;
   warranty_expiry?: string;
   last_audit_date?: string;
+  last_audited_by?: {
+    _id?: string;
+    name: string;
+    email: string;
+  } | string;
 }
 
 const AssetsPage = () => {
@@ -131,6 +138,31 @@ const AssetsPage = () => {
     loadAssets();
   }, []);
 
+  // Subscribe to global asset updates (any asset changes)
+  useEffect(() => {
+    console.log('📡 AssetsPage: Subscribing to global asset updates');
+    
+    const unsubscribe = assetUpdateService.subscribeGlobal((assetId, updateData) => {
+      console.log('🔔 AssetsPage: Received global update for asset:', assetId, updateData);
+      
+      // Refresh the entire assets list to get latest data
+      loadAssets();
+      
+      // Show a subtle notification
+      if (updateData?.type === 'audit_completed') {
+        toast.info('Asset list updated - audit completed', {
+          position: 'bottom-right',
+          autoClose: 2000,
+        });
+      }
+    });
+
+    return () => {
+      console.log('📡 AssetsPage: Unsubscribing from global updates');
+      unsubscribe();
+    };
+  }, []);
+
   const loadAssets = async () => {
     try {
       setLoading(true);
@@ -164,6 +196,7 @@ const AssetsPage = () => {
         }
 
         return {
+          _id: asset._id || asset.id, // Keep _id for API calls
           id: asset._id || asset.id,
           unique_asset_id: asset.unique_asset_id,
           name: asset.name || `${asset.manufacturer} ${asset.model}`,
@@ -179,6 +212,7 @@ const AssetsPage = () => {
           purchase_cost: asset.purchase_cost || asset.purchase_value || asset.value || 0,
           warranty_expiry: asset.warranty_expiry,
           last_audit_date: asset.last_audit_date,
+          last_audited_by: asset.last_audited_by, // Include audit user info
         };
       }) : [];
       
@@ -204,14 +238,29 @@ const AssetsPage = () => {
   };
 
   // Handler functions for asset actions
-  const handleViewAsset = (asset: Asset) => {
+  const handleViewAsset = async (asset: Asset) => {
     console.log('Viewing asset:', asset);
-    console.log('Asset data:', JSON.stringify(asset, null, 2));
-    setSelectedAsset(asset);
     setViewDialogOpen(true);
+    
+    // Show loading state with current asset data
+    setSelectedAsset(asset);
+    
     // Close menu only if it's open
     if (anchorEl) {
       setAnchorEl(null);
+    }
+    
+    // Fetch latest asset data from server
+    try {
+      const response = await api.get(`/assets/${asset._id}`);
+      if (response.data.success) {
+        console.log('Fetched latest asset data:', response.data.data);
+        setSelectedAsset(response.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch latest asset data:', error);
+      // Keep using the cached data if fetch fails
+      toast.warning('Showing cached data. Failed to fetch latest updates.');
     }
   };
 
@@ -1737,12 +1786,35 @@ const AssetsPage = () => {
                             {selectedAsset.warranty_expiry ? new Date(selectedAsset.warranty_expiry).toLocaleDateString() : 'N/A'}
                           </Typography>
                         </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                {/* Audit Information Section */}
+                <Grid item xs={12}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom color="primary">
+                        Audit Information
+                      </Typography>
+                      <Grid container spacing={2}>
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body2" color="text.secondary">Last Audit Date</Typography>
                           <Typography variant="body1">
                             {selectedAsset.last_audit_date ? new Date(selectedAsset.last_audit_date).toLocaleDateString() : 'N/A'}
                           </Typography>
                         </Grid>
+                        {selectedAsset.last_audited_by && (
+                          <Grid item xs={12} sm={6}>
+                            <Typography variant="body2" color="text.secondary">Last Audited By</Typography>
+                            <Typography variant="body1">
+                              {typeof selectedAsset.last_audited_by === 'object' && selectedAsset.last_audited_by.name
+                                ? selectedAsset.last_audited_by.name
+                                : 'N/A'}
+                            </Typography>
+                          </Grid>
+                        )}
                       </Grid>
                     </CardContent>
                   </Card>

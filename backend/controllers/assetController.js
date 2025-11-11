@@ -82,6 +82,7 @@ exports.getAssets = async (req, res) => {
     const [assets, total] = await Promise.all([
       Asset.find(query)
         .populate('assigned_user', 'name email department')
+        .populate('last_audited_by', 'name email')
         .sort(sort)
         .skip(skip)
         .limit(limit)
@@ -118,6 +119,7 @@ exports.getMyAssets = async (req, res) => {
     // Find all assets assigned to the current user
     const assets = await Asset.find({ assigned_user: userId })
       .populate('assigned_user', 'name email department')
+      .populate('last_audited_by', 'name email')
       .sort({ assigned_date: -1 })
       .lean();
     
@@ -138,11 +140,43 @@ exports.getMyAssets = async (req, res) => {
 // GET asset by id
 exports.getAssetById = async (req, res) => {
   try {
-    const asset = await Asset.findById(req.params.id).populate('assigned_user', 'name email');
-    if (!asset) return res.status(404).json({ message: 'Asset not found' });
-    res.json(asset);
+    const asset = await Asset.findById(req.params.id)
+      .populate('assigned_user', 'name email department')
+      .populate('last_audited_by', 'name email')
+      .populate('vendor', 'vendor_name contact_person');
+    
+    if (!asset) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Asset not found' 
+      });
+    }
+    
+    // Include audit history
+    const AuditLog = require('../models/auditLog');
+    const auditHistory = await AuditLog.find({
+      entity_type: 'Asset',
+      entity_id: asset._id,
+      action: { $in: ['quick_audit_completed', 'audit_scanned', 'asset_updated', 'audit_completed'] }
+    })
+    .populate('user_id', 'name email')
+    .sort({ timestamp: -1 })
+    .limit(10)
+    .lean();
+    
+    res.json({
+      success: true,
+      data: {
+        ...asset.toObject(),
+        audit_history: auditHistory
+      }
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Error fetching asset by ID:', err);
+    res.status(500).json({ 
+      success: false,
+      message: err.message 
+    });
   }
 };
 

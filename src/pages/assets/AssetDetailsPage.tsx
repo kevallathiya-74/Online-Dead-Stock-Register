@@ -30,6 +30,7 @@ import { toast } from 'react-toastify';
 import { QRCodeCanvas } from 'qrcode.react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../services/api';
+import assetUpdateService from '../../services/assetUpdateService';
 
 interface AssetDetails {
   _id: string;
@@ -48,8 +49,16 @@ interface AssetDetails {
   assigned_user?: {
     name: string;
     email: string;
+    department?: string;
+  };
+  last_audited_by?: {
+    name: string;
+    email: string;
   };
   last_audit_date?: string;
+  location_verified?: boolean;
+  last_location_verification_date?: string;
+  audit_history?: any[];
   createdAt: string;
   updatedAt: string;
 }
@@ -61,26 +70,100 @@ const AssetDetailsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showQR, setShowQR] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   useEffect(() => {
     loadAssetDetails();
   }, [id]);
 
-  const loadAssetDetails = async () => {
+  // Auto-refresh every 10 seconds to capture audit updates
+  useEffect(() => {
+    if (!autoRefresh || !id) return;
+
+    const intervalId = setInterval(() => {
+      loadAssetDetails(true); // Silent refresh
+    }, 10000); // 10 seconds
+
+    return () => clearInterval(intervalId);
+  }, [id, autoRefresh]);
+
+  // Listen for storage events (cross-tab communication)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === `asset_updated_${id}`) {
+        console.log('Asset update detected from another tab/window');
+        loadAssetDetails(true);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [id]);
+
+  const loadAssetDetails = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
+      
       const response = await api.get(`/assets/${id}`);
       const assetData = response.data.data || response.data;
+      
       setAsset(assetData);
+      setLastUpdated(new Date());
       setError('');
+      
+      if (!silent) {
+        console.log('Asset details loaded:', assetData);
+      }
     } catch (error: any) {
       console.error('Failed to load asset details:', error);
       setError(error.response?.data?.message || 'Failed to load asset details');
-      toast.error('Failed to load asset details');
+      if (!silent) {
+        toast.error('Failed to load asset details');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+
+  // Public method to trigger refresh (can be called from audit components)
+  const refreshAssetDetails = () => {
+    console.log('Manual refresh triggered');
+    loadAssetDetails();
+  };
+
+  // Expose refresh method globally for audit completion callbacks
+  useEffect(() => {
+    (window as any).refreshAssetDetails = refreshAssetDetails;
+    return () => {
+      delete (window as any).refreshAssetDetails;
+    };
+  }, [id]);
+
+  // Subscribe to asset update service
+  useEffect(() => {
+    if (!id) return;
+
+    const unsubscribe = assetUpdateService.subscribe(id, (assetId, updateData) => {
+      console.log(`🔔 Received update notification for asset ${assetId}:`, updateData);
+      
+      // Show notification based on update type
+      if (updateData?.type === 'audit_completed') {
+        toast.success('Asset audit completed! Refreshing data...', {
+          autoClose: 3000
+        });
+      } else if (updateData?.type === 'status_changed') {
+        toast.info(`Asset status changed: ${updateData.oldStatus} → ${updateData.newStatus}`, {
+          autoClose: 3000
+        });
+      }
+      
+      // Refresh the asset details
+      loadAssetDetails(true);
+    });
+
+    return unsubscribe;
+  }, [id]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -181,8 +264,8 @@ const AssetDetailsPage: React.FC = () => {
   return (
     <DashboardLayout>
       <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
-        {/* Header */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        {/* Header with Real-time Update Indicator */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Button 
               startIcon={<ArrowBackIcon />}
@@ -194,7 +277,18 @@ const AssetDetailsPage: React.FC = () => {
               Asset Details
             </Typography>
           </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {/* Auto-refresh indicator */}
+            <Chip
+              label={autoRefresh ? `Auto-updating` : 'Auto-update paused'}
+              color={autoRefresh ? 'success' : 'default'}
+              size="small"
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              sx={{ cursor: 'pointer' }}
+            />
+            <Typography variant="caption" color="text.secondary">
+              Updated: {lastUpdated.toLocaleTimeString()}
+            </Typography>
             <Button
               variant="outlined"
               startIcon={<QrCodeIcon />}
@@ -218,6 +312,22 @@ const AssetDetailsPage: React.FC = () => {
             </Button>
           </Box>
         </Box>
+
+        {/* Last Audit Info Banner */}
+        {asset.last_audit_date && (
+          <Alert 
+            severity="info" 
+            sx={{ mb: 2 }}
+            action={
+              <Button color="inherit" size="small" onClick={() => loadAssetDetails()}>
+                Refresh
+              </Button>
+            }
+          >
+            Last audited {new Date(asset.last_audit_date).toLocaleString()}
+            {asset.last_audited_by && ` by ${asset.last_audited_by.name}`}
+          </Alert>
+        )}
 
         <Grid container spacing={3}>
           {/* Main Info Card */}
@@ -439,6 +549,73 @@ const AssetDetailsPage: React.FC = () => {
             </Card>
           </Grid>
         </Grid>
+
+        {/* Audit History Section */}
+        {asset.audit_history && asset.audit_history.length > 0 && (
+          <Card sx={{ mt: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Recent Audit History
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+                {asset.audit_history.map((audit: any, index: number) => (
+                  <Paper
+                    key={audit._id || index}
+                    sx={{
+                      p: 2,
+                      mb: 1,
+                      bgcolor: 'background.default',
+                      border: '1px solid',
+                      borderColor: 'divider'
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                      <Box>
+                        <Chip
+                          label={audit.action.replace(/_/g, ' ').toUpperCase()}
+                          size="small"
+                          color={audit.action.includes('completed') ? 'success' : 'default'}
+                          sx={{ mb: 1 }}
+                        />
+                        <Typography variant="body2">
+                          {audit.description}
+                        </Typography>
+                      </Box>
+                      <Typography variant="caption" color="text.secondary">
+                        {new Date(audit.timestamp).toLocaleString()}
+                      </Typography>
+                    </Box>
+                    
+                    {audit.user_id && (
+                      <Typography variant="caption" color="text.secondary">
+                        By: {audit.user_id.name} ({audit.user_id.email})
+                      </Typography>
+                    )}
+                    
+                    {audit.new_values && (
+                      <Box sx={{ mt: 1, p: 1, bgcolor: 'success.light', borderRadius: 1 }}>
+                        <Typography variant="caption" fontWeight="bold">
+                          Updated Values:
+                        </Typography>
+                        {audit.new_values.condition && (
+                          <Typography variant="caption" display="block">
+                            Condition: {audit.new_values.condition}
+                          </Typography>
+                        )}
+                        {audit.new_values.status && (
+                          <Typography variant="caption" display="block">
+                            Status: {audit.new_values.status}
+                          </Typography>
+                        )}
+                      </Box>
+                    )}
+                  </Paper>
+                ))}
+              </Box>
+            </CardContent>
+          </Card>
+        )}
       </Box>
     </DashboardLayout>
   );

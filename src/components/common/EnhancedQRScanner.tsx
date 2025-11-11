@@ -47,6 +47,7 @@ import {
 } from "@mui/icons-material";
 import { BrowserQRCodeReader, NotFoundException } from "@zxing/library";
 import api from "../../services/api";
+import assetUpdateService from "../../services/assetUpdateService";
 
 interface Asset {
   id: string;
@@ -188,6 +189,27 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
 
           // Vibrate on success
           vibrate([100, 50, 100]);
+
+          // Notify via update service for real-time synchronization
+          if (asset._id || asset.id) {
+            const assetId = asset._id || asset.id;
+            
+            // Use update service for proper event propagation
+            assetUpdateService.notifyAuditComplete(assetId, {
+              scanned_at: new Date(),
+              mode: mode,
+              asset: asset
+            });
+            
+            // Fallback: localStorage for cross-tab communication
+            localStorage.setItem(`asset_updated_${assetId}`, Date.now().toString());
+            
+            // Legacy: Try global refresh function if available
+            if ((window as any).refreshAssetDetails) {
+              console.log('Triggering global asset details refresh from QR scanner');
+              (window as any).refreshAssetDetails();
+            }
+          }
 
           // Add to batch scans if batch mode is enabled
           if (enableBatchScan && isBatchScanning) {

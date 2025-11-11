@@ -15,6 +15,7 @@ const assetSchema = new mongoose.Schema({
   purchase_cost: { type: Number },
   warranty_expiry: { type: Date },
   last_audit_date: { type: Date },
+  last_audited_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   condition: { type: String },
   notes: { type: String },
   vendor: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor' },
@@ -59,6 +60,9 @@ assetSchema.index({
 
 // Sparse index for assigned users (only when assigned)
 assetSchema.index({ assigned_user: 1 }, { sparse: true });
+
+// Sparse index for last audited by (only when audited)
+assetSchema.index({ last_audited_by: 1 }, { sparse: true });
 
 // TTL index for automatic cleanup of scrapped assets (optional)
 // assetSchema.index({ updatedAt: 1 }, { 

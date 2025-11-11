@@ -28,6 +28,7 @@ import { toast } from "react-toastify";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import { BrowserQRCodeReader, NotFoundException } from "@zxing/library";
 import { API_BASE_URL } from "../../config/api.config";
+import assetUpdateService from "../../services/assetUpdateService";
 
 const QRScannerPage: React.FC = () => {
   const navigate = useNavigate();
@@ -462,6 +463,27 @@ const QRScannerPage: React.FC = () => {
           scanned_at: result.scanned_at,
           audit_logged: true,
         });
+
+        // Notify via update service for real-time synchronization
+        if (result.asset._id || result.asset.id) {
+          const assetId = result.asset._id || result.asset.id;
+          
+          // Use update service for proper event propagation
+          assetUpdateService.notifyAuditComplete(assetId, {
+            scanned_at: result.scanned_at,
+            scanned_by: result.scanned_by,
+            asset: result.asset
+          });
+          
+          // Fallback: localStorage for cross-tab communication
+          localStorage.setItem(`asset_updated_${assetId}`, Date.now().toString());
+          
+          // Legacy: Try global refresh function if available
+          if ((window as any).refreshAssetDetails) {
+            console.log('Triggering global asset details refresh');
+            (window as any).refreshAssetDetails();
+          }
+        }
       } else {
         setError("Invalid QR code. Asset not found.");
         toast.error("Asset not found");
@@ -904,6 +926,21 @@ const QRScannerPage: React.FC = () => {
                           : "Not audited yet"}
                       </TableCell>
                     </TableRow>
+                    {scannedAsset.last_audited_by && (
+                      <TableRow>
+                        <TableCell
+                          component="th"
+                          sx={{ fontWeight: "bold", bgcolor: "grey.50" }}
+                        >
+                          Last Audited By
+                        </TableCell>
+                        <TableCell>
+                          {typeof scannedAsset.last_audited_by === 'object'
+                            ? scannedAsset.last_audited_by.name
+                            : scannedAsset.last_audited_by}
+                        </TableCell>
+                      </TableRow>
+                    )}
                     {scannedAsset.vendor && (
                       <TableRow>
                         <TableCell

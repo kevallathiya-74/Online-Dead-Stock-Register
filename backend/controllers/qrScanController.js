@@ -70,6 +70,17 @@ exports.scanAsset = async (req, res) => {
       .select('action performed_by timestamp details');
     }
 
+    // UPDATE: Always update last_audit_date and last_audited_by when scanning
+    const oldAuditDate = asset.last_audit_date;
+    const oldAuditedBy = asset.last_audited_by;
+    
+    asset.last_audit_date = new Date();
+    asset.last_audited_by = req.user.id;
+    await asset.save();
+
+    // Re-populate after save to get user details
+    await asset.populate('last_audited_by', 'name email');
+
     // Log successful scan
     await AuditLog.create({
       user_id: req.user.id,
@@ -81,6 +92,14 @@ exports.scanAsset = async (req, res) => {
       severity: 'info',
       ip_address: req.ip || req.connection.remoteAddress,
       user_agent: req.get('user-agent'),
+      old_values: {
+        last_audit_date: oldAuditDate,
+        last_audited_by: oldAuditedBy
+      },
+      new_values: {
+        last_audit_date: asset.last_audit_date,
+        last_audited_by: asset.last_audited_by
+      },
       timestamp: new Date()
     });
 
@@ -115,6 +134,11 @@ exports.scanAsset = async (req, res) => {
           phone: asset.vendor.phone
         } : null,
         last_audit_date: asset.last_audit_date,
+        last_audited_by: asset.last_audited_by ? {
+          id: asset.last_audited_by._id,
+          name: asset.last_audited_by.name,
+          email: asset.last_audited_by.email
+        } : null,
         last_maintenance_date: asset.last_maintenance_date,
         images: asset.images || [],
         notes: asset.notes
@@ -450,13 +474,25 @@ exports.quickAuditScan = async (req, res) => {
     // Update asset
     if (condition) asset.condition = condition;
     if (status) asset.status = status;
+    if (location_verified !== undefined) {
+      asset.location_verified = location_verified;
+      asset.last_location_verification_date = new Date();
+    }
+    
     asset.last_audit_date = new Date();
     asset.last_audited_by = req.user.id;
 
+    // Save with audit trail
+    const oldValues = {
+      condition: asset.condition,
+      status: asset.status,
+      last_audit_date: asset.last_audit_date
+    };
+
     await asset.save();
 
-    // Log audit
-    await AuditLog.create({
+    // Log audit with detailed information
+    const auditLog = await AuditLog.create({
       user_id: req.user.id,
       action: 'quick_audit_completed',
       entity_type: 'Asset',
@@ -465,27 +501,30 @@ exports.quickAuditScan = async (req, res) => {
       severity: 'info',
       ip_address: req.ip || req.connection.remoteAddress,
       user_agent: req.get('user-agent'),
-      old_values: {
-        condition: asset.condition,
-        status: asset.status
-      },
+      old_values: oldValues,
       new_values: {
         condition: condition || asset.condition,
-        status: status || asset.status
+        status: status || asset.status,
+        last_audit_date: asset.last_audit_date,
+        location_verified: location_verified
+      },
+      details: {
+        notes: notes || '',
+        photos_count: photos.length,
+        location_verified: location_verified || false
       }
     });
+
+    // Populate asset with related data
+    await asset.populate('assigned_user', 'name email department');
+    await asset.populate('last_audited_by', 'name email');
 
     res.json({
       success: true,
       message: 'Quick audit completed successfully',
-      asset: {
-        id: asset._id,
-        unique_asset_id: asset.unique_asset_id,
-        name: asset.name,
-        condition: asset.condition,
-        status: asset.status,
-        last_audit_date: asset.last_audit_date
-      }
+      asset: asset.toObject(),
+      audit_log: auditLog,
+      updated_at: new Date()
     });
   } catch (error) {
     console.error('Error in quick audit scan:', error);
