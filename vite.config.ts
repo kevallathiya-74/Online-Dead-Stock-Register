@@ -1,13 +1,34 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 import { resolve } from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    basicSsl() // Enable HTTPS for camera access on mobile
+  ],
   server: {
     port: 3000,
-    open: true
+    host: true, // or host: '0.0.0.0' to expose to network
+    open: true,
+    proxy: {
+      '/api': {
+        target: process.env.BACKEND_URL || 'http://10.121.110.148:5000',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+        configure: (proxy, options) => {
+          proxy.on('error', (err, req, res) => {
+            console.log('Proxy error:', err);
+          });
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            console.log('Proxying:', req.method, req.url, '→', options.target);
+          });
+        }
+      }
+    }
   },
   resolve: {
     alias: {

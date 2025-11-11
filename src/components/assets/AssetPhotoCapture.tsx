@@ -53,6 +53,25 @@ const AssetPhotoCapture: React.FC<AssetPhotoCaptureProps> = ({
 
   const startCamera = async () => {
     try {
+      // Check if camera API is available (requires HTTPS on mobile)
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error('Camera API not available:', {
+          navigator: !!navigator,
+          mediaDevices: !!navigator.mediaDevices,
+          getUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+          protocol: window.location.protocol,
+          hostname: window.location.hostname
+        });
+        
+        const protocol = window.location.protocol;
+        const errorMsg = protocol === 'http:' && window.location.hostname !== 'localhost'
+          ? 'Camera access requires HTTPS on mobile devices. Please use HTTPS or access via localhost for testing.'
+          : 'Camera access is not supported on this device.';
+        
+        alert(errorMsg);
+        return;
+      }
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: facingMode,

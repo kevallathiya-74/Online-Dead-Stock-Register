@@ -13,6 +13,13 @@ exports.scanAsset = async (req, res) => {
     const { qrCode } = req.params;
     const { mode = 'lookup', include_history = false } = req.query;
 
+    console.log('📱 QR Scan Request:');
+    console.log('  - QR Code:', qrCode);
+    console.log('  - Mode:', mode);
+    console.log('  - User:', req.user?.id, req.user?.name);
+    console.log('  - Include History:', include_history);
+    console.log('  - IP:', req.ip || req.connection.remoteAddress);
+
     // Find asset by unique ID or serial number
     const asset = await Asset.findOne({
       $or: [
@@ -23,7 +30,15 @@ exports.scanAsset = async (req, res) => {
     }).populate('assigned_user', 'name email department')
       .populate('vendor', 'vendor_name email phone');
 
+    console.log('  - Asset found:', !!asset);
+    if (asset) {
+      console.log('  - Asset ID:', asset._id);
+      console.log('  - Asset Name:', asset.name || `${asset.manufacturer} ${asset.model}`);
+    }
+
     if (!asset) {
+      console.log('❌ Asset not found for QR code:', qrCode);
+      
       // Log failed scan attempt
       await AuditLog.create({
         user_id: req.user.id,
@@ -113,9 +128,14 @@ exports.scanAsset = async (req, res) => {
       }
     };
 
+    console.log('✅ QR Scan successful, returning asset data');
     res.json(response);
   } catch (error) {
-    console.error('Error scanning asset:', error);
+    console.error('❌ Error scanning asset:', error);
+    console.error('  - Error name:', error.name);
+    console.error('  - Error message:', error.message);
+    console.error('  - Stack:', error.stack);
+    
     res.status(500).json({
       success: false,
       message: 'Failed to scan asset',

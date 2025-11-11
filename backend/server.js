@@ -51,15 +51,31 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 app.use(cors({
   origin: function (origin, callback) {
-
-    if (!origin) return callback(null, true);
+    console.log('🔍 CORS Request from origin:', origin);
     
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      logger.warn('CORS blocked request from unauthorized origin', { origin });
-      callback(new Error('Not allowed by CORS'));
+    // Allow requests with no origin (like mobile apps, Postman, curl)
+    if (!origin) {
+      console.log('✅ CORS: Allowing request with no origin');
+      return callback(null, true);
     }
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      console.log('✅ CORS: Origin found in allowed list');
+      return callback(null, true);
+    }
+    
+    // Allow local network IPs (10.x.x.x, 192.168.x.x, 172.16-31.x.x)
+    const localNetworkRegex = /^https?:\/\/(localhost|127\.0\.0\.1|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/;
+    
+    if (localNetworkRegex.test(origin)) {
+      console.log('✅ CORS: Local network IP detected and allowed');
+      return callback(null, true);
+    }
+    
+    console.error('❌ CORS: Blocked unauthorized origin:', origin);
+    logger.warn('CORS blocked request from unauthorized origin', { origin });
+    callback(new Error('Not allowed by CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control'],
@@ -387,12 +403,15 @@ let server; // Declare server variable here
 
 // Function to start the server
 const startServer = () => {
-  console.log('� Starting HTTP server...');
-  console.log('�🔧 About to call app.listen() on port', PORT);
+  console.log('🚀 Starting HTTP server...');
+  console.log('🔧 About to call app.listen() on port', PORT);
   
   try {
-    server = app.listen(PORT, () => {
+    // Listen on 0.0.0.0 to allow network access from other devices
+    server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`✅ Server running on port ${PORT}`);
+      console.log(`🌐 Local:   http://localhost:${PORT}`);
+      console.log(`🌐 Network: http://<your-local-ip>:${PORT}`);
       logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
       logger.info(`API Documentation available at http://localhost:${PORT}/api-docs`);
     });

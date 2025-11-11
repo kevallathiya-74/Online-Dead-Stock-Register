@@ -6,16 +6,6 @@
     "auditLog": "D:\\Online-Dead-Stock-Register\\backend\\logs\\.a835ac3e39a941742e45cf5d0de0cb5c05dbba1a-audit.json",
     "files": [
         {
-            "date": 1761513250168,
-            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\application-2025-10-27.log",
-            "hash": "12009bee2201800207f19c8991f7c08ccab9daf2037b5af6e7dccc29af8e63b1"
-        },
-        {
-            "date": 1761590663453,
-            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\application-2025-10-28.log",
-            "hash": "bbd9537c709253182b3144a278d8ad517c69ed1defdee1ec050c47c3a149db9c"
-        },
-        {
             "date": 1761757933311,
             "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\application-2025-10-29.log",
             "hash": "6d0d47c2d25375ec80e7b85b45c50ba895fdda8f21578b6c6de5675964cc64f5"
@@ -54,6 +44,11 @@
             "date": 1762504473471,
             "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\application-2025-11-07.log",
             "hash": "9ef971d92b5bfa20c1f90b00f85f8c009933b154477608bbafcc41d9e3ce80f9"
+        },
+        {
+            "date": 1762839387601,
+            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\application-2025-11-11.log",
+            "hash": "b24bf748652c3893c4eed0b1f02e3ece7cd0fc768a08038754c278acc28757b8"
         }
     ],
     "hashType": "sha256"

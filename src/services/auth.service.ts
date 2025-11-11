@@ -95,14 +95,22 @@ export const authService = {
 
   async signIn(email: string, password: string): Promise<AuthResponse> {
     try {
+      console.log('🔐 Auth Service: Attempting login');
+      console.log('📧 Email:', email);
+      console.log('🌐 API Base URL:', API_BASE_URL);
+      console.log('🔗 Full URL:', `${API_BASE_URL}${API_ENDPOINTS.LOGIN}`);
+      
       const response = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.LOGIN}`, {
         email,
         password
       });
 
+      console.log('✅ Auth Service: Login response received', response.data);
+
       const { user, token } = response.data;
       if (token) {
         storeToken(token);
+        console.log('💾 Token stored successfully');
       }
 
       return {
@@ -111,6 +119,13 @@ export const authService = {
         error: null
       };
     } catch (error: any) {
+      console.error('❌ Auth Service: Login error', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url
+      });
+      
       return {
         user: null,
         token: null,

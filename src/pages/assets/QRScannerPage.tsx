@@ -27,6 +27,7 @@ import {
 import { toast } from "react-toastify";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import { BrowserQRCodeReader, NotFoundException } from "@zxing/library";
+import { API_BASE_URL } from "../../config/api.config";
 
 const QRScannerPage: React.FC = () => {
   const navigate = useNavigate();
@@ -58,6 +59,26 @@ const QRScannerPage: React.FC = () => {
       // Prevent multiple simultaneous scan attempts
       if (scanningRef.current) {
         console.log("Scanning already in progress");
+        return;
+      }
+
+      // Check for camera API support
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        const errorMsg = "Camera access is not supported on this device. " +
+          (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' 
+            ? "Please use HTTPS for camera access on mobile devices." 
+            : "Your browser may not support camera access.");
+        
+        console.error("Camera API not available:", {
+          hasNavigator: !!navigator,
+          hasMediaDevices: !!navigator.mediaDevices,
+          hasGetUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+          protocol: window.location.protocol,
+          hostname: window.location.hostname
+        });
+        
+        setError(errorMsg);
+        toast.error(errorMsg);
         return;
       }
 
@@ -378,28 +399,55 @@ const QRScannerPage: React.FC = () => {
       const token =
         localStorage.getItem("auth_token") || localStorage.getItem("token");
       
-      // Use the correct API endpoint
-      const apiUrl = `http://localhost:5000/api/v1/qr/scan/${encodeURIComponent(assetIdentifier)}`;
-      console.log("Calling API:", apiUrl);
+      console.log("🔐 Auth token present:", !!token);
+      console.log("🔐 Token preview:", token ? `${token.substring(0, 20)}...` : 'null');
+      
+      // Use the API base URL from config for proper network IP detection
+      const apiUrl = `${API_BASE_URL}/qr/scan/${encodeURIComponent(assetIdentifier)}`;
+      console.log("📡 API Call Details:");
+      console.log("  - URL:", apiUrl);
+      console.log("  - API_BASE_URL:", API_BASE_URL);
+      console.log("  - Method: GET");
+      console.log("  - Asset Identifier:", assetIdentifier);
+      console.log("  - Encoded Identifier:", encodeURIComponent(assetIdentifier));
 
+      const requestHeaders = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+      console.log("  - Headers:", requestHeaders);
+
+      const startTime = performance.now();
       const response = await fetch(apiUrl, {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: requestHeaders,
       });
+      const endTime = performance.now();
 
-      console.log("Response status:", response.status);
+      console.log("📡 Response received:");
+      console.log("  - Status:", response.status, response.statusText);
+      console.log("  - Time taken:", Math.round(endTime - startTime), "ms");
+      console.log("  - Headers:", Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error("API Error:", errorData);
+        const errorText = await response.text();
+        console.error("❌ API Error Response:");
+        console.error("  - Status:", response.status);
+        console.error("  - Raw text:", errorText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+          console.error("  - Parsed error:", errorData);
+        } catch (e) {
+          errorData = { message: errorText || "Asset not found" };
+        }
+        
         throw new Error(errorData.message || "Asset not found");
       }
 
       const result = await response.json();
-      console.log("Scan result:", result);
+      console.log("✅ Scan result:", result);
 
       if (result.success && result.asset) {
         toast.success("✓ Asset scanned successfully!");

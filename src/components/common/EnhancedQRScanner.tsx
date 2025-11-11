@@ -302,6 +302,25 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
           return;
         }
 
+        // Check for camera API support
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          const errorMsg = "Camera access is not supported on this device. " +
+            (window.location.protocol === 'http:' && window.location.hostname !== 'localhost' 
+              ? "Please use HTTPS for camera access on mobile devices." 
+              : "Your browser may not support camera access.");
+          
+          console.error("Camera API not available:", {
+            hasNavigator: !!navigator,
+            hasMediaDevices: !!navigator.mediaDevices,
+            hasGetUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+            protocol: window.location.protocol,
+            hostname: window.location.hostname
+          });
+          
+          setError(errorMsg);
+          return;
+        }
+
         console.log("Starting camera initialization...");
 
         // Wait for video element to be ready
