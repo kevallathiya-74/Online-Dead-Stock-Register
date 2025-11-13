@@ -76,8 +76,7 @@ export const adminNavigation: NavigationItem[] = [
     path: '/reports',
     icon: AnalyticsIcon,
     children: [
-      { id: 'asset-reports', title: 'Asset Reports', path: '/reports/assets', icon: ReportIcon },
-      { id: 'disposal-reports', title: 'Disposal Reports', path: '/reports/disposal', icon: ReportIcon },
+      { id: 'asset-reports', title: 'Asset Reports', path: '/reports', icon: ReportIcon },
       { id: 'audit-logs', title: 'Audit Logs', path: '/admin/audit-logs', icon: HistoryIcon },
     ],
   },
@@ -138,10 +137,7 @@ export const inventoryManagerNavigation: NavigationItem[] = [
     path: '/reports',
     icon: ReportIcon,
     children: [
-      { id: 'all-reports', title: 'All Reports', path: '/reports', icon: ReportIcon },
-      { id: 'asset-reports', title: 'Asset Reports', path: '/reports/assets', icon: InventoryIcon },
-      { id: 'maintenance-reports', title: 'Maintenance Reports', path: '/reports/maintenance', icon: MaintenanceIcon },
-      { id: 'vendor-reports', title: 'Vendor Reports', path: '/reports/vendors', icon: VendorIcon },
+      { id: 'asset-reports', title: 'Asset Reports', path: '/reports', icon: InventoryIcon },
     ],
   },
   {

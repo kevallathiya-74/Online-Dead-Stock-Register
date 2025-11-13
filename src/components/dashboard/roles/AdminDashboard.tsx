@@ -100,7 +100,7 @@ const AdminDashboard = () => {
         backgroundColor: '#2196f320',
       },
       {
-        label: 'Asset Value ($)',
+        label: 'Asset Value (₹)',
         data: [2200000, 2250000, 2300000, 2400000, 2450000, 2500000],
         borderColor: '#4caf50',
         backgroundColor: '#4caf5020',

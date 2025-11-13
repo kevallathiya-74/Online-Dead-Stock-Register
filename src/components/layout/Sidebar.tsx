@@ -12,13 +12,8 @@ import {
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
-  Inventory as InventoryIcon,
-  People as PeopleIcon,
   Assignment as AssignmentIcon,
-  Description as DocumentIcon,
   BuildCircle as MaintenanceIcon,
-  BarChart as ReportsIcon,
-  Settings as SettingsIcon,
   Store as VendorIcon,
 } from '@mui/icons-material';
 import { SvgIconComponent } from '@mui/icons-material';
@@ -40,28 +35,10 @@ const menuItems: MenuItem[] = [
     roles: [UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.IT_MANAGER, UserRole.AUDITOR, UserRole.EMPLOYEE],
   },
   {
-    title: 'Assets',
-    path: '/assets',
-    icon: InventoryIcon,
-    roles: [UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.IT_MANAGER, UserRole.AUDITOR],
-  },
-  {
-    title: 'Users',
-    path: '/users',
-    icon: PeopleIcon,
-    roles: [UserRole.ADMIN],
-  },
-  {
     title: 'Approvals',
     path: '/approvals',
     icon: AssignmentIcon,
     roles: [UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.IT_MANAGER],
-  },
-  {
-    title: 'Documents',
-    path: '/dashboard',
-    icon: DocumentIcon,
-    roles: [UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.IT_MANAGER, UserRole.AUDITOR],
   },
   {
     title: 'Maintenance',
@@ -74,18 +51,6 @@ const menuItems: MenuItem[] = [
     path: '/vendors',
     icon: VendorIcon,
     roles: [UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.IT_MANAGER],
-  },
-  {
-    title: 'Reports',
-    path: '/reports',
-    icon: ReportsIcon,
-    roles: [UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.IT_MANAGER, UserRole.AUDITOR],
-  },
-  {
-    title: 'Settings',
-    path: '/settings',
-    icon: SettingsIcon,
-    roles: [UserRole.ADMIN],
   },
 ];
 

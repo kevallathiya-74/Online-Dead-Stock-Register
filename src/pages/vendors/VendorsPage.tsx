@@ -22,13 +22,11 @@ import {
   Select,
   MenuItem,
   Avatar,
-  Rating,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Skeleton,
-  LinearProgress,
   Menu,
   ListItemIcon,
   ListItemText,
@@ -44,78 +42,206 @@ import {
   Business as BusinessIcon,
   Assessment as ReportsIcon,
   MoreVert as MoreIcon,
-  Star as StarIcon,
-  TrendingUp as TrendingUpIcon,
-  AttachMoney as MoneyIcon,
-  ShoppingCart as OrdersIcon,
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
+import VendorFormDialog from './VendorFormDialog';
 import { toast } from 'react-toastify';
 import api from '../../services/api';
 
 interface Vendor {
-  id: string;
-  name: string;
-  contact_person: string;
-  email: string;
-  phone: string;
-  address: string;
-  specialization: string[];
-  rating: number;
-  total_orders: number;
-  total_value: number;
-  payment_terms: string;
-  status: 'Active' | 'Inactive' | 'Suspended';
-  registration_date: string;
-  last_order_date: string;
-  performance_score: number;
+  _id: string;
+  vendor_name: string;
+  contact_person?: string;
+  email?: string;
+  phone?: string;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zip_code?: string;
+    country?: string;
+  };
+  payment_terms?: string;
+  is_active: boolean;
+  created_at: string;
 }
 
 const VendorsPage = () => {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSpecialization, setSelectedSpecialization] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
-  console.log('Selected vendor for menu:', selectedVendor?.name); // Use to avoid warning
-  const [addVendorOpen, setAddVendorOpen] = useState(false);
+  const [formDialogOpen, setFormDialogOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   useEffect(() => {
-    const loadVendors = async () => {
-      setLoading(true);
-      try {
-        const response = await api.get('/vendors');
-        const vendorData = response.data.data || response.data;
-        setVendors(vendorData);
-      } catch (error) {
-        console.error('Failed to load vendors:', error);
-        toast.error('Failed to load vendors');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadVendors();
   }, []);
 
-  const specializations = Array.from(new Set(vendors.flatMap(v => v.specialization)));
+  const loadVendors = async () => {
+    setLoading(true);
+    try {
+      const response = await api.get('/vendors');
+      const vendorData = response.data.data || response.data;
+      setVendors(Array.isArray(vendorData) ? vendorData : []);
+    } catch (error) {
+      console.error('Failed to load vendors:', error);
+      toast.error('Failed to load vendors');
+      setVendors([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddVendor = async (formData: any) => {
+    try {
+      const response = await api.post('/vendors', formData);
+      const newVendor = response.data;
+      setVendors((prev) => [...prev, newVendor]);
+      toast.success('Vendor added successfully');
+      setFormDialogOpen(false);
+    } catch (error: any) {
+      console.error('Failed to add vendor:', error);
+      toast.error(error.response?.data?.message || 'Failed to add vendor');
+      throw error;
+    }
+  };
+
+  const handleUpdateVendor = async (formData: any) => {
+    if (!selectedVendor) return;
+    
+    try {
+      const response = await api.put(`/vendors/${selectedVendor._id}`, formData);
+      const updatedVendor = response.data;
+      setVendors((prev) =>
+        prev.map((v) => (v._id === selectedVendor._id ? updatedVendor : v))
+      );
+      toast.success('Vendor updated successfully');
+      setFormDialogOpen(false);
+      setSelectedVendor(null);
+    } catch (error: any) {
+      console.error('Failed to update vendor:', error);
+      toast.error(error.response?.data?.message || 'Failed to update vendor');
+      throw error;
+    }
+  };
+
+  const handleDeleteVendor = async () => {
+    if (!selectedVendor) return;
+
+    try {
+      await api.delete(`/vendors/${selectedVendor._id}`);
+      setVendors((prev) => prev.filter((v) => v._id !== selectedVendor._id));
+      toast.success('Vendor deleted successfully');
+      setDeleteConfirmOpen(false);
+      setSelectedVendor(null);
+    } catch (error: any) {
+      console.error('Failed to delete vendor:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete vendor');
+    }
+  };
+
+  const openAddDialog = () => {
+    setSelectedVendor(null);
+    setIsEditMode(false);
+    setFormDialogOpen(true);
+  };
+
+  const openEditDialog = (vendor: Vendor) => {
+    setSelectedVendor(vendor);
+    setIsEditMode(true);
+    setFormDialogOpen(true);
+    setAnchorEl(null); // Close menu but keep selectedVendor
+  };
+
+  const openDeleteConfirm = () => {
+    setDeleteConfirmOpen(true);
+    setAnchorEl(null); // Close menu but keep selectedVendor
+  };
+
+  const handleGenerateReport = () => {
+    if (!selectedVendor) return;
+    
+    // Create a simple vendor report
+    const reportContent = `
+VENDOR REPORT
+=============
+
+Vendor Information:
+------------------
+Name: ${selectedVendor.vendor_name}
+Contact Person: ${selectedVendor.contact_person || 'N/A'}
+Email: ${selectedVendor.email || 'N/A'}
+Phone: ${selectedVendor.phone || 'N/A'}
+
+Address:
+--------
+${selectedVendor.address?.street || 'N/A'}
+${selectedVendor.address?.city || ''} ${selectedVendor.address?.state || ''} ${selectedVendor.address?.zip_code || ''}
+${selectedVendor.address?.country || ''}
+
+Business Details:
+----------------
+Payment Terms: ${selectedVendor.payment_terms || 'N/A'}
+Status: ${selectedVendor.is_active ? 'Active' : 'Inactive'}
+Vendor ID: ${selectedVendor._id}
+Created: ${selectedVendor.created_at ? new Date(selectedVendor.created_at).toLocaleDateString() : 'N/A'}
+
+Generated on: ${new Date().toLocaleString()}
+    `.trim();
+
+    // Create and download the report as a text file
+    const blob = new Blob([reportContent], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `vendor-report-${selectedVendor.vendor_name.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    toast.success(`Report generated for ${selectedVendor.vendor_name}`);
+    handleMenuClose();
+  };
+
+  const handleSendEmail = () => {
+    if (!selectedVendor) return;
+    
+    // Create email template
+    const subject = encodeURIComponent(`Regarding: ${selectedVendor.vendor_name}`);
+    const body = encodeURIComponent(`Dear ${selectedVendor.contact_person || selectedVendor.vendor_name},\n\n\n\nBest regards,\nOnline Dead Stock Register Team`);
+    const email = selectedVendor.email;
+    
+    if (!email) {
+      toast.error('No email address found for this vendor');
+      return;
+    }
+    
+    // Open default email client with pre-filled template
+    window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+    
+    toast.success(`Opening email to ${selectedVendor.vendor_name}`);
+    handleMenuClose();
+  };
 
   const filteredVendors = vendors.filter((vendor) => {
+    const searchLower = searchTerm.toLowerCase();
     const matchesSearch = 
-      vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vendor.contact_person.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vendor.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vendor.id.toLowerCase().includes(searchTerm.toLowerCase());
+      vendor.vendor_name?.toLowerCase().includes(searchLower) ||
+      vendor.contact_person?.toLowerCase().includes(searchLower) ||
+      vendor.email?.toLowerCase().includes(searchLower) ||
+      vendor._id?.toLowerCase().includes(searchLower);
     
-    const matchesSpecialization = selectedSpecialization === 'all' || 
-      vendor.specialization.some(spec => spec.includes(selectedSpecialization));
+    const matchesStatus = selectedStatus === 'all' || 
+      (selectedStatus === 'Active' && vendor.is_active) ||
+      (selectedStatus === 'Inactive' && !vendor.is_active);
     
-    const matchesStatus = selectedStatus === 'all' || vendor.status === selectedStatus;
-    
-    return matchesSearch && matchesSpecialization && matchesStatus;
+    return matchesSearch && matchesStatus;
   });
 
   const handleViewVendor = (vendor: Vendor) => {
@@ -133,30 +259,10 @@ const VendorsPage = () => {
     setSelectedVendor(null);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Active':
-        return 'success';
-      case 'Inactive':
-        return 'default';
-      case 'Suspended':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
-
-  const getPerformanceColor = (score: number) => {
-    if (score >= 90) return 'success';
-    if (score >= 80) return 'warning';
-    return 'error';
-  };
-
   const stats = {
     totalVendors: vendors.length,
-    activeVendors: vendors.filter(v => v.status === 'Active').length,
-    totalValue: vendors.reduce((sum, vendor) => sum + vendor.total_value, 0),
-    avgRating: vendors.length > 0 ? vendors.reduce((sum, vendor) => sum + vendor.rating, 0) / vendors.length : 0,
+    activeVendors: vendors.filter(v => v.is_active).length,
+    inactiveVendors: vendors.filter(v => !v.is_active).length,
   };
 
   return (
@@ -174,7 +280,7 @@ const VendorsPage = () => {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => setAddVendorOpen(true)}
+            onClick={openAddDialog}
           >
             Add New Vendor
           </Button>
@@ -218,7 +324,7 @@ const VendorsPage = () => {
                     )}
                   </Box>
                   <Avatar sx={{ backgroundColor: 'success.main' }}>
-                    <TrendingUpIcon />
+                    <BusinessIcon />
                   </Avatar>
                 </Box>
               </CardContent>
@@ -230,16 +336,16 @@ const VendorsPage = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
                     <Typography color="textSecondary" gutterBottom variant="overline">
-                      Total Value
+                      Inactive Vendors
                     </Typography>
                     {loading ? (
                       <Skeleton variant="text" width={80} height={40} />
                     ) : (
-                      <Typography variant="h4">₹{(stats.totalValue / 10000000).toFixed(1)}Cr</Typography>
+                      <Typography variant="h4">{stats.inactiveVendors}</Typography>
                     )}
                   </Box>
                   <Avatar sx={{ backgroundColor: 'info.main' }}>
-                    <MoneyIcon />
+                    <BusinessIcon />
                   </Avatar>
                 </Box>
               </CardContent>
@@ -251,19 +357,18 @@ const VendorsPage = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
                     <Typography color="textSecondary" gutterBottom variant="overline">
-                      Avg Rating
+                      Registration Date
                     </Typography>
                     {loading ? (
                       <Skeleton variant="text" width={60} height={40} />
                     ) : (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="h4">{stats.avgRating.toFixed(1)}</Typography>
-                        <StarIcon color="warning" />
-                      </Box>
+                      <Typography variant="body2">
+                        {vendors.length > 0 ? new Date(vendors[0].created_at).toLocaleDateString() : 'N/A'}
+                      </Typography>
                     )}
                   </Box>
                   <Avatar sx={{ backgroundColor: 'warning.main' }}>
-                    <StarIcon />
+                    <BusinessIcon />
                   </Avatar>
                 </Box>
               </CardContent>
@@ -293,23 +398,6 @@ const VendorsPage = () => {
               </Grid>
               <Grid item xs={12} md={3}>
                 <FormControl fullWidth>
-                  <InputLabel>Specialization</InputLabel>
-                  <Select
-                    value={selectedSpecialization}
-                    label="Specialization"
-                    onChange={(e) => setSelectedSpecialization(e.target.value)}
-                  >
-                    <MenuItem value="all">All Specializations</MenuItem>
-                    {specializations.map((spec) => (
-                      <MenuItem key={spec} value={spec}>
-                        {spec}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={2}>
-                <FormControl fullWidth>
                   <InputLabel>Status</InputLabel>
                   <Select
                     value={selectedStatus}
@@ -319,11 +407,10 @@ const VendorsPage = () => {
                     <MenuItem value="all">All Status</MenuItem>
                     <MenuItem value="Active">Active</MenuItem>
                     <MenuItem value="Inactive">Inactive</MenuItem>
-                    <MenuItem value="Suspended">Suspended</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={3}>
+              <Grid item xs={12} md={5}>
                 <Typography variant="body2" color="text.secondary">
                   Showing {filteredVendors.length} of {vendors.length} vendors
                 </Typography>
@@ -342,14 +429,12 @@ const VendorsPage = () => {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Vendor</TableCell>
-                    <TableCell>Contact</TableCell>
-                    <TableCell>Specialization</TableCell>
-                    <TableCell>Rating</TableCell>
-                    <TableCell>Orders</TableCell>
-                    <TableCell>Total Value</TableCell>
+                    <TableCell>Vendor Name</TableCell>
+                    <TableCell>Contact Person</TableCell>
+                    <TableCell>Email</TableCell>
+                    <TableCell>Phone</TableCell>
+                    <TableCell>Payment Terms</TableCell>
                     <TableCell>Status</TableCell>
-                    <TableCell>Performance</TableCell>
                     <TableCell>Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -370,31 +455,33 @@ const VendorsPage = () => {
                           <Skeleton variant="text" width={120} />
                         </TableCell>
                         <TableCell>
+                          <Skeleton variant="text" width={180} />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton variant="text" width={120} />
+                        </TableCell>
+                        <TableCell>
                           <Skeleton variant="text" width={100} />
                         </TableCell>
                         <TableCell>
-                          <Skeleton variant="text" width={80} />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton variant="text" width={60} />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton variant="text" width={80} />
-                        </TableCell>
-                        <TableCell>
                           <Skeleton variant="rectangular" width={70} height={24} />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton variant="text" width={60} />
                         </TableCell>
                         <TableCell>
                           <Skeleton variant="text" width={100} />
                         </TableCell>
                       </TableRow>
                     ))
+                  ) : filteredVendors.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center">
+                        <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
+                          No vendors found
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     filteredVendors.map((vendor) => (
-                      <TableRow key={vendor.id}>
+                      <TableRow key={vendor._id}>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
                             <Avatar sx={{ mr: 2, bgcolor: 'secondary.main' }}>
@@ -402,68 +489,42 @@ const VendorsPage = () => {
                             </Avatar>
                             <Box>
                               <Typography variant="subtitle2" sx={{ fontWeight: 'medium' }}>
-                                {vendor.name}
+                                {vendor.vendor_name}
                               </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                {vendor.id}
+                              <Typography variant="caption" color="text.secondary">
+                                ID: {vendor._id.slice(-8)}
                               </Typography>
                             </Box>
                           </Box>
                         </TableCell>
                         <TableCell>
-                          <Box>
-                            <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                              <EmailIcon sx={{ fontSize: 16, mr: 0.5 }} />
-                              {vendor.email}
-                            </Typography>
-                            <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}>
-                              <PhoneIcon sx={{ fontSize: 16, mr: 0.5 }} />
-                              {vendor.phone}
-                            </Typography>
-                          </Box>
+                          <Typography variant="body2">
+                            {vendor.contact_person || 'N/A'}
+                          </Typography>
                         </TableCell>
                         <TableCell>
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {vendor.specialization.slice(0, 2).map((spec, index) => (
-                              <Chip key={index} label={spec} size="small" variant="outlined" />
-                            ))}
-                            {vendor.specialization.length > 2 && (
-                              <Chip label={`+${vendor.specialization.length - 2}`} size="small" />
-                            )}
-                          </Box>
+                          <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}>
+                            <EmailIcon sx={{ fontSize: 16, mr: 0.5 }} />
+                            {vendor.email || 'N/A'}
+                          </Typography>
                         </TableCell>
                         <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Rating value={vendor.rating} precision={0.1} size="small" readOnly />
-                            <Typography variant="body2">({vendor.rating})</Typography>
-                          </Box>
+                          <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center' }}>
+                            <PhoneIcon sx={{ fontSize: 16, mr: 0.5 }} />
+                            {vendor.phone || 'N/A'}
+                          </Typography>
                         </TableCell>
                         <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <OrdersIcon sx={{ fontSize: 16 }} />
-                            <Typography variant="body2">{vendor.total_orders}</Typography>
-                          </Box>
+                          <Typography variant="body2">
+                            {vendor.payment_terms || 'N/A'}
+                          </Typography>
                         </TableCell>
-                        <TableCell>₹{(vendor.total_value / 100000).toFixed(1)}L</TableCell>
                         <TableCell>
                           <Chip
-                            label={vendor.status}
-                            color={getStatusColor(vendor.status) as any}
+                            label={vendor.is_active ? 'Active' : 'Inactive'}
+                            color={vendor.is_active ? 'success' : 'default'}
                             size="small"
                           />
-                        </TableCell>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <LinearProgress
-                              variant="determinate"
-                              value={vendor.performance_score}
-                              color={getPerformanceColor(vendor.performance_score) as any}
-                              sx={{ width: 60, height: 6, borderRadius: 1 }}
-                            />
-                            <Typography variant="body2" color={`${getPerformanceColor(vendor.performance_score)}.main`}>
-                              {vendor.performance_score}%
-                            </Typography>
-                          </Box>
                         </TableCell>
                         <TableCell>
                           <IconButton 
@@ -474,12 +535,18 @@ const VendorsPage = () => {
                           >
                             <ViewIcon />
                           </IconButton>
-                          <IconButton size="small" color="success">
+                          <IconButton 
+                            size="small" 
+                            color="success"
+                            onClick={() => openEditDialog(vendor)}
+                            title="Edit Vendor"
+                          >
                             <EditIcon />
                           </IconButton>
                           <IconButton 
                             size="small" 
                             onClick={(e) => handleMenuClick(e, vendor)}
+                            title="More Actions"
                           >
                             <MoreIcon />
                           </IconButton>
@@ -499,23 +566,23 @@ const VendorsPage = () => {
           open={Boolean(anchorEl)}
           onClose={handleMenuClose}
         >
-          <MenuItem onClick={handleMenuClose}>
+          <MenuItem onClick={handleGenerateReport}>
             <ListItemIcon>
               <ReportsIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>Generate Report</ListItemText>
           </MenuItem>
-          <MenuItem onClick={handleMenuClose}>
+          <MenuItem onClick={handleSendEmail}>
             <ListItemIcon>
               <EmailIcon fontSize="small" />
             </ListItemIcon>
             <ListItemText>Send Email</ListItemText>
           </MenuItem>
-          <MenuItem onClick={handleMenuClose}>
+          <MenuItem onClick={openDeleteConfirm} sx={{ color: 'error.main' }}>
             <ListItemIcon>
-              <DeleteIcon fontSize="small" />
+              <DeleteIcon fontSize="small" color="error" />
             </ListItemIcon>
-            <ListItemText>Remove Vendor</ListItemText>
+            <ListItemText>Delete Vendor</ListItemText>
           </MenuItem>
         </Menu>
 
@@ -538,21 +605,23 @@ const VendorsPage = () => {
                       <Grid container spacing={2}>
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body2" color="text.secondary">Vendor ID</Typography>
-                          <Typography variant="body1" fontWeight="bold">{selectedVendor.id}</Typography>
+                          <Typography variant="body1" fontWeight="bold">
+                            {selectedVendor._id?.slice(-8) || 'N/A'}
+                          </Typography>
                         </Grid>
                         <Grid item xs={12} sm={6}>
-                          <Typography variant="body2" color="text.secondary">Company Name</Typography>
-                          <Typography variant="body1" fontWeight="bold">{selectedVendor.name}</Typography>
+                          <Typography variant="body2" color="text.secondary">Vendor Name</Typography>
+                          <Typography variant="body1" fontWeight="bold">{selectedVendor.vendor_name}</Typography>
                         </Grid>
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body2" color="text.secondary">Contact Person</Typography>
-                          <Typography variant="body1">{selectedVendor.contact_person}</Typography>
+                          <Typography variant="body1">{selectedVendor.contact_person || 'N/A'}</Typography>
                         </Grid>
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body2" color="text.secondary">Status</Typography>
                           <Chip 
-                            label={selectedVendor.status} 
-                            color={getStatusColor(selectedVendor.status) as any}
+                            label={selectedVendor.is_active ? 'Active' : 'Inactive'}
+                            color={selectedVendor.is_active ? 'success' : 'default'}
                             size="small"
                             sx={{ mt: 0.5 }}
                           />
@@ -571,15 +640,25 @@ const VendorsPage = () => {
                       <Grid container spacing={2}>
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body2" color="text.secondary">Email</Typography>
-                          <Typography variant="body1">{selectedVendor.email}</Typography>
+                          <Typography variant="body1">{selectedVendor.email || 'N/A'}</Typography>
                         </Grid>
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body2" color="text.secondary">Phone</Typography>
-                          <Typography variant="body1">{selectedVendor.phone}</Typography>
+                          <Typography variant="body1">{selectedVendor.phone || 'N/A'}</Typography>
                         </Grid>
                         <Grid item xs={12}>
                           <Typography variant="body2" color="text.secondary">Address</Typography>
-                          <Typography variant="body1">{selectedVendor.address}</Typography>
+                          <Typography variant="body1">
+                            {selectedVendor.address ? (
+                              <>
+                                {selectedVendor.address.street && `${selectedVendor.address.street}, `}
+                                {selectedVendor.address.city && `${selectedVendor.address.city}, `}
+                                {selectedVendor.address.state && `${selectedVendor.address.state} `}
+                                {selectedVendor.address.zip_code && `${selectedVendor.address.zip_code}, `}
+                                {selectedVendor.address.country}
+                              </>
+                            ) : 'N/A'}
+                          </Typography>
                         </Grid>
                       </Grid>
                     </CardContent>
@@ -594,70 +673,17 @@ const VendorsPage = () => {
                       </Typography>
                       <Grid container spacing={2}>
                         <Grid item xs={12}>
-                          <Typography variant="body2" color="text.secondary">Specialization</Typography>
-                          <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            {selectedVendor.specialization.map((spec, idx) => (
-                              <Chip key={idx} label={spec} size="small" />
-                            ))}
-                          </Box>
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                          <Typography variant="body2" color="text.secondary">Total Orders</Typography>
-                          <Typography variant="body1" fontWeight="bold">{selectedVendor.total_orders}</Typography>
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                          <Typography variant="body2" color="text.secondary">Total Value</Typography>
-                          <Typography variant="body1" fontWeight="bold">
-                            ₹{selectedVendor.total_value?.toLocaleString('en-IN') || '0'}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
                           <Typography variant="body2" color="text.secondary">Payment Terms</Typography>
-                          <Typography variant="body1">{selectedVendor.payment_terms}</Typography>
+                          <Typography variant="body1">{selectedVendor.payment_terms || 'N/A'}</Typography>
                         </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <Typography variant="body2" color="text.secondary">Rating</Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                            <Rating value={selectedVendor.rating} readOnly precision={0.5} size="small" />
-                            <Typography variant="body2">({selectedVendor.rating})</Typography>
-                          </Box>
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <Typography variant="body2" color="text.secondary">Performance Score</Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                            <LinearProgress
-                              variant="determinate"
-                              value={selectedVendor.performance_score}
-                              color={getPerformanceColor(selectedVendor.performance_score) as any}
-                              sx={{ width: 100, height: 8, borderRadius: 1 }}
-                            />
-                            <Typography variant="body2" fontWeight="bold">
-                              {selectedVendor.performance_score}%
-                            </Typography>
-                          </Box>
-                        </Grid>
-                      </Grid>
-                    </CardContent>
-                  </Card>
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom color="primary">
-                        Timeline
-                      </Typography>
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6}>
+                        <Grid item xs={12}>
                           <Typography variant="body2" color="text.secondary">Registration Date</Typography>
                           <Typography variant="body1">
-                            {selectedVendor.registration_date ? new Date(selectedVendor.registration_date).toLocaleDateString() : 'N/A'}
-                          </Typography>
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <Typography variant="body2" color="text.secondary">Last Order Date</Typography>
-                          <Typography variant="body1">
-                            {selectedVendor.last_order_date ? new Date(selectedVendor.last_order_date).toLocaleDateString() : 'N/A'}
+                            {selectedVendor.created_at ? new Date(selectedVendor.created_at).toLocaleDateString('en-IN', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            }) : 'N/A'}
                           </Typography>
                         </Grid>
                       </Grid>
@@ -685,17 +711,49 @@ const VendorsPage = () => {
           </DialogActions>
         </Dialog>
 
-        {/* Add Vendor Dialog */}
-        <Dialog open={addVendorOpen} onClose={() => setAddVendorOpen(false)} maxWidth="md" fullWidth>
-          <DialogTitle>Add New Vendor</DialogTitle>
+        {/* Add/Edit Vendor Dialog */}
+        <VendorFormDialog
+          open={formDialogOpen}
+          onClose={() => {
+            setFormDialogOpen(false);
+            setSelectedVendor(null);
+            setIsEditMode(false);
+          }}
+          onSubmit={isEditMode ? handleUpdateVendor : handleAddVendor}
+          initialData={selectedVendor || undefined}
+          isEdit={isEditMode}
+        />
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog
+          open={deleteConfirmOpen}
+          onClose={() => {
+            setDeleteConfirmOpen(false);
+            setSelectedVendor(null);
+          }}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Confirm Delete</DialogTitle>
           <DialogContent>
-            <Typography variant="body2" color="text.secondary">
-              Vendor registration form would be implemented here with full vendor details.
+            <Typography>
+              Are you sure you want to delete vendor{' '}
+              <strong>{selectedVendor?.vendor_name}</strong>? This action cannot be undone.
             </Typography>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setAddVendorOpen(false)}>Cancel</Button>
-            <Button variant="contained">Add Vendor</Button>
+            <Button onClick={() => {
+              setDeleteConfirmOpen(false);
+              setSelectedVendor(null);
+            }}>Cancel</Button>
+            <Button
+              onClick={handleDeleteVendor}
+              variant="contained"
+              color="error"
+              startIcon={<DeleteIcon />}
+            >
+              Delete
+            </Button>
           </DialogActions>
         </Dialog>
       </Box>

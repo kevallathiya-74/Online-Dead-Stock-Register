@@ -15,6 +15,16 @@ import {
   TableCell,
   TableRow,
   Chip,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Grid,
+  Divider,
+  List,
+  ListItem,
+  ListItemText,
 } from "@mui/material";
 import {
   QrCodeScanner as ScannerIcon,
@@ -23,6 +33,10 @@ import {
   FlashlightOn as FlashlightIcon,
   FlashlightOff as FlashlightOffIcon,
   Cameraswitch as SwitchCameraIcon,
+  Warning as WarningIcon,
+  Send as SendIcon,
+  Clear as ClearIcon,
+  History as HistoryIcon,
 } from "@mui/icons-material";
 import { toast } from "react-toastify";
 import DashboardLayout from "../../components/layout/DashboardLayout";
@@ -357,6 +371,12 @@ const QRScannerPage: React.FC = () => {
   };
 
   const [scannedAsset, setScannedAsset] = useState<any>(null);
+  const [issueDescription, setIssueDescription] = useState("");
+  const [issueType, setIssueType] = useState("Other");
+  const [severity, setSeverity] = useState("Medium");
+  const [submittingIssue, setSubmittingIssue] = useState(false);
+  const [existingIssues, setExistingIssues] = useState<any[]>([]);
+  const [loadingIssues, setLoadingIssues] = useState(false);
 
   const handleQRCodeDetected = useCallback(async (data: string) => {
     console.log("==> handleQRCodeDetected called with:", data);
@@ -457,6 +477,9 @@ const QRScannerPage: React.FC = () => {
         setError("");
         console.log("Asset data set:", result.asset);
 
+        // Fetch existing issues for this asset
+        await fetchAssetIssues(result.asset.id || result.asset._id);
+
         // Show scan details
         console.log("Scan details:", {
           scanned_by: result.scanned_by,
@@ -501,6 +524,112 @@ const QRScannerPage: React.FC = () => {
   useEffect(() => {
     handleQRCodeDetectedRef.current = handleQRCodeDetected;
   }, [handleQRCodeDetected]);
+
+  // Fetch existing issues for the scanned asset
+  const fetchAssetIssues = async (assetId: string) => {
+    try {
+      setLoadingIssues(true);
+      const token = localStorage.getItem("auth_token") || localStorage.getItem("token");
+      
+      const response = await fetch(`${API_BASE_URL}/assets/${assetId}/issues?status=Open`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setExistingIssues(result.data.issues || []);
+        
+        // Auto-fill the latest open issue if exists
+        if (result.data.issues && result.data.issues.length > 0) {
+          const latestIssue = result.data.issues[0];
+          setIssueDescription(latestIssue.issue_description);
+          setIssueType(latestIssue.issue_type);
+          setSeverity(latestIssue.severity);
+          toast.info(`Found ${result.data.issues.length} existing issue(s) for this asset`);
+        } else {
+          // Clear form for new issue
+          setIssueDescription("");
+          setIssueType("Other");
+          setSeverity("Medium");
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching asset issues:", error);
+    } finally {
+      setLoadingIssues(false);
+    }
+  };
+
+  // Submit new issue or update existing one
+  const handleSubmitIssue = async () => {
+    if (!scannedAsset) {
+      toast.error("No asset scanned");
+      return;
+    }
+
+    if (!issueDescription.trim()) {
+      toast.error("Please enter an issue description");
+      return;
+    }
+
+    try {
+      setSubmittingIssue(true);
+      const token = localStorage.getItem("auth_token") || localStorage.getItem("token");
+      const assetId = scannedAsset.id || scannedAsset._id;
+
+      // Check if we're updating an existing issue or creating new one
+      const isUpdate = existingIssues.length > 0;
+      const method = isUpdate ? "PUT" : "POST";
+      const url = isUpdate
+        ? `${API_BASE_URL}/assets/${assetId}/issues/${existingIssues[0]._id}`
+        : `${API_BASE_URL}/assets/${assetId}/issues`;
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          issue_description: issueDescription.trim(),
+          issue_type: issueType,
+          severity: severity,
+          scan_location: "QR Scanner Page",
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to submit issue");
+      }
+
+      const result = await response.json();
+      toast.success(
+        isUpdate
+          ? "✓ Issue updated successfully!"
+          : "✓ Issue reported successfully!"
+      );
+
+      // Refresh issues list
+      await fetchAssetIssues(assetId);
+    } catch (error: any) {
+      console.error("Error submitting issue:", error);
+      toast.error(error.message || "Failed to submit issue");
+    } finally {
+      setSubmittingIssue(false);
+    }
+  };
+
+  // Clear issue form
+  const handleClearIssue = () => {
+    setIssueDescription("");
+    setIssueType("Other");
+    setSeverity("Medium");
+  };
 
   return (
     <DashboardLayout>
@@ -988,6 +1117,141 @@ const QRScannerPage: React.FC = () => {
                   View Full Details
                 </Button>
               </Box>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Issue Reporting Section - Show after successful scan */}
+        {scannedAsset && (
+          <Card sx={{ mt: 3 }}>
+            <CardContent>
+              <Box display="flex" alignItems="center" gap={1} mb={2}>
+                <WarningIcon color="warning" />
+                <Typography variant="h6">
+                  {existingIssues.length > 0 ? 'Update Asset Issue' : 'Report Asset Issue'}
+                </Typography>
+              </Box>
+
+              {/* Show existing issues count */}
+              {existingIssues.length > 0 && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  This asset has {existingIssues.length} existing issue(s). Submitting will update the latest issue.
+                </Alert>
+              )}
+
+              {loadingIssues ? (
+                <Box display="flex" justifyContent="center" py={3}>
+                  <CircularProgress size={30} />
+                </Box>
+              ) : (
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={4}
+                      label="Issue Description"
+                      value={issueDescription}
+                      onChange={(e) => setIssueDescription(e.target.value)}
+                      placeholder="Describe the issue with this asset..."
+                      disabled={submittingIssue}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth>
+                      <InputLabel>Issue Type</InputLabel>
+                      <Select
+                        value={issueType}
+                        label="Issue Type"
+                        onChange={(e) => setIssueType(e.target.value)}
+                        disabled={submittingIssue}
+                      >
+                        <MenuItem value="Damage">Damage</MenuItem>
+                        <MenuItem value="Missing Part">Missing Part</MenuItem>
+                        <MenuItem value="Maintenance Required">Maintenance Required</MenuItem>
+                        <MenuItem value="Performance Issue">Performance Issue</MenuItem>
+                        <MenuItem value="Other">Other</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  <Grid item xs={12} md={6}>
+                    <FormControl fullWidth>
+                      <InputLabel>Severity</InputLabel>
+                      <Select
+                        value={severity}
+                        label="Severity"
+                        onChange={(e) => setSeverity(e.target.value)}
+                        disabled={submittingIssue}
+                      >
+                        <MenuItem value="Low">Low</MenuItem>
+                        <MenuItem value="Medium">Medium</MenuItem>
+                        <MenuItem value="High">High</MenuItem>
+                        <MenuItem value="Critical">Critical</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <Box display="flex" gap={2}>
+                      <Button
+                        variant="contained"
+                        startIcon={submittingIssue ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
+                        onClick={handleSubmitIssue}
+                        disabled={submittingIssue || !issueDescription.trim()}
+                      >
+                        {submittingIssue ? 'Submitting...' : (existingIssues.length > 0 ? 'Update Issue' : 'Submit Issue')}
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        startIcon={<ClearIcon />}
+                        onClick={handleClearIssue}
+                        disabled={submittingIssue}
+                      >
+                        Clear
+                      </Button>
+                    </Box>
+                  </Grid>
+                </Grid>
+              )}
+
+              {/* Issue History */}
+              {existingIssues.length > 1 && (
+                <>
+                  <Divider sx={{ my: 3 }} />
+                  <Box display="flex" alignItems="center" gap={1} mb={2}>
+                    <HistoryIcon />
+                    <Typography variant="subtitle1">Issue History</Typography>
+                  </Box>
+                  <List>
+                    {existingIssues.slice(1).map((issue: any) => (
+                      <ListItem key={issue._id} divider>
+                        <ListItemText
+                          primary={issue.issue_description}
+                          secondary={
+                            <>
+                              <Chip label={issue.issue_type} size="small" sx={{ mr: 1, mt: 0.5 }} />
+                              <Chip 
+                                label={issue.severity} 
+                                size="small" 
+                                color={
+                                  issue.severity === 'Critical' ? 'error' :
+                                  issue.severity === 'High' ? 'warning' : 'default'
+                                } 
+                                sx={{ mr: 1, mt: 0.5 }} 
+                              />
+                              <br />
+                              Reported by {issue.reported_by?.name || 'Unknown'} on{' '}
+                              {new Date(issue.reported_at).toLocaleDateString()}
+                            </>
+                          }
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                </>
+              )}
             </CardContent>
           </Card>
         )}

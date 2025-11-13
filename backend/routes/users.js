@@ -6,6 +6,9 @@ const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
 // Protected: GET current user profile
 router.get('/profile', authMiddleware, userCtrl.getProfile);
 
+// Protected: POST change password
+router.post('/change-password', authMiddleware, userCtrl.changePassword);
+
 // Protected: GET all users (Admin only - AUDITOR role removed)
 router.get('/', authMiddleware, requireRole(['ADMIN']), userCtrl.getUsers);
 

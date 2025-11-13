@@ -55,7 +55,7 @@ import {
   Storage as StorageIcon,
   LocationOn as LocationIcon,
   Person as PersonIcon,
-  AttachMoney as MoneyIcon,
+  CurrencyRupee as MoneyIcon,
   Schedule as ScheduleIcon,
   Warning as WarningIcon,
   CheckCircle as CheckCircleIcon,
@@ -193,7 +193,7 @@ const AdminAssetPage: React.FC = () => {
         category: newAsset.asset_type,
         location: newAsset.location,
         purchase_date: new Date().toISOString().split('T')[0],
-        purchase_value: parseFloat(newAsset.purchase_cost) || 0,
+        purchase_cost: parseFloat(newAsset.purchase_cost) || 0,  // ✅ Fixed
         warranty_expiry: newAsset.warranty_expiry,
         condition: newAsset.condition,
         status: 'Active'
@@ -279,7 +279,7 @@ const AdminAssetPage: React.FC = () => {
         serial_number: editAsset.serial_number,
         category: editAsset.asset_type,
         location: editAsset.location,
-        purchase_value: parseFloat(editAsset.purchase_cost) || 0,
+        purchase_cost: parseFloat(editAsset.purchase_cost) || 0,  // ✅ Fixed
         warranty_expiry: editAsset.warranty_expiry,
         condition: editAsset.condition,
         status: editAsset.status

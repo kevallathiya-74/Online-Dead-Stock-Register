@@ -287,5 +287,119 @@ exports.downloadReport = async (req, res, next) => {
   }
 };
 
-// Note: Functions are already exported using exports.functionName above
-// No need for module.exports = {} at the end
+/**
+ * @desc    Get asset summary for reports
+ * @route   GET /api/v1/reports/asset-summary
+ * @access  Private (ADMIN, INVENTORY_MANAGER, IT_MANAGER, AUDITOR)
+ */
+exports.getAssetSummary = async (req, res, next) => {
+  try {
+    const Asset = require('../models/asset');
+    
+    // Get aggregate statistics
+    const [totalStats, categoryStats, locationStats, statusStats] = await Promise.all([
+      // Total assets and values
+      Asset.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalAssets: { $sum: 1 },
+            totalValue: { $sum: '$cost' },
+            depreciatedValue: { $sum: '$current_value' },
+            activeAssets: {
+              $sum: { $cond: [{ $eq: ['$status', 'Active'] }, 1, 0] }
+            },
+            underMaintenance: {
+              $sum: { $cond: [{ $eq: ['$status', 'Under Maintenance'] }, 1, 0] }
+            }
+          }
+        }
+      ]),
+      
+      // By category
+      Asset.aggregate([
+        {
+          $group: {
+            _id: '$asset_type',
+            count: { $sum: 1 },
+            value: { $sum: '$cost' }
+          }
+        },
+        { $sort: { count: -1 } }
+      ]),
+      
+      // By location
+      Asset.aggregate([
+        {
+          $group: {
+            _id: '$location',
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } }
+      ]),
+      
+      // By status
+      Asset.aggregate([
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } }
+      ])
+    ]);
+
+    const totals = totalStats[0] || {
+      totalAssets: 0,
+      totalValue: 0,
+      depreciatedValue: 0,
+      activeAssets: 0,
+      underMaintenance: 0
+    };
+
+    const inactiveAssets = totals.totalAssets - totals.activeAssets - totals.underMaintenance;
+
+    // Calculate percentages for locations and statuses
+    const byLocation = locationStats.map(item => ({
+      location: item._id || 'Unknown',
+      count: item.count,
+      percentage: ((item.count / totals.totalAssets) * 100).toFixed(1)
+    }));
+
+    const byStatus = statusStats.map(item => ({
+      status: item._id || 'Unknown',
+      count: item.count,
+      percentage: ((item.count / totals.totalAssets) * 100).toFixed(1)
+    }));
+
+    const byCategory = categoryStats.map(item => ({
+      category: item._id || 'Unknown',
+      count: item.count,
+      value: item.value || 0
+    }));
+
+    const summary = {
+      totalAssets: totals.totalAssets,
+      activeAssets: totals.activeAssets,
+      inactiveAssets,
+      underMaintenance: totals.underMaintenance,
+      totalValue: totals.totalValue,
+      depreciatedValue: totals.depreciatedValue,
+      byCategory,
+      byLocation,
+      byStatus
+    };
+
+    logger.info('Asset summary retrieved', { userId: req.user.id });
+
+    res.status(200).json({
+      success: true,
+      data: summary
+    });
+  } catch (error) {
+    logger.error('Error fetching asset summary:', error);
+    next(error);
+  }
+};

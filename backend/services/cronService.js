@@ -322,11 +322,8 @@ const checkOverdueAudits = async () => {
 
 // Initialize cron jobs
 const initializeCronJobs = () => {
-  console.log('🚀 Initializing scheduled audit cron jobs...');
-
   // Check and trigger due audits every day at 6:00 AM
   cron.schedule('0 6 * * *', async () => {
-    console.log('⏰ Running daily audit check...');
     await checkAndTriggerAudits();
   }, {
     timezone: process.env.TIMEZONE || 'UTC'
@@ -334,7 +331,6 @@ const initializeCronJobs = () => {
 
   // Send reminders every day at 8:00 AM
   cron.schedule('0 8 * * *', async () => {
-    console.log('⏰ Running daily reminder check...');
     await sendUpcomingAuditReminders();
   }, {
     timezone: process.env.TIMEZONE || 'UTC'
@@ -342,16 +338,12 @@ const initializeCronJobs = () => {
 
   // Check for overdue audits every day at 10:00 AM
   cron.schedule('0 10 * * *', async () => {
-    console.log('⏰ Running overdue audit check...');
     await checkOverdueAudits();
   }, {
     timezone: process.env.TIMEZONE || 'UTC'
   });
 
-  console.log('✅ Cron jobs initialized:');
-  console.log('   - Audit trigger: Daily at 6:00 AM');
-  console.log('   - Reminders: Daily at 8:00 AM');
-  console.log('   - Overdue check: Daily at 10:00 AM');
+  console.log('✅ Cron jobs initialized (6 AM, 8 AM, 10 AM)');
 };
 
 module.exports = {

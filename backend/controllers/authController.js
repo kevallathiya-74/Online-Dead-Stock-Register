@@ -112,15 +112,34 @@ exports.signup = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
+    console.log('🔐 Login attempt:', { email: req.body.email });
+    
     const { email, password } = req.body;
+    
+    if (!email || !password) {
+      console.log('❌ Missing credentials');
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
     
     // Find user and include password for comparison
     const user = await User.findOne({ email }).select('+password');
-    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+    
+    if (!user) {
+      console.log('❌ User not found:', email);
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+    
+    console.log('✅ User found:', { id: user._id, email: user.email, role: user.role });
     
     // Verify password
     const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(400).json({ message: 'Invalid credentials' });
+    
+    if (!valid) {
+      console.log('❌ Invalid password for:', email);
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+    
+    console.log('✅ Password verified');
 
     // Update last login
     user.last_login = new Date();
@@ -132,6 +151,8 @@ exports.login = async (req, res) => {
       process.env.JWT_SECRET, 
       { expiresIn: '8h' }
     );
+    
+    console.log('✅ Token generated, sending response');
     
     res.json({ 
       user: {
@@ -145,8 +166,12 @@ exports.login = async (req, res) => {
       token 
     });
   } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ message: err.message });
+    console.error('❌ Login error:', {
+      message: err.message,
+      stack: err.stack,
+      name: err.name
+    });
+    res.status(500).json({ message: 'Server error during login. Please try again.' });
   }
 };
 

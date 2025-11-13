@@ -28,3 +28,27 @@ exports.createVendor = async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 };
+
+exports.updateVendor = async (req, res) => {
+  try {
+    const vendor = await Vendor.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
+    res.json(vendor);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+};
+
+exports.deleteVendor = async (req, res) => {
+  try {
+    const vendor = await Vendor.findByIdAndDelete(req.params.id);
+    if (!vendor) return res.status(404).json({ message: 'Vendor not found' });
+    res.json({ message: 'Vendor deleted successfully', vendor });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

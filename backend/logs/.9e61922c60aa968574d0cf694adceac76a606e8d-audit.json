@@ -59,6 +59,16 @@
             "date": 1762839387608,
             "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\exceptions-2025-11-11.log",
             "hash": "537ed2068a293ed505230c0012ab1f1caa24d20b861c8553903224ea2aacfba0"
+        },
+        {
+            "date": 1762925601446,
+            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\exceptions-2025-11-12.log",
+            "hash": "12ef0ea4c076a0267fc2f0c069a5b17620c8a76a1fff2f94315357aafc5f5e04"
+        },
+        {
+            "date": 1763016522605,
+            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\exceptions-2025-11-13.log",
+            "hash": "01ac0ce17c54f96d562dc16f41d8c9ad959c20838fa07d48a51634f6251afd42"
         }
     ],
     "hashType": "sha256"

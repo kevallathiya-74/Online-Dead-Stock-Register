@@ -68,8 +68,8 @@ interface Asset {
   manufacturer: string;
   model: string;
   serial_number: string;
-  status: 'Active' | 'Inactive' | 'Maintenance' | 'Scrapped';
-  condition: 'Excellent' | 'Good' | 'Fair' | 'Poor';
+  status: 'Active' | 'Available' | 'Under Maintenance' | 'Damaged' | 'Ready for Scrap' | 'Disposed';
+  condition: 'Excellent' | 'Good' | 'Fair' | 'Poor' | 'Obsolete' | 'Beyond Repair';
   location: string;
   assigned_user?: string;
   purchase_date: string;
@@ -122,7 +122,7 @@ const AssetsPage = () => {
     serial_number: '',
     location: '',
     purchase_date: '',
-    purchase_value: '',
+    purchase_cost: '',  // ✅ Fixed: Changed from purchase_value to purchase_cost
     status: 'Active',
     condition: 'Good',
     department: '',
@@ -308,7 +308,7 @@ const AssetsPage = () => {
         department: formData.department,
         location: formData.location || 'Unknown',
         purchase_date: formData.purchase_date || new Date().toISOString(),
-        purchase_cost: formData.purchase_value ? Number(formData.purchase_value) : 0,
+        purchase_cost: formData.purchase_cost ? Number(formData.purchase_cost) : 0,  // ✅ Fixed
         status: formData.status,
         condition: formData.condition,
       };
@@ -333,7 +333,7 @@ const AssetsPage = () => {
         condition: createdAsset.condition,
         location: createdAsset.location,
         purchase_date: createdAsset.purchase_date,
-        purchase_value: createdAsset.purchase_cost,
+        purchase_cost: createdAsset.purchase_cost,  // ✅ Fixed
         department: createdAsset.department
       };
       
@@ -347,13 +347,11 @@ const AssetsPage = () => {
         model: fullAssetData.model,
         serial: fullAssetData.serial_number,
         category: fullAssetData.category,
-
-
         location: fullAssetData.location,
         status: fullAssetData.status,
         condition: fullAssetData.condition,
         purchase_date: fullAssetData.purchase_date,
-        purchase_value: fullAssetData.purchase_value,
+        purchase_cost: fullAssetData.purchase_cost,  // ✅ Fixed
         department: fullAssetData.department,
         scan_url: `${window.location.origin}/assets/${fullAssetData.id}`
       });
@@ -381,7 +379,7 @@ const AssetsPage = () => {
       serial_number: asset.serial_number,
       location: asset.location,
       purchase_date: asset.purchase_date?.split('T')[0] || '',
-      purchase_value: asset.purchase_cost?.toString() || '',
+      purchase_cost: asset.purchase_cost?.toString() || '',  // ✅ Fixed
       status: asset.status,
       condition: asset.condition,
       department: '',
@@ -400,7 +398,7 @@ const AssetsPage = () => {
         asset_type: formData.asset_type,
         location: formData.location,
         purchase_date: formData.purchase_date,
-        purchase_cost: formData.purchase_value ? Number(formData.purchase_value) : undefined,
+        purchase_cost: formData.purchase_cost ? Number(formData.purchase_cost) : undefined,  // ✅ Fixed
         status: formData.status,
         condition: formData.condition,
       };
@@ -427,7 +425,7 @@ const AssetsPage = () => {
       serial_number: '',
       location: '',
       purchase_date: '',
-      purchase_value: '',
+      purchase_cost: '',  // ✅ Fixed
       status: 'Active',
       condition: 'Good',
       department: '',
@@ -934,12 +932,16 @@ const AssetsPage = () => {
     switch (status) {
       case 'Active':
         return 'success';
-      case 'Inactive':
-        return 'default';
-      case 'Maintenance':
+      case 'Available':
+        return 'info';
+      case 'Under Maintenance':
         return 'warning';
-      case 'Scrapped':
+      case 'Damaged':
         return 'error';
+      case 'Ready for Scrap':
+        return 'warning';
+      case 'Disposed':
+        return 'default';
       default:
         return 'default';
     }
@@ -954,6 +956,10 @@ const AssetsPage = () => {
       case 'Fair':
         return 'warning';
       case 'Poor':
+        return 'error';
+      case 'Obsolete':
+        return 'error';
+      case 'Beyond Repair':
         return 'error';
       default:
         return 'default';
@@ -1146,9 +1152,11 @@ const AssetsPage = () => {
                   >
                     <MenuItem value="all">All Status</MenuItem>
                     <MenuItem value="Active">Active</MenuItem>
-                    <MenuItem value="Inactive">Inactive</MenuItem>
-                    <MenuItem value="Maintenance">Maintenance</MenuItem>
-                    <MenuItem value="Scrapped">Scrapped</MenuItem>
+                    <MenuItem value="Available">Available</MenuItem>
+                    <MenuItem value="Under Maintenance">Under Maintenance</MenuItem>
+                    <MenuItem value="Damaged">Damaged</MenuItem>
+                    <MenuItem value="Ready for Scrap">Ready for Scrap</MenuItem>
+                    <MenuItem value="Disposed">Disposed</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -1398,8 +1406,8 @@ const AssetsPage = () => {
                     fullWidth
                     type="number"
                     label="Purchase Value"
-                    value={formData.purchase_value}
-                    onChange={(e) => setFormData({...formData, purchase_value: e.target.value})}
+                    value={formData.purchase_cost}
+                    onChange={(e) => setFormData({...formData, purchase_cost: e.target.value})}
                     InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
                   />
                 </Grid>
@@ -1412,8 +1420,11 @@ const AssetsPage = () => {
                       onChange={(e) => setFormData({...formData, status: e.target.value})}
                     >
                       <MenuItem value="Active">Active</MenuItem>
-                      <MenuItem value="Inactive">Inactive</MenuItem>
-                      <MenuItem value="Maintenance">Maintenance</MenuItem>
+                      <MenuItem value="Available">Available</MenuItem>
+                      <MenuItem value="Under Maintenance">Under Maintenance</MenuItem>
+                      <MenuItem value="Damaged">Damaged</MenuItem>
+                      <MenuItem value="Ready for Scrap">Ready for Scrap</MenuItem>
+                      <MenuItem value="Disposed">Disposed</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -1429,6 +1440,8 @@ const AssetsPage = () => {
                       <MenuItem value="Good">Good</MenuItem>
                       <MenuItem value="Fair">Fair</MenuItem>
                       <MenuItem value="Poor">Poor</MenuItem>
+                      <MenuItem value="Obsolete">Obsolete</MenuItem>
+                      <MenuItem value="Beyond Repair">Beyond Repair</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -1528,8 +1541,8 @@ const AssetsPage = () => {
                     fullWidth
                     type="number"
                     label="Purchase Value"
-                    value={formData.purchase_value}
-                    onChange={(e) => setFormData({...formData, purchase_value: e.target.value})}
+                    value={formData.purchase_cost}
+                    onChange={(e) => setFormData({...formData, purchase_cost: e.target.value})}
                     InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
                   />
                 </Grid>
@@ -1542,9 +1555,11 @@ const AssetsPage = () => {
                       onChange={(e) => setFormData({...formData, status: e.target.value})}
                     >
                       <MenuItem value="Active">Active</MenuItem>
-                      <MenuItem value="Inactive">Inactive</MenuItem>
-                      <MenuItem value="Maintenance">Maintenance</MenuItem>
-                      <MenuItem value="Scrapped">Scrapped</MenuItem>
+                      <MenuItem value="Available">Available</MenuItem>
+                      <MenuItem value="Under Maintenance">Under Maintenance</MenuItem>
+                      <MenuItem value="Damaged">Damaged</MenuItem>
+                      <MenuItem value="Ready for Scrap">Ready for Scrap</MenuItem>
+                      <MenuItem value="Disposed">Disposed</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -1560,6 +1575,8 @@ const AssetsPage = () => {
                       <MenuItem value="Good">Good</MenuItem>
                       <MenuItem value="Fair">Fair</MenuItem>
                       <MenuItem value="Poor">Poor</MenuItem>
+                      <MenuItem value="Obsolete">Obsolete</MenuItem>
+                      <MenuItem value="Beyond Repair">Beyond Repair</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -1728,8 +1745,11 @@ const AssetsPage = () => {
                             label={selectedAsset.status} 
                             color={
                               selectedAsset.status === 'Active' ? 'success' :
-                              selectedAsset.status === 'Maintenance' ? 'warning' :
-                              selectedAsset.status === 'Inactive' ? 'default' : 'error'
+                              selectedAsset.status === 'Available' ? 'info' :
+                              selectedAsset.status === 'Under Maintenance' ? 'warning' :
+                              selectedAsset.status === 'Damaged' ? 'error' :
+                              selectedAsset.status === 'Ready for Scrap' ? 'warning' :
+                              'default'
                             }
                             size="small"
                             sx={{ mt: 0.5 }}
@@ -1742,7 +1762,9 @@ const AssetsPage = () => {
                             color={
                               selectedAsset.condition === 'Excellent' ? 'success' :
                               selectedAsset.condition === 'Good' ? 'info' :
-                              selectedAsset.condition === 'Fair' ? 'warning' : 'error'
+                              selectedAsset.condition === 'Fair' ? 'warning' :
+                              selectedAsset.condition === 'Obsolete' || selectedAsset.condition === 'Beyond Repair' ? 'error' :
+                              selectedAsset.condition === 'Poor' ? 'error' : 'default'
                             }
                             size="small"
                             sx={{ mt: 0.5 }}

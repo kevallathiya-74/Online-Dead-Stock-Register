@@ -39,7 +39,7 @@ const AddAssetPage: React.FC = () => {
     model: '',
     serial_number: '',
     purchase_date: '',
-    purchase_value: '',
+    purchase_cost: '',  // ✅ Fixed: Changed from purchase_value
     warranty_expiry: '',
     status: 'Available',
     condition: 'Excellent',
@@ -76,7 +76,7 @@ const AddAssetPage: React.FC = () => {
       // Transform data for backend
       const payload = {
         ...formData,
-        purchase_value: parseFloat(formData.purchase_value) || 0,
+        purchase_cost: parseFloat(formData.purchase_cost) || 0,  // ✅ Fixed
       };
 
   const response = await api.post('/assets', payload);
@@ -250,8 +250,8 @@ const AddAssetPage: React.FC = () => {
                     fullWidth
                     type="number"
                     label="Purchase Value (₹)"
-                    name="purchase_value"
-                    value={formData.purchase_value}
+                    name="purchase_cost"
+                    value={formData.purchase_cost}
                     onChange={handleChange}
                     placeholder="e.g., 50000"
                   />

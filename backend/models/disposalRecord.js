@@ -31,7 +31,8 @@ const disposalRecordSchema = new mongoose.Schema({
   },
   approved_by: {
     type: String,
-    required: [true, 'Approver is required']
+    required: false,
+    default: 'SYSTEM'
   },
   document_reference: {
     type: String,

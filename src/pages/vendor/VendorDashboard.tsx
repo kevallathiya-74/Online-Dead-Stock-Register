@@ -20,7 +20,7 @@ import {
 import {
   ShoppingCart,
   Inventory,
-  AttachMoney,
+  CurrencyRupee as AttachMoney,
   Assessment,
   Visibility,
   TrendingUp

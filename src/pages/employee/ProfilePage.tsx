@@ -10,41 +10,28 @@ import {
   TextField,
   Avatar,
   Divider,
-  Switch,
-  FormControlLabel,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Chip,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   CircularProgress,
   Alert,
+  IconButton,
+  InputAdornment,
 } from '@mui/material';
 import {
   Person as PersonIcon,
   Email as EmailIcon,
   Phone as PhoneIcon,
-  LocationOn as LocationIcon,
   Work as WorkIcon,
   Edit as EditIcon,
-  Security as SecurityIcon,
-  Notifications as NotificationsIcon,
   History as HistoryIcon,
   Badge as BadgeIcon,
   Key as KeyIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
+  Visibility,
+  VisibilityOff,
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/Layout';
 import { useAuth } from '../../context/AuthContext';
@@ -70,15 +57,19 @@ const ProfilePage = () => {
     created_at: '',
   });
 
-  // Settings
-  const [settings, setSettings] = useState({
-    emailNotifications: true,
-    smsNotifications: false,
-    maintenanceAlerts: true,
-    warrantyAlerts: true,
-    requestUpdates: true,
-    weeklyReports: false,
+  // Store original profile data for cancel functionality
+  const [originalProfile, setOriginalProfile] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    department: '',
+    role: '',
+    employeeId: '',
+    is_active: true,
+    created_at: '',
   });
+
+
 
   // Password change form
   const [passwordForm, setPasswordForm] = useState({
@@ -87,37 +78,14 @@ const ProfilePage = () => {
     confirmPassword: '',
   });
 
-  // Activity log sample data
-  const [activityLog] = useState([
-    {
-      id: '1',
-      action: 'Asset Request Submitted',
-      description: 'Requested new MacBook Pro',
-      timestamp: '2024-01-15T10:30:00Z',
-      status: 'pending',
-    },
-    {
-      id: '2',
-      action: 'Maintenance Report',
-      description: 'Reported battery issue for Dell XPS 15',
-      timestamp: '2024-01-14T14:22:00Z',
-      status: 'completed',
-    },
-    {
-      id: '3',
-      action: 'Profile Updated',
-      description: 'Updated phone number',
-      timestamp: '2024-01-10T09:15:00Z',
-      status: 'completed',
-    },
-    {
-      id: '4',
-      action: 'Asset Check-in',
-      description: 'Checked in HP Monitor 24"',
-      timestamp: '2024-01-08T16:45:00Z',
-      status: 'completed',
-    },
-  ]);
+  // Password visibility toggles
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
+
+
 
   // Fetch user profile on component mount
   useEffect(() => {
@@ -137,7 +105,7 @@ const ProfilePage = () => {
         });
 
         if (response.data.success && response.data.user) {
-          setProfile({
+          const userData = {
             name: response.data.user.name || '',
             email: response.data.user.email || '',
             phone: response.data.user.phone || '',
@@ -146,7 +114,9 @@ const ProfilePage = () => {
             employeeId: response.data.user.employee_id || '',
             is_active: response.data.user.is_active !== undefined ? response.data.user.is_active : true,
             created_at: response.data.user.created_at || '',
-          });
+          };
+          setProfile(userData);
+          setOriginalProfile(userData);
         }
       } catch (err: any) {
         console.error('Error fetching profile:', err);
@@ -184,6 +154,8 @@ const ProfilePage = () => {
         setEditMode(false);
         // Refresh user data globally
         await refreshUser();
+        // Update original profile with new values
+        setOriginalProfile(profile);
       }
     } catch (err: any) {
       console.error('Error updating profile:', err);
@@ -193,10 +165,11 @@ const ProfilePage = () => {
 
   const handleCancelEdit = () => {
     setEditMode(false);
-    // Reset form values if needed
+    // Reset to original values
+    setProfile(originalProfile);
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
       toast.error('Please fill in all password fields');
       return;
@@ -212,31 +185,42 @@ const ProfilePage = () => {
       return;
     }
 
-    toast.success('Password changed successfully!');
-    setChangePasswordDialogOpen(false);
-    setPasswordForm({
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: '',
-    });
-  };
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast.error('Not authenticated');
+        return;
+      }
 
-  const handleSettingChange = (setting: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSettings({
-      ...settings,
-      [setting]: event.target.checked,
-    });
-    toast.info(`${setting} setting updated`);
-  };
+      const response = await axios.post(
+        `${API_BASE_URL}/users/change-password`,
+        {
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'completed': return 'success';
-      case 'pending': return 'warning';
-      case 'failed': return 'error';
-      default: return 'default';
+      if (response.data.success) {
+        toast.success('Password changed successfully!');
+        setChangePasswordDialogOpen(false);
+        setPasswordForm({
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+        });
+      }
+    } catch (err: any) {
+      console.error('Error changing password:', err);
+      toast.error(err.response?.data?.message || 'Failed to change password');
     }
   };
+
+
+
+
 
   if (loading) {
     return (
@@ -420,59 +404,9 @@ const ProfilePage = () => {
             </Card>
           </Grid>
 
-          {/* Quick Info & Actions */}
+          {/* Security Actions */}
           <Grid item xs={12} md={4}>
             <Grid container spacing={3}>
-              {/* Quick Info */}
-              <Grid item xs={12}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
-                      Quick Info
-                    </Typography>
-                    <List dense>
-                      <ListItem>
-                        <ListItemIcon>
-                          <WorkIcon />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary="Department"
-                          secondary={profile.department || 'N/A'}
-                        />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemIcon>
-                          <BadgeIcon />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary="Employee ID"
-                          secondary={profile.employeeId || 'N/A'}
-                        />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemIcon>
-                          <EmailIcon />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary="Email"
-                          secondary={profile.email || 'N/A'}
-                        />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemIcon>
-                          <PhoneIcon />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary="Phone"
-                          secondary={profile.phone || 'Not provided'}
-                        />
-                      </ListItem>
-                    </List>
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              {/* Security Actions */}
               <Grid item xs={12}>
                 <Card>
                   <CardContent>
@@ -484,17 +418,8 @@ const ProfilePage = () => {
                       variant="outlined"
                       startIcon={<KeyIcon />}
                       onClick={() => setChangePasswordDialogOpen(true)}
-                      sx={{ mb: 2 }}
                     >
                       Change Password
-                    </Button>
-                    <Button
-                      fullWidth
-                      variant="outlined"
-                      startIcon={<SecurityIcon />}
-                      onClick={() => toast.info('Two-factor authentication setup coming soon!')}
-                    >
-                      Setup 2FA
                     </Button>
                   </CardContent>
                 </Card>
@@ -502,128 +427,25 @@ const ProfilePage = () => {
             </Grid>
           </Grid>
 
-          {/* Notification Settings */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  <NotificationsIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                  Notification Settings
-                </Typography>
-                <Box sx={{ mt: 2 }}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={settings.emailNotifications}
-                        onChange={handleSettingChange('emailNotifications')}
-                      />
-                    }
-                    label="Email Notifications"
-                  />
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={settings.smsNotifications}
-                        onChange={handleSettingChange('smsNotifications')}
-                      />
-                    }
-                    label="SMS Notifications"
-                  />
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={settings.maintenanceAlerts}
-                        onChange={handleSettingChange('maintenanceAlerts')}
-                      />
-                    }
-                    label="Maintenance Alerts"
-                  />
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={settings.warrantyAlerts}
-                        onChange={handleSettingChange('warrantyAlerts')}
-                      />
-                    }
-                    label="Warranty Expiry Alerts"
-                  />
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={settings.requestUpdates}
-                        onChange={handleSettingChange('requestUpdates')}
-                      />
-                    }
-                    label="Request Status Updates"
-                  />
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={settings.weeklyReports}
-                        onChange={handleSettingChange('weeklyReports')}
-                      />
-                    }
-                    label="Weekly Reports"
-                  />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Recent Activity */}
-          <Grid item xs={12} md={6}>
+          {/* Recent Activity - Coming Soon */}
+          <Grid item xs={12}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
                   <HistoryIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                  Recent Activity
+                  Account Information
                 </Typography>
-                <TableContainer component={Paper} variant="outlined" sx={{ mt: 2 }}>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Action</TableCell>
-                        <TableCell>Date</TableCell>
-                        <TableCell>Status</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {activityLog.slice(0, 5).map((activity) => (
-                        <TableRow key={activity.id}>
-                          <TableCell>
-                            <Box>
-                              <Typography variant="body2" fontWeight="medium">
-                                {activity.action}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {activity.description}
-                              </Typography>
-                            </Box>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="caption">
-                              {new Date(activity.timestamp).toLocaleDateString()}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              label={activity.status}
-                              color={getStatusColor(activity.status) as any}
-                              size="small"
-                            />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-                <Button
-                  fullWidth
-                  sx={{ mt: 2 }}
-                  onClick={() => toast.info('Full activity log coming soon!')}
-                >
-                  View All Activity
-                </Button>
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    <strong>Account Created:</strong> {new Date(profile.created_at).toLocaleDateString()}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    <strong>Account Status:</strong> {profile.is_active ? 'Active' : 'Inactive'}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    <strong>Role:</strong> {profile.role}
+                  </Typography>
+                </Box>
               </CardContent>
             </Card>
           </Grid>
@@ -642,27 +464,63 @@ const ProfilePage = () => {
               <TextField
                 fullWidth
                 label="Current Password"
-                type="password"
+                type={showPasswords.current ? 'text' : 'password'}
                 value={passwordForm.currentPassword}
                 onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
                 margin="normal"
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPasswords({ ...showPasswords, current: !showPasswords.current })}
+                        edge="end"
+                      >
+                        {showPasswords.current ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
               <TextField
                 fullWidth
                 label="New Password"
-                type="password"
+                type={showPasswords.new ? 'text' : 'password'}
                 value={passwordForm.newPassword}
                 onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
                 margin="normal"
                 helperText="Password must be at least 8 characters long"
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPasswords({ ...showPasswords, new: !showPasswords.new })}
+                        edge="end"
+                      >
+                        {showPasswords.new ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
               <TextField
                 fullWidth
                 label="Confirm New Password"
-                type="password"
+                type={showPasswords.confirm ? 'text' : 'password'}
                 value={passwordForm.confirmPassword}
                 onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                 margin="normal"
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPasswords({ ...showPasswords, confirm: !showPasswords.confirm })}
+                        edge="end"
+                      >
+                        {showPasswords.confirm ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Box>
           </DialogContent>

@@ -41,7 +41,7 @@ import {
   Email as EmailIcon,
   People as PeopleIcon,
   Inventory as InventoryIcon,
-  AttachMoney as MoneyIcon,
+  CurrencyRupee as MoneyIcon,
   CheckCircle as CheckCircleIcon,
   Refresh as RefreshIcon
 } from '@mui/icons-material';

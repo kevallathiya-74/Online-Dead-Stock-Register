@@ -97,6 +97,13 @@ const ApprovalsPage: React.FC = () => {
 
   const handleApproval = async (approvalId: string, action: 'APPROVED' | 'REJECTED') => {
     try {
+      // Call the backend API
+      const endpoint = action === 'APPROVED' ? 'approve' : 'reject';
+      await api.put(`/approvals/${approvalId}/${endpoint}`, {
+        comments: approvalComments || `Request ${action.toLowerCase()} by inventory manager`
+      });
+
+      // Update local state
       setApprovals(prev => prev.map(approval => 
         approval._id === approvalId 
           ? { 
@@ -111,8 +118,9 @@ const ApprovalsPage: React.FC = () => {
       setViewDialog(false);
       setApprovalComments('');
       toast.success(`Request ${action.toLowerCase()} successfully`);
-    } catch (error) {
-      toast.error('Failed to process approval');
+    } catch (error: any) {
+      console.error('Failed to process approval:', error);
+      toast.error(error.response?.data?.message || 'Failed to process approval');
     }
   };
 

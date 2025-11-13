@@ -1,16 +1,6 @@
 // Determine the API base URL
 // Priority: Environment variable > Use Vite proxy (relative URLs)
 const getApiBaseUrl = () => {
-  const currentHost = window.location.hostname;
-  const currentPort = window.location.port;
-  const currentProtocol = window.location.protocol;
-  
-  console.log('🔍 Detecting API URL:');
-  console.log('  - Current Host:', currentHost);
-  console.log('  - Current Port:', currentPort);
-  console.log('  - Current Protocol:', currentProtocol);
-  console.log('  - Full Location:', window.location.href);
-  
   // If VITE_API_BASE_URL is set in .env, use it
   if (import.meta.env.VITE_API_BASE_URL) {
     console.log('✅ Using .env VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL);
@@ -18,16 +8,15 @@ const getApiBaseUrl = () => {
   }
   
   // In development, use relative URL to leverage Vite proxy
-  // This handles both localhost and network IP access, and solves mixed content issues
+  // Proxy configured in vite.config.ts forwards /api/* to http://localhost:5000
   const url = '/api/v1';
-  console.log('✅ Using Vite proxy (relative URL):', url);
-  console.log('  - Proxy will forward to backend at http://10.121.110.148:5000');
+  console.log('✅ Using Vite proxy:', url, '→ http://localhost:5000');
   return url;
 };
 
 export const API_BASE_URL = getApiBaseUrl();
 
-console.log('🌐 Final API Base URL:', API_BASE_URL);
+console.log('🌐 API Base URL:', API_BASE_URL);
 
 export const API_ENDPOINTS = {
   // Auth endpoints

@@ -604,9 +604,9 @@ exports.getFilterPresets = async (req, res) => {
       {
         id: 'high-value',
         name: 'High Value Assets',
-        description: 'Assets with purchase cost over $10,000',
+        description: 'Assets with purchase cost over ₹10,00,000',
         category: 'financial',
-        filter_config: { purchase_cost_min: 10000 },
+        filter_config: { purchase_cost_min: 1000000 },
         is_preset: true
       },
       {

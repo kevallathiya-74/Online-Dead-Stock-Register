@@ -50,7 +50,7 @@ import {
   Assignment as TaskIcon,
   Timeline as TimelineIcon,
   Notifications as NotificationIcon,
-  AttachMoney as CostIcon,
+  CurrencyRupee as CostIcon,
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { toast } from 'react-toastify';
@@ -95,6 +95,9 @@ const MaintenancePage = () => {
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [tabValue, setTabValue] = useState(0);
   const [scheduleMaintenanceOpen, setScheduleMaintenanceOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<MaintenanceRecord | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -197,6 +200,30 @@ const MaintenancePage = () => {
     .filter(r => r.status === 'Scheduled' && new Date(r.scheduled_date) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
     .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())
     .slice(0, 5);
+
+  const handleViewRecord = (record: MaintenanceRecord) => {
+    setSelectedRecord(record);
+    setViewDialogOpen(true);
+  };
+
+  const handleEditRecord = (record: MaintenanceRecord) => {
+    setSelectedRecord(record);
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateStatus = async (recordId: string, newStatus: string) => {
+    try {
+      await api.put(`/maintenance/${recordId}`, { status: newStatus });
+      const response = await api.get('/maintenance');
+      const maintenanceData = response.data.data || response.data;
+      setMaintenanceRecords(maintenanceData);
+      toast.success('Maintenance status updated successfully');
+      setEditDialogOpen(false);
+      setSelectedRecord(null);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update maintenance status');
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -543,10 +570,10 @@ const MaintenancePage = () => {
                               </Typography>
                             </TableCell>
                             <TableCell>
-                              <IconButton size="small" color="primary">
+                              <IconButton size="small" color="primary" onClick={() => handleViewRecord(record)}>
                                 <ViewIcon />
                               </IconButton>
-                              <IconButton size="small" color="success">
+                              <IconButton size="small" color="success" onClick={() => handleEditRecord(record)}>
                                 <EditIcon />
                               </IconButton>
                             </TableCell>
@@ -660,6 +687,177 @@ const MaintenancePage = () => {
           <DialogActions>
             <Button onClick={() => setScheduleMaintenanceOpen(false)}>Cancel</Button>
             <Button variant="contained">Schedule</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* View Details Dialog */}
+        <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} maxWidth="md" fullWidth>
+          <DialogTitle>
+            <Typography variant="h6">Maintenance Record Details</Typography>
+          </DialogTitle>
+          <DialogContent>
+            {selectedRecord && (
+              <Box sx={{ pt: 2 }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">Asset Name</Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>{selectedRecord.asset_name}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">Asset ID</Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>{selectedRecord.asset_id}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">Maintenance Type</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                      {getTypeIcon(selectedRecord.type)}
+                      <Typography variant="body1">{selectedRecord.type}</Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">Status</Typography>
+                    <Chip
+                      label={selectedRecord.status}
+                      color={getStatusColor(selectedRecord.status) as any}
+                      size="small"
+                      sx={{ mb: 2 }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">Priority</Typography>
+                    <Chip
+                      label={selectedRecord.priority}
+                      color={getPriorityColor(selectedRecord.priority) as any}
+                      size="small"
+                      variant="outlined"
+                      sx={{ mb: 2 }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">Assigned Technician</Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>{selectedRecord.assigned_technician}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">Scheduled Date</Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                      {new Date(selectedRecord.scheduled_date).toLocaleString()}
+                    </Typography>
+                  </Grid>
+                  {selectedRecord.completed_date && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">Completed Date</Typography>
+                      <Typography variant="body1" sx={{ mb: 2 }}>
+                        {new Date(selectedRecord.completed_date).toLocaleString()}
+                      </Typography>
+                    </Grid>
+                  )}
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">Estimated Duration</Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>{selectedRecord.estimated_duration} hours</Typography>
+                  </Grid>
+                  {selectedRecord.actual_duration && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">Actual Duration</Typography>
+                      <Typography variant="body1" sx={{ mb: 2 }}>{selectedRecord.actual_duration} hours</Typography>
+                    </Grid>
+                  )}
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">Estimated Cost</Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>₹{selectedRecord.estimated_cost.toLocaleString()}</Typography>
+                  </Grid>
+                  {selectedRecord.actual_cost && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">Actual Cost</Typography>
+                      <Typography variant="body1" sx={{ mb: 2 }}>₹{selectedRecord.actual_cost.toLocaleString()}</Typography>
+                    </Grid>
+                  )}
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary">Description</Typography>
+                    <Typography variant="body1" sx={{ mb: 2 }}>{selectedRecord.description}</Typography>
+                  </Grid>
+                  {selectedRecord.notes && (
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" color="text.secondary">Notes</Typography>
+                      <Typography variant="body1" sx={{ mb: 2 }}>{selectedRecord.notes}</Typography>
+                    </Grid>
+                  )}
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="subtitle2" color="text.secondary">Downtime Impact</Typography>
+                    <Chip
+                      label={selectedRecord.downtime_impact}
+                      color={selectedRecord.downtime_impact === 'High' ? 'error' : selectedRecord.downtime_impact === 'Medium' ? 'warning' : 'success'}
+                      size="small"
+                    />
+                  </Grid>
+                  {selectedRecord.next_maintenance_date && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="subtitle2" color="text.secondary">Next Maintenance</Typography>
+                      <Typography variant="body1">
+                        {new Date(selectedRecord.next_maintenance_date).toLocaleDateString()}
+                      </Typography>
+                    </Grid>
+                  )}
+                </Grid>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Edit Status Dialog */}
+        <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>
+            <Typography variant="h6">Update Maintenance Status</Typography>
+          </DialogTitle>
+          <DialogContent>
+            {selectedRecord && (
+              <Box sx={{ pt: 2 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Asset: {selectedRecord.asset_name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  Current Status: {selectedRecord.status}
+                </Typography>
+                
+                <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+                  Update Status
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+                  <Button
+                    variant="outlined"
+                    color="info"
+                    onClick={() => handleUpdateStatus(selectedRecord.id, 'In Progress')}
+                    disabled={selectedRecord.status === 'In Progress'}
+                    fullWidth
+                  >
+                    Mark as In Progress
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="success"
+                    onClick={() => handleUpdateStatus(selectedRecord.id, 'Completed')}
+                    disabled={selectedRecord.status === 'Completed'}
+                    fullWidth
+                  >
+                    Mark as Completed
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={() => handleUpdateStatus(selectedRecord.id, 'Cancelled')}
+                    disabled={selectedRecord.status === 'Cancelled'}
+                    fullWidth
+                  >
+                    Cancel Maintenance
+                  </Button>
+                </Box>
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditDialogOpen(false)}>Close</Button>
           </DialogActions>
         </Dialog>
       </Box>

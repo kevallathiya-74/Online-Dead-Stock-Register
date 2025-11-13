@@ -9,7 +9,7 @@ const assetSchema = new mongoose.Schema({
   asset_type: { type: String, required: true },
   location: { type: String, required: true },
   assigned_user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  status: { type: String, enum: ['Active', 'Under Maintenance', 'Available', 'Damaged', 'Ready for Scrap'], default: 'Available' },
+  status: { type: String, enum: ['Active', 'Under Maintenance', 'Available', 'Damaged', 'Ready for Scrap', 'Disposed'], default: 'Available' },
   department: { type: String, enum: ['INVENTORY', 'IT', 'ADMIN'], required: true },
   purchase_date: { type: Date },
   purchase_cost: { type: Number },

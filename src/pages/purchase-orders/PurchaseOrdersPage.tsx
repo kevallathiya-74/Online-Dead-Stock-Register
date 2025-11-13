@@ -47,7 +47,7 @@ import {
   Cancel as CancelledIcon,
   Schedule as PendingIcon,
   Receipt as InvoiceIcon,
-  AttachMoney as MoneyIcon,
+  CurrencyRupee as MoneyIcon,
   Inventory as ItemsIcon,
   TrendingUp as TrendingUpIcon,
   Warning as WarningIcon,

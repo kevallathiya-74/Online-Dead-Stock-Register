@@ -8,38 +8,27 @@
     "@hookform/resolvers": "^3.3.2",
     "@mui/icons-material": "^5.14.19",
     "@mui/material": "^5.14.20",
-    "@mui/x-date-pickers": "^8.14.0",
     "@reduxjs/toolkit": "^1.9.7",
-    "@types/recharts": "^1.8.29",
     "@zxing/library": "^0.20.0",
     "axios": "^1.6.2",
     "chart.js": "^4.4.1",
     "date-fns": "^2.30.0",
-    "eruda": "^3.4.3",
     "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.2.0",
     "react-dropzone": "^14.2.3",
     "react-hook-form": "^7.48.2",
-    "react-qr-scanner": "^1.0.0-alpha.11",
     "react-query": "^3.39.3",
     "react-redux": "^8.1.3",
     "react-router-dom": "^6.20.1",
     "react-toastify": "^9.1.3",
-    "recharts": "^3.2.1",
-    "web-vitals": "^2.1.4",
     "yup": "^1.3.2"
   },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app"
-    ]
   },
   "browserslist": {
     "production": [
@@ -60,7 +49,6 @@
     "@types/react-router-dom": "^5.3.3",
     "@types/yup": "^0.29.14",
     "@vitejs/plugin-basic-ssl": "^2.1.0",
-    "@vitejs/plugin-react": "^5.0.4",
     "@vitejs/plugin-react-swc": "^4.1.0",
     "autoprefixer": "^10.4.16",
     "postcss": "^8.4.32",

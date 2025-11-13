@@ -15,16 +15,19 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api': {
-        target: process.env.BACKEND_URL || 'http://10.121.110.148:5000',
+        target: process.env.BACKEND_URL || 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
         ws: true,
         configure: (proxy, options) => {
           proxy.on('error', (err, req, res) => {
-            console.log('Proxy error:', err);
+            console.log('❌ Proxy error:', err.message);
           });
           proxy.on('proxyReq', (proxyReq, req, res) => {
-            console.log('Proxying:', req.method, req.url, '→', options.target);
+            console.log('🔄 Proxying:', req.method, req.url, '→', options.target);
+          });
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            console.log('✅ Response:', proxyRes.statusCode, req.url);
           });
         }
       }

@@ -238,12 +238,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               </ListItemIcon>
               Profile
             </MenuItem>
-            <MenuItem onClick={() => { navigate('/admin/settings'); handleProfileMenuClose(); }}>
-              <ListItemIcon>
-                <SettingsIcon fontSize="small" />
-              </ListItemIcon>
-              Settings
-            </MenuItem>
+            {user?.role === 'ADMIN' && (
+              <MenuItem onClick={() => { navigate('/admin/settings'); handleProfileMenuClose(); }}>
+                <ListItemIcon>
+                  <SettingsIcon fontSize="small" />
+                </ListItemIcon>
+                Settings
+              </MenuItem>
+            )}
             <Divider />
             <MenuItem onClick={handleLogout}>
               <ListItemIcon>

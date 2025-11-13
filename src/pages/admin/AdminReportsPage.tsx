@@ -47,7 +47,7 @@ import {
   TrendingUp as TrendingUpIcon,
   Inventory as InventoryIcon,
   People as PeopleIcon,
-  AttachMoney as MoneyIcon,
+  CurrencyRupee as MoneyIcon,
   BarChart as BarChartIcon,
   PieChart as PieChartIcon,
   TableChart as TableIcon,

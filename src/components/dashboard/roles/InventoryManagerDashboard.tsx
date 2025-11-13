@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Grid,
@@ -10,7 +10,6 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  IconButton,
   Button,
   Chip,
   Avatar,
@@ -21,162 +20,186 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Inventory as InventoryIcon,
   Assignment as AssignmentIcon,
   TrendingUp as TrendingUpIcon,
   Warning as WarningIcon,
-  CheckCircle as CheckIcon,
   Schedule as ScheduleIcon,
   LocationOn as LocationIcon,
   ShoppingCart as PurchaseIcon,
   Build as MaintenanceIcon,
   Store as VendorIcon,
-  AttachMoney as MoneyIcon,
+  CurrencyRupee as MoneyIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../context/AuthContext';
 import Layout from '../../layout/Layout';
 import StatCard from '../StatCard';
 import ChartComponent from '../ChartComponent';
+import api from '../../../services/api';
+import { toast } from 'react-toastify';
+
+// TypeScript interfaces for API responses
+interface InventoryStats {
+  totalAssets: number;
+  activeAssets: number;
+  inMaintenanceAssets: number;
+  disposedAssets: number;
+  totalValue: number;
+  locationCount: number;
+  warrantyExpiring: number;
+  maintenanceDue: number;
+  monthlyPurchases: number;
+  topVendorsCount: number;
+  trends: {
+    assets: { value: number; isPositive: boolean };
+    purchases: { value: number; isPositive: boolean };
+  };
+}
+
+interface LocationData {
+  location: string;
+  count: number;
+  percentage: number;
+  assets: string[];
+}
+
+interface WarrantyExpiring {
+  id: string;
+  asset: string;
+  assetId: string;
+  category: string;
+  expiryDate: string;
+  daysLeft: number;
+  priority: 'high' | 'medium' | 'low';
+  assignedUser?: string;
+}
+
+interface MaintenanceSchedule {
+  id: string;
+  asset: string;
+  assetId: string;
+  type: string;
+  scheduledDate: string;
+  technician: string;
+  status: string;
+}
+
+interface VendorPerformance {
+  id: string;
+  name: string;
+  orders: number;
+  value: number;
+  rating: number;
+  categories: string[];
+  activeContracts: number;
+}
+
+interface PendingApproval {
+  id: string;
+  type: string;
+  requestor: string;
+  requestorId: string;
+  priority: string;
+  daysAgo: number;
+  amount?: number;
+  description?: string;
+  assetId?: string;
+}
+
+interface InventoryOverview {
+  stats: InventoryStats;
+  assetsByLocation: LocationData[];
+  warrantyExpiring: WarrantyExpiring[];
+  maintenanceSchedule: MaintenanceSchedule[];
+  topVendors: VendorPerformance[];
+  pendingApprovals: PendingApproval[];
+}
 
 const InventoryManagerDashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
-  const [dashboardData] = useState({
-    totalAssets: 1450,
-    activeAssets: 1250,
-    underMaintenance: 45,
-    availableAssets: 155,
-    pendingApprovals: 12,
-    warrantyExpiring: 23,
-    amcExpiring: 8,
-    totalValue: 2500000,
-    monthlyMaintenanceCost: 45000,
-  });
+  // State management
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dashboardData, setDashboardData] = useState<InventoryOverview | null>(null);
 
-  const [stockLevelsByLocation] = useState([
-    { location: 'Main Office - Floor 1', total: 450, active: 420, available: 30, percentage: 93 },
-    { location: 'Main Office - Floor 2', total: 380, active: 340, available: 40, percentage: 89 },
-    { location: 'Branch Office - Mumbai', total: 290, active: 275, available: 15, percentage: 95 },
-    { location: 'Warehouse - Pune', total: 330, active: 215, available: 115, percentage: 65 },
-  ]);
+  // RBAC: Verify user has INVENTORY_MANAGER role
+  useEffect(() => {
+    if (user && user.role !== 'INVENTORY_MANAGER' && user.role !== 'ADMIN') {
+      toast.error('Access denied. You do not have permission to view this dashboard.');
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
-  const [pendingApprovals] = useState([
-    {
-      id: 1,
-      type: 'Asset Purchase',
-      requestedBy: 'John Smith',
-      amount: 125000,
-      items: 'Dell Laptops (10 units)',
-      priority: 'High',
-      daysWaiting: 3,
-    },
-    {
-      id: 2,
-      type: 'Maintenance',
-      requestedBy: 'IT Support',
-      amount: 15000,
-      items: 'Server Maintenance Contract',
-      priority: 'Medium',
-      daysWaiting: 7,
-    },
-    {
-      id: 3,
-      type: 'Asset Transfer',
-      requestedBy: 'HR Department',
-      amount: 0,
-      items: 'Office Furniture Transfer',
-      priority: 'Low',
-      daysWaiting: 12,
-    },
-  ]);
+  // Fetch all dashboard data from API
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Call the comprehensive inventory overview endpoint
+        const response = await api.get('/dashboard/inventory-overview');
+        
+        if (response.data.success) {
+          setDashboardData(response.data.data);
+        } else {
+          throw new Error('Failed to fetch dashboard data');
+        }
+      } catch (err: any) {
+        console.error('Error fetching inventory dashboard:', err);
+        setError(err.response?.data?.error || 'Failed to load dashboard data');
+        toast.error('Failed to load dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const [expiringWarranties] = useState([
-    {
-      assetId: 'AST-001',
-      name: 'Dell XPS Laptop',
-      location: 'IT Department',
-      expiryDate: '2024-01-15',
-      daysLeft: 5,
-      type: 'Warranty',
-    },
-    {
-      assetId: 'AST-089',
-      name: 'HP LaserJet Printer',
-      location: 'Admin Office',
-      expiryDate: '2024-01-20',
-      daysLeft: 10,
-      type: 'AMC',
-    },
-    {
-      assetId: 'AST-145',
-      name: 'Samsung Monitor 24"',
-      location: 'Finance Dept',
-      expiryDate: '2024-01-25',
-      daysLeft: 15,
-      type: 'Warranty',
-    },
-  ]);
+    if (user) {
+      fetchDashboardData();
+    }
+  }, [user]);
 
-  const [recentTransactions] = useState([
-    {
-      id: 1,
-      type: 'Purchase',
-      description: 'Office Chairs (5 units)',
-      amount: 25000,
-      vendor: 'Office Solutions Ltd',
-      date: new Date().toISOString(),
-    },
-    {
-      id: 2,
-      type: 'Transfer',
-      description: 'Laptop Dell XPS -> Marketing',
-      amount: 0,
-      vendor: 'Internal',
-      date: new Date(Date.now() - 3600000).toISOString(),
-    },
-    {
-      id: 3,
-      type: 'Maintenance',
-      description: 'Printer Repair Service',
-      amount: 3500,
-      vendor: 'Tech Support Co',
-      date: new Date(Date.now() - 7200000).toISOString(),
-    },
-  ]);
-
-  // Chart data
-  const stockTrendData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      {
-        label: 'Active Assets',
-        data: [1180, 1200, 1220, 1230, 1240, 1250],
-        borderColor: '#4caf50',
-        backgroundColor: '#4caf5020',
-      },
-      {
-        label: 'Available Assets',
-        data: [180, 165, 160, 158, 157, 155],
-        borderColor: '#2196f3',
-        backgroundColor: '#2196f320',
-      },
-      {
-        label: 'Under Maintenance',
-        data: [40, 35, 38, 42, 43, 45],
-        borderColor: '#ff9800',
-        backgroundColor: '#ff980020',
-      },
-    ],
+  // Helper functions for UI
+  const getPriorityColor = (priority: string): 'error' | 'warning' | 'info' | 'default' => {
+    const p = priority.toLowerCase();
+    if (p === 'high' || p === 'critical') return 'error';
+    if (p === 'medium') return 'warning';
+    if (p === 'low') return 'info';
+    return 'default';
   };
 
-  const vendorPerformanceData = {
-    labels: ['Dell Technologies', 'HP Inc', 'Lenovo', 'Samsung', 'Canon', 'Others'],
-    datasets: [
-      {
-        label: 'Purchase Value ($)',
-        data: [450000, 320000, 280000, 190000, 150000, 110000],
+  const getExpiryColor = (daysLeft: number): 'error' | 'warning' | 'success' => {
+    if (daysLeft <= 7) return 'error';
+    if (daysLeft <= 30) return 'warning';
+    return 'success';
+  };
+
+  // Generate chart data from real API data
+  const generateVendorPerformanceChart = () => {
+    if (!dashboardData?.topVendors || dashboardData.topVendors.length === 0) {
+      return {
+        labels: ['No Data'],
+        datasets: [{
+          label: 'Purchase Value (₹)',
+          data: [0],
+          backgroundColor: ['#ccc']
+        }]
+      };
+    }
+
+    const topVendors = dashboardData.topVendors.slice(0, 6);
+    return {
+      labels: topVendors.map(v => v.name),
+      datasets: [{
+        label: 'Purchase Value (₹)',
+        data: topVendors.map(v => v.value),
         backgroundColor: [
           '#2196f3',
           '#4caf50',
@@ -185,42 +208,36 @@ const InventoryManagerDashboard = () => {
           '#9c27b0',
           '#607d8b',
         ],
-      },
-    ],
+      }]
+    };
   };
 
-  const maintenanceCostData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      {
-        label: 'Maintenance Cost ($)',
-        data: [38000, 42000, 35000, 41000, 39000, 45000],
-        borderColor: '#f44336',
-        backgroundColor: '#f4433620',
-      },
-      {
-        label: 'Preventive Maintenance ($)',
-        data: [15000, 18000, 12000, 16000, 14000, 17000],
-        borderColor: '#4caf50',
-        backgroundColor: '#4caf5020',
-      },
-    ],
-  };
+  // Loading state
+  if (loading) {
+    return (
+      <Layout title="Inventory Manager Dashboard">
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+          <CircularProgress size={60} />
+        </Box>
+      </Layout>
+    );
+  }
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority.toLowerCase()) {
-      case 'high': return 'error';
-      case 'medium': return 'warning';
-      case 'low': return 'info';
-      default: return 'default';
-    }
-  };
+  // Error state
+  if (error || !dashboardData) {
+    return (
+      <Layout title="Inventory Manager Dashboard">
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error || 'Failed to load dashboard data'}
+        </Alert>
+        <Button variant="contained" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </Layout>
+    );
+  }
 
-  const getExpiryColor = (daysLeft: number) => {
-    if (daysLeft <= 7) return 'error';
-    if (daysLeft <= 30) return 'warning';
-    return 'success';
-  };
+  const { stats, assetsByLocation, warrantyExpiring, maintenanceSchedule, topVendors, pendingApprovals } = dashboardData;
 
   return (
     <Layout title="Inventory Manager Dashboard">
@@ -229,9 +246,9 @@ const InventoryManagerDashboard = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Total Assets"
-            value={dashboardData.totalAssets.toLocaleString()}
-            subtitle={`${dashboardData.activeAssets} active, ${dashboardData.availableAssets} available`}
-            progress={Math.round((dashboardData.activeAssets / dashboardData.totalAssets) * 100)}
+            value={stats.totalAssets.toLocaleString('en-IN')}
+            subtitle={`${stats.activeAssets} active, ${stats.inMaintenanceAssets} in maintenance`}
+            progress={stats.totalAssets > 0 ? Math.round((stats.activeAssets / stats.totalAssets) * 100) : 0}
             progressColor="primary"
             icon={<InventoryIcon />}
           />
@@ -240,9 +257,9 @@ const InventoryManagerDashboard = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Pending Approvals"
-            value={dashboardData.pendingApprovals}
-            subtitle="3 high priority items"
-            progress={dashboardData.pendingApprovals > 10 ? 80 : (dashboardData.pendingApprovals * 8)}
+            value={pendingApprovals.length}
+            subtitle={`${pendingApprovals.filter(a => a.priority.toLowerCase() === 'high').length} high priority`}
+            progress={pendingApprovals.length > 10 ? 80 : (pendingApprovals.length * 8)}
             progressColor="warning"
             icon={<AssignmentIcon />}
           />
@@ -251,8 +268,8 @@ const InventoryManagerDashboard = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Expiring Soon"
-            value={dashboardData.warrantyExpiring + dashboardData.amcExpiring}
-            subtitle={`${dashboardData.warrantyExpiring} warranties, ${dashboardData.amcExpiring} AMCs`}
+            value={stats.warrantyExpiring}
+            subtitle="Warranties & AMCs"
             progress={75}
             progressColor="error"
             icon={<WarningIcon />}
@@ -261,12 +278,12 @@ const InventoryManagerDashboard = () => {
 
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Maintenance Cost"
-            value={`₹${(dashboardData.monthlyMaintenanceCost / 1000).toFixed(0)}K`}
-            subtitle="This month's spending"
+            title="Total Value"
+            value={`₹${(stats.totalValue / 10000000).toFixed(1)}Cr`}
+            subtitle={`${stats.locationCount} locations`}
             progress={65}
             progressColor="info"
-            icon={<MaintenanceIcon />}
+            icon={<MoneyIcon />}
           />
         </Grid>
 
@@ -354,22 +371,28 @@ const InventoryManagerDashboard = () => {
               <Typography variant="h6" gutterBottom>
                 Stock Levels by Location
               </Typography>
-              {stockLevelsByLocation.map((location, index) => (
-                <Box key={index} sx={{ mb: 2 }}>
-                  <Box display="flex" justifyContent="space-between" alignItems="center">
-                    <Typography variant="body2">{location.location}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {location.active}/{location.total}
-                    </Typography>
+              {assetsByLocation.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No location data available
+                </Typography>
+              ) : (
+                assetsByLocation.slice(0, 5).map((location, index) => (
+                  <Box key={index} sx={{ mb: 2 }}>
+                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                      <Typography variant="body2">{location.location}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {location.count} assets ({location.percentage}%)
+                      </Typography>
+                    </Box>
+                    <LinearProgress
+                      variant="determinate"
+                      value={location.percentage}
+                      sx={{ mt: 0.5, height: 8, borderRadius: 4 }}
+                      color={location.percentage > 80 ? 'success' : location.percentage > 50 ? 'warning' : 'error'}
+                    />
                   </Box>
-                  <LinearProgress
-                    variant="determinate"
-                    value={location.percentage}
-                    sx={{ mt: 0.5, height: 8, borderRadius: 4 }}
-                    color={location.percentage > 90 ? 'success' : location.percentage > 70 ? 'warning' : 'error'}
-                  />
-                </Box>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -384,46 +407,53 @@ const InventoryManagerDashboard = () => {
                   View All
                 </Button>
               </Box>
-              <List>
-                {pendingApprovals.map((approval) => (
-                  <ListItem key={approval.id} divider>
-                    <ListItemIcon>
-                      <Avatar
-                        sx={{
-                          bgcolor: getPriorityColor(approval.priority) + '.light',
-                          color: getPriorityColor(approval.priority) + '.main',
-                          width: 32,
-                          height: 32,
-                        }}
-                      >
-                        <AssignmentIcon fontSize="small" />
-                      </Avatar>
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <Typography variant="body2">{approval.type}</Typography>
-                          <Chip 
-                            label={approval.priority} 
-                            size="small" 
-                            color={getPriorityColor(approval.priority) as any}
-                          />
-                        </Box>
-                      }
-                      secondary={
-                        <Box>
-                          <Typography variant="caption" display="block">
-                            {approval.items} • ₹{approval.amount.toLocaleString('en-IN')}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            by {approval.requestedBy} • {approval.daysWaiting} days waiting
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
+              {pendingApprovals.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No pending approvals
+                </Typography>
+              ) : (
+                <List>
+                  {pendingApprovals.slice(0, 3).map((approval) => (
+                    <ListItem key={approval.id} divider>
+                      <ListItemIcon>
+                        <Avatar
+                          sx={{
+                            bgcolor: getPriorityColor(approval.priority) + '.light',
+                            color: getPriorityColor(approval.priority) + '.main',
+                            width: 32,
+                            height: 32,
+                          }}
+                        >
+                          <AssignmentIcon fontSize="small" />
+                        </Avatar>
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Typography variant="body2">{approval.type}</Typography>
+                            <Chip 
+                              label={approval.priority} 
+                              size="small" 
+                              color={getPriorityColor(approval.priority)}
+                            />
+                          </Box>
+                        }
+                        secondary={
+                          <Box>
+                            <Typography variant="caption" display="block">
+                              {approval.description || 'No description'} 
+                              {approval.amount ? ` • ₹${approval.amount.toLocaleString('en-IN')}` : ''}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              by {approval.requestor} • {approval.daysAgo} days ago
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -431,24 +461,51 @@ const InventoryManagerDashboard = () => {
         {/* Charts Row */}
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Vendor Performance
+            </Typography>
             <ChartComponent
-              title="Asset Stock Trends"
-              type="line"
-              data={stockTrendData}
+              title=""
+              type="bar"
+              data={generateVendorPerformanceChart()}
               height={300}
             />
           </Paper>
         </Grid>
 
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <ChartComponent
-              title="Vendor Performance"
-              type="bar"
-              data={vendorPerformanceData}
-              height={300}
-            />
-          </Paper>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Top Vendors
+              </Typography>
+              {topVendors.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No vendor data available
+                </Typography>
+              ) : (
+                <List>
+                  {topVendors.slice(0, 5).map((vendor) => (
+                    <ListItem key={vendor.id} divider>
+                      <ListItemText
+                        primary={vendor.name}
+                        secondary={
+                          <Box>
+                            <Typography variant="caption" display="block">
+                              Orders: {vendor.orders} • Value: ₹{(vendor.value / 100000).toFixed(1)}L
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Rating: {vendor.rating}/5 ⭐
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+            </CardContent>
+          </Card>
         </Grid>
 
         {/* Warranty & AMC Expiring */}
@@ -458,109 +515,114 @@ const InventoryManagerDashboard = () => {
               <Typography variant="h6" gutterBottom>
                 Warranty & AMC Expiring Soon
               </Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Asset</TableCell>
-                      <TableCell>Type</TableCell>
-                      <TableCell>Days Left</TableCell>
-                      <TableCell>Action</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {expiringWarranties.map((item) => (
-                      <TableRow key={item.assetId}>
-                        <TableCell>
-                          <Typography variant="body2">{item.name}</Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {item.location}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip 
-                            label={item.type} 
-                            size="small" 
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Chip 
-                            label={`${item.daysLeft} days`} 
-                            size="small" 
-                            color={getExpiryColor(item.daysLeft) as any}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Button size="small" variant="outlined">
-                            Renew
-                          </Button>
-                        </TableCell>
+              {warrantyExpiring.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No expiring warranties
+                </Typography>
+              ) : (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Asset</TableCell>
+                        <TableCell>Category</TableCell>
+                        <TableCell>Days Left</TableCell>
+                        <TableCell>Action</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                    </TableHead>
+                    <TableBody>
+                      {warrantyExpiring.slice(0, 5).map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>
+                            <Typography variant="body2">{item.asset}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {item.assignedUser || 'Unassigned'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2">{item.category}</Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={`${item.daysLeft} days`} 
+                              size="small" 
+                              color={getExpiryColor(item.daysLeft)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Button 
+                              size="small" 
+                              variant="outlined"
+                              onClick={() => navigate(`/assets/${item.assetId}`)}
+                            >
+                              View
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
             </CardContent>
           </Card>
         </Grid>
 
-        {/* Recent Transactions */}
+        {/* Maintenance Schedule */}
         <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Recent Transactions
+                Upcoming Maintenance
               </Typography>
-              <List>
-                {recentTransactions.map((transaction) => (
-                  <ListItem key={transaction.id} divider>
-                    <ListItemIcon>
-                      <Avatar
-                        sx={{
-                          bgcolor: transaction.type === 'Purchase' ? 'success.light' : 
-                                  transaction.type === 'Transfer' ? 'info.light' : 'warning.light',
-                          color: transaction.type === 'Purchase' ? 'success.main' : 
-                                 transaction.type === 'Transfer' ? 'info.main' : 'warning.main',
-                          width: 32,
-                          height: 32,
-                        }}
-                      >
-                        {transaction.type === 'Purchase' ? <MoneyIcon fontSize="small" /> :
-                         transaction.type === 'Transfer' ? <LocationIcon fontSize="small" /> :
-                         <MaintenanceIcon fontSize="small" />}
-                      </Avatar>
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={transaction.description}
-                      secondary={
-                        <Box>
-                          <Typography variant="caption" display="block">
-                            {transaction.vendor} • ₹{transaction.amount.toLocaleString('en-IN')}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {new Date(transaction.date).toLocaleString()}
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
+              {maintenanceSchedule.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No scheduled maintenance
+                </Typography>
+              ) : (
+                <List>
+                  {maintenanceSchedule.slice(0, 5).map((item) => (
+                    <ListItem key={item.id} divider>
+                      <ListItemIcon>
+                        <Avatar
+                          sx={{
+                            bgcolor: item.status === 'pending' ? 'warning.light' : 'success.light',
+                            color: item.status === 'pending' ? 'warning.main' : 'success.main',
+                            width: 32,
+                            height: 32,
+                          }}
+                        >
+                          <MaintenanceIcon fontSize="small" />
+                        </Avatar>
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <Typography variant="body2">{item.asset}</Typography>
+                            <Chip 
+                              label={item.type} 
+                              size="small" 
+                              variant="outlined"
+                            />
+                          </Box>
+                        }
+                        secondary={
+                          <Box>
+                            <Typography variant="caption" display="block">
+                              Scheduled: {new Date(item.scheduledDate).toLocaleDateString('en-IN')}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Technician: {item.technician}
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              )}
             </CardContent>
           </Card>
-        </Grid>
-
-        {/* Maintenance Cost Trends */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 2 }}>
-            <ChartComponent
-              title="Maintenance Cost Trends"
-              type="line"
-              data={maintenanceCostData}
-              height={300}
-            />
-          </Paper>
         </Grid>
       </Grid>
     </Layout>

@@ -20,8 +20,6 @@ if (!process.env.MONGODB_URI) {
   process.exit(1);
 }
 
-console.log('✅ Environment variables validated successfully');
-
 const express = require('express');
 const mongoose = require('mongoose');
 const connectDB = require('./config/db');
@@ -51,17 +49,13 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 app.use(cors({
   origin: function (origin, callback) {
-    console.log('🔍 CORS Request from origin:', origin);
-    
     // Allow requests with no origin (like mobile apps, Postman, curl)
     if (!origin) {
-      console.log('✅ CORS: Allowing request with no origin');
       return callback(null, true);
     }
     
     // Check if origin is in allowed list
     if (allowedOrigins.indexOf(origin) !== -1) {
-      console.log('✅ CORS: Origin found in allowed list');
       return callback(null, true);
     }
     
@@ -69,7 +63,6 @@ app.use(cors({
     const localNetworkRegex = /^https?:\/\/(localhost|127\.0\.0\.1|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/;
     
     if (localNetworkRegex.test(origin)) {
-      console.log('✅ CORS: Local network IP detected and allowed');
       return callback(null, true);
     }
     
@@ -215,8 +208,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, process.env.UPLOAD_DIR || 'uploads')));
 
 // Import route files
-console.log('📦 Loading route modules...');
-
 // Load routes one by one with error handling
 let assetRoutes, userRoutes, txnRoutes, approvalRoutes, auditRoutes, docRoutes;
 let vendorRoutes, maintRoutes, authRoutes, dashboardRoutes, assetRequestRoutes;
@@ -224,6 +215,7 @@ let assetTransferRoutes, purchaseManagementRoutes, notificationRoutes, uploadRou
 let exportImportRoutes, userManagementRoutes, vendorManagementRoutes, vendorPortalRoutes;
 let qrScanRoutes, photoRoutes, bulkOperationsRoutes, customFiltersRoutes;
 let scheduledAuditsRoutes, inventoryRoutes, reportsRoutes, backupsRoutes, settingsRoutes;
+let assetIssueRoutes, automationRoutes;  // ✅ Added automation routes
 
 try {
   assetRoutes = require('./routes/assets');
@@ -254,8 +246,8 @@ try {
   reportsRoutes = require('./routes/reports');
   backupsRoutes = require('./routes/backups');
   settingsRoutes = require('./routes/settings');
-  
-  console.log('✅ All route modules loaded successfully');
+  assetIssueRoutes = require('./routes/assetIssues');
+  automationRoutes = require('./routes/automation');  // ✅ Added automation routes
 } catch (error) {
   console.error('❌ Error loading route modules:', error.message);
   console.error('Stack:', error.stack);
@@ -308,7 +300,9 @@ v1Router.use('/scheduled-audits', scheduledAuditsRoutes);
 v1Router.use('/inventory', inventoryRoutes);
 v1Router.use('/reports', reportsRoutes);
 v1Router.use('/backups', backupsRoutes);
+v1Router.use('/', assetIssueRoutes); // Asset issues routes (includes /assets/:id/issues)
 v1Router.use('/settings', settingsRoutes);
+v1Router.use('/automation', automationRoutes);  // ✅ Added automation routes
 
 // Mount v1 routes
 app.use('/api/v1', v1Router);
@@ -394,26 +388,18 @@ app.use((req, res) => {
 // Global error handler
 app.use(errorHandler);
 
-console.log('✅ All middleware and routes registered');
-console.log('✅ Error handler attached');
-
 // Start server
 const PORT = process.env.PORT || 5000;
 let server; // Declare server variable here
 
 // Function to start the server
 const startServer = () => {
-  console.log('🚀 Starting HTTP server...');
-  console.log('🔧 About to call app.listen() on port', PORT);
-  
   try {
     // Listen on 0.0.0.0 to allow network access from other devices
     server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`✅ Server running on port ${PORT}`);
-      console.log(`🌐 Local:   http://localhost:${PORT}`);
-      console.log(`🌐 Network: http://<your-local-ip>:${PORT}`);
       logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-      logger.info(`API Documentation available at http://localhost:${PORT}/api-docs`);
+      logger.info(`API Documentation: http://localhost:${PORT}/api-docs`);
     });
 
     // Handle server errors
@@ -428,8 +414,6 @@ const startServer = () => {
         process.exit(1);
       }
     });
-
-    console.log('🔧 app.listen() called, server object:', typeof server);
     
     // Start connection health monitor after server is up
     startConnectionMonitor();
@@ -561,12 +545,17 @@ process.on('uncaughtException', (err) => {
 // ========================================
 // Connect to MongoDB and start server
 connectDB().then(() => {
-  console.log('✅ Database connection callback reached');
   logger.info('Database connection established');
   
   // Initialize cron jobs for scheduled audits
   const { initializeCronJobs } = require('./services/cronService');
   initializeCronJobs();
+  
+  // Initialize disposal automation scheduler ✅ NEW
+  const scheduledJobs = require('./services/scheduledJobs');
+  scheduledJobs.initialize().catch(err => {
+    console.error('❌ Failed to initialize disposal automation:', err);
+  });
   
   // Start the HTTP server after DB connection and cron initialization
   startServer();

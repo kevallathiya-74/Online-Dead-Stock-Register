@@ -27,12 +27,14 @@ exports.getDeadStockItems = async (req, res, next) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Build query for dead stock items (using 'Ready for Scrap' status)
+    // Exclude assets that have been disposed
     const query = {
       $or: [
         { status: 'Ready for Scrap' },
         { condition: 'Obsolete' },
         { condition: 'Beyond Repair' }
-      ]
+      ],
+      status: { $ne: 'Disposed' } // Exclude disposed assets from dead stock list
     };
 
     // Add search filter
@@ -124,12 +126,15 @@ exports.getDeadStockItems = async (req, res, next) => {
  */
 exports.getDeadStockStats = async (req, res, next) => {
   try {
+    // Build query for dead stock items - MUST match the main query
+    // Exclude assets that have been disposed
     const query = {
       $or: [
         { status: 'Ready for Scrap' },
         { condition: 'Obsolete' },
         { condition: 'Beyond Repair' }
-      ]
+      ],
+      status: { $ne: 'Disposed' } // Exclude disposed assets from stats
     };
 
     const [deadStockAssets, totalValue] = await Promise.all([
@@ -146,8 +151,7 @@ exports.getDeadStockStats = async (req, res, next) => {
     ]);
 
     const pendingDisposal = await Asset.countDocuments({
-      ...query,
-      status: 'pending_disposal'
+      status: 'Disposed' // Count disposed assets as pending disposal
     });
 
     logger.info('Dead stock stats retrieved', { userId: req.user.id });

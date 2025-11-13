@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -23,7 +23,7 @@ import {
   LocationOn as LocationIcon,
   Category as CategoryIcon,
   CalendarToday as CalendarIcon,
-  AttachMoney as MoneyIcon,
+  CurrencyRupee as MoneyIcon,
   Person as PersonIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
@@ -66,12 +66,29 @@ interface AssetDetails {
 const AssetDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [asset, setAsset] = useState<AssetDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showQR, setShowQR] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+
+  // Function to handle back navigation intelligently
+  const handleBackNavigation = () => {
+    // Check if we came from a specific page via state
+    const fromPage = (location.state as any)?.from;
+    
+    if (fromPage) {
+      navigate(fromPage);
+    } else if (window.history.length > 2) {
+      // Use browser back if there's history
+      navigate(-1);
+    } else {
+      // Default fallback to assets page
+      navigate('/assets');
+    }
+  };
 
   useEffect(() => {
     loadAssetDetails();
@@ -233,7 +250,7 @@ const AssetDetailsPage: React.FC = () => {
           <Alert severity="error">{error || 'Asset not found'}</Alert>
           <Button 
             startIcon={<ArrowBackIcon />}
-            onClick={() => navigate('/assets')}
+            onClick={handleBackNavigation}
             sx={{ mt: 2 }}
           >
             Back to Assets
@@ -269,7 +286,7 @@ const AssetDetailsPage: React.FC = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Button 
               startIcon={<ArrowBackIcon />}
-              onClick={() => navigate('/assets')}
+              onClick={handleBackNavigation}
             >
               Back
             </Button>

@@ -17,6 +17,13 @@ router.get(
   reportsController.getReportTemplates
 );
 
+// Get asset summary for reports
+router.get(
+  '/asset-summary',
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR']),
+  reportsController.getAssetSummary
+);
+
 // Get report history
 router.get(
   '/history',

@@ -20,7 +20,7 @@ import {
   Select,
   MenuItem
 } from '@mui/material';
-import { AttachMoney, Receipt, CheckCircle } from '@mui/icons-material';
+import { CurrencyRupee, Receipt, CheckCircle } from '@mui/icons-material';
 import { getInvoices } from '../../services/vendorPortal.service';
 import type { VendorInvoice } from '../../types';
 import { format } from 'date-fns';
@@ -143,7 +143,7 @@ const VendorInvoicesPage: React.FC = () => {
                       {formatCurrency(summary.pendingAmount, summary.currency)}
                     </Typography>
                   </Box>
-                  <AttachMoney sx={{ fontSize: 40, color: 'warning.main', opacity: 0.3 }} />
+                  <CurrencyRupee sx={{ fontSize: 40, color: 'warning.main', opacity: 0.3 }} />
                 </Box>
               </CardContent>
             </Card>
