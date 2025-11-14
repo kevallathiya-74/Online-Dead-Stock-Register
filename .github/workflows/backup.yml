@@ -37,7 +37,7 @@ jobs:
           ls -lh "${BACKUP_DIR}.tar.gz"
       
       - name: Upload backup to artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: mongodb-backup-${{ github.run_number }}
           path: backup_*.tar.gz

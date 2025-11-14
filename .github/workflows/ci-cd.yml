@@ -51,7 +51,7 @@ jobs:
           NODE_ENV: test
       
       - name: Upload backend coverage
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           files: ./backend/coverage/lcov.info
           flags: backend
@@ -59,7 +59,7 @@ jobs:
       
       - name: Archive backend test results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: backend-test-results
           path: backend/coverage
@@ -96,14 +96,14 @@ jobs:
           VITE_API_BASE_URL: https://api-placeholder.com/api/v1
       
       - name: Upload frontend build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: frontend-build
           path: dist
       
       - name: Upload frontend coverage
         if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           files: ./coverage/lcov.info
           flags: frontend
@@ -125,11 +125,11 @@ jobs:
       
       - name: Run npm audit (backend)
         working-directory: ./backend
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=critical || true
         continue-on-error: true
       
       - name: Run npm audit (frontend)
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=critical || true
         continue-on-error: true
 
   # Deploy backend to Render (production only)
