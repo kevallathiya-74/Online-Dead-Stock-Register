@@ -18,4 +18,43 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// ========================================
+// OPTIMIZED INDEXES FOR PERFORMANCE
+// ========================================
+
+// Unique index on email (already enforced by schema, but explicit for clarity)
+userSchema.index({ email: 1 }, { unique: true });
+
+// Unique sparse index on employee_id (only indexes documents with employee_id)
+userSchema.index({ employee_id: 1 }, { unique: true, sparse: true });
+
+// Sparse index on vendor_id for vendor users
+userSchema.index({ vendor_id: 1 }, { sparse: true });
+
+// Compound index for role-based queries with active status
+userSchema.index({ role: 1, is_active: 1 });
+
+// Compound index for department and role filtering
+userSchema.index({ department: 1, role: 1 });
+
+// Index for last login tracking (descending order for recent logins)
+userSchema.index({ last_login: -1 });
+
+// Index for active users by department
+userSchema.index({ is_active: 1, department: 1 });
+
+// Text search index for user search functionality
+userSchema.index({ 
+  name: 'text', 
+  email: 'text',
+  employee_id: 'text'
+}, {
+  name: 'user_text_search',
+  weights: {
+    email: 10,
+    name: 5,
+    employee_id: 3
+  }
+});
+
 module.exports = mongoose.model('User', userSchema);

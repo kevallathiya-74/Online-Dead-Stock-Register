@@ -1,127 +1,42 @@
-const Asset = require('../models/asset');
-const mongoose = require('mongoose');
+const assetService = require('../services/assetService');
+const logger = require('../utils/logger');
 
 // GET all assets with pagination and filtering
-exports.getAssets = async (req, res) => {
+exports.getAssets = async (req, res, next) => {
   try {
-    // Pagination parameters
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
-    const skip = (page - 1) * limit;
+    const filters = {
+      status: req.query.status,
+      department: req.query.department,
+      asset_type: req.query.asset_type,
+      location: req.query.location,
+      search: req.query.search,
+      purchaseStartDate: req.query.purchaseStartDate,
+      purchaseEndDate: req.query.purchaseEndDate
+    };
     
-    // Validate limits
-    if (limit > 100) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'Limit cannot exceed 100 items per page' 
-      });
-    }
+    const pagination = {
+      page: parseInt(req.query.page) || 1,
+      limit: parseInt(req.query.limit) || 50,
+      sortBy: req.query.sortBy || 'createdAt',
+      sortOrder: req.query.sortOrder || 'desc'
+    };
     
-    if (page < 1) {
-      return res.status(400).json({
-        success: false,
-        error: 'Page must be greater than 0'
-      });
-    }
-    
-    let query = {};
-    
-    // Filter by department if not admin
-    if (req.user.role !== 'ADMIN') {
-      query.department = req.user.department;
-    }
-    
-    // Additional filters
-    if (req.query.status) {
-      query.status = req.query.status;
-    }
-    
-    if (req.query.department && req.user.role === 'ADMIN') {
-      query.department = req.query.department;
-    }
-    
-    if (req.query.asset_type) {
-      query.asset_type = req.query.asset_type;
-    }
-    
-    if (req.query.location) {
-      query.location = { $regex: req.query.location, $options: 'i' };
-    }
-    
-    // Text search across multiple fields
-    if (req.query.search) {
-      const searchRegex = { $regex: req.query.search, $options: 'i' };
-      query.$or = [
-        { unique_asset_id: searchRegex },
-        { manufacturer: searchRegex },
-        { model: searchRegex },
-        { serial_number: searchRegex }
-      ];
-    }
-    
-    // Date range filters
-    if (req.query.purchaseStartDate || req.query.purchaseEndDate) {
-      query.purchase_date = {};
-      if (req.query.purchaseStartDate) {
-        query.purchase_date.$gte = new Date(req.query.purchaseStartDate);
-      }
-      if (req.query.purchaseEndDate) {
-        query.purchase_date.$lte = new Date(req.query.purchaseEndDate);
-      }
-    }
-    
-    // Sorting
-    let sort = { createdAt: -1 }; // Default: newest first
-    if (req.query.sortBy) {
-      const sortField = req.query.sortBy;
-      const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
-      sort = { [sortField]: sortOrder };
-    }
-    
-    // Execute query with pagination
-    const [assets, total] = await Promise.all([
-      Asset.find(query)
-        .populate('assigned_user', 'name email department')
-        .populate('last_audited_by', 'name email')
-        .sort(sort)
-        .skip(skip)
-        .limit(limit)
-        .lean(), // Use lean() for better performance on read-only operations
-      Asset.countDocuments(query)
-    ]);
+    const result = await assetService.getAssets(filters, pagination, req.user);
     
     res.json({
       success: true,
-      data: assets,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-        hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1
-      }
+      ...result
     });
   } catch (err) {
-    console.error('Get assets error:', err);
-    res.status(500).json({ 
-      success: false,
-      error: err.message 
-    });
+    logger.error('Get assets error', { error: err.message, requestId: req.id });
+    next(err);
   }
 };
 
 // GET my assigned assets (employee-specific)
-exports.getMyAssets = async (req, res) => {
+exports.getMyAssets = async (req, res, next) => {
   try {
-    const userId = req.user.id;
-    
-    // Find all assets assigned to the current user
-    const assets = await Asset.find({ assigned_user: userId })
-      .populate('assigned_user', 'name email department')
-      .populate('last_audited_by', 'name email')
-      .sort({ assigned_date: -1 })
-      .lean();
+    const assets = await assetService.getUserAssets(req.user.id);
     
     res.json({
       success: true,
@@ -129,21 +44,15 @@ exports.getMyAssets = async (req, res) => {
       total: assets.length
     });
   } catch (err) {
-    console.error('Get my assets error:', err);
-    res.status(500).json({ 
-      success: false,
-      error: err.message 
-    });
+    logger.error('Get my assets error', { error: err.message, userId: req.user.id, requestId: req.id });
+    next(err);
   }
 };
 
 // GET asset by id
-exports.getAssetById = async (req, res) => {
+exports.getAssetById = async (req, res, next) => {
   try {
-    const asset = await Asset.findById(req.params.id)
-      .populate('assigned_user', 'name email department')
-      .populate('last_audited_by', 'name email')
-      .populate('vendor', 'vendor_name contact_person');
+    const asset = await assetService.getAssetById(req.params.id);
     
     if (!asset) {
       return res.status(404).json({ 
@@ -152,87 +61,43 @@ exports.getAssetById = async (req, res) => {
       });
     }
     
-    // Include audit history
-    const AuditLog = require('../models/auditLog');
-    const auditHistory = await AuditLog.find({
-      entity_type: 'Asset',
-      entity_id: asset._id,
-      action: { $in: ['quick_audit_completed', 'audit_scanned', 'asset_updated', 'audit_completed'] }
-    })
-    .populate('user_id', 'name email')
-    .sort({ timestamp: -1 })
-    .limit(10)
-    .lean();
-    
     res.json({
       success: true,
-      data: {
-        ...asset.toObject(),
-        audit_history: auditHistory
-      }
+      data: asset
     });
   } catch (err) {
-    console.error('Error fetching asset by ID:', err);
-    res.status(500).json({ 
-      success: false,
-      message: err.message 
-    });
+    logger.error('Error fetching asset by ID', { error: err.message, assetId: req.params.id, requestId: req.id });
+    next(err);
   }
 };
 
 // CREATE asset
-exports.createAsset = async (req, res) => {
+exports.createAsset = async (req, res, next) => {
   try {
     // If not admin, ensure asset is created in user's department
     if (req.user.role !== 'ADMIN' && req.body.department !== req.user.department) {
       return res.status(403).json({ 
+        success: false,
         message: 'You can only create assets in your own department' 
       });
     }
 
-    // Auto-generate unique_asset_id if not provided
-    if (!req.body.unique_asset_id) {
-      const prefix = 'AST';
-      const timestamp = Date.now().toString().slice(-8);
-      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-      req.body.unique_asset_id = `${prefix}-${timestamp}${random}`;
-    }
-
-    const asset = new Asset({
+    // Set department if not admin
+    const assetData = {
       ...req.body,
       department: req.user.role === 'ADMIN' ? req.body.department : req.user.department
-    });
+    };
     
-    const saved = await asset.save();
-    
-    // Log asset creation
-    const AuditLog = require('../models/auditLog');
-    await AuditLog.create({
-      user_id: req.user.id,
-      action: 'asset_created',
-      entity_type: 'Asset',
-      entity_id: saved._id,
-      description: `Asset ${saved.unique_asset_id} created: ${saved.name || `${saved.manufacturer} ${saved.model}`}`,
-      severity: 'info',
-      details: {
-        asset_id: saved.unique_asset_id,
-        asset_name: saved.name || `${saved.manufacturer} ${saved.model}`,
-        category: saved.asset_type,
-        location: saved.location,
-        department: saved.department
-      }
-    });
+    const asset = await assetService.createAsset(assetData, req.user.id);
     
     res.status(201).json({ 
       success: true,
-      data: saved,
+      data: asset,
       message: 'Asset created successfully'
     });
   } catch (err) {
-    res.status(400).json({ 
-      success: false,
-      message: err.message 
-    });
+    logger.error('Create asset error', { error: err.message, userId: req.user.id, requestId: req.id });
+    next(err);
   }
 };
 

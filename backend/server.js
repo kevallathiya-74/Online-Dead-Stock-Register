@@ -1,24 +1,8 @@
 require('dotenv').config();
 
-if (!process.env.JWT_SECRET) {
-  console.error('❌ FATAL ERROR: JWT_SECRET is not configured in environment variables!');
-  console.error('   JWT_SECRET is required for secure authentication.');
-  console.error('   Please add JWT_SECRET to your .env file (minimum 32 characters).');
-  process.exit(1);
-}
-
-if (process.env.JWT_SECRET.length < 32) {
-  console.error('❌ FATAL ERROR: JWT_SECRET must be at least 32 characters long!');
-  console.error('   Current length:', process.env.JWT_SECRET.length);
-  console.error('   Required length: 32+');
-  process.exit(1);
-}
-
-if (!process.env.MONGODB_URI) {
-  console.error('❌ FATAL ERROR: MONGODB_URI is not configured!');
-  console.error('   Please add MONGODB_URI to your .env file.');
-  process.exit(1);
-}
+// Validate environment variables on startup
+const validateEnv = require('./config/validateEnv');
+validateEnv();
 
 const express = require('express');
 const mongoose = require('mongoose');
@@ -32,6 +16,7 @@ const path = require('path');
 const errorHandler = require('./middleware/errorHandler');
 const logger = require('./utils/logger');
 const requestLogger = require('./middleware/requestLogger');
+const requestIdMiddleware = require('./middleware/requestId');
 const { swaggerUi, swaggerSpec } = require('./config/swagger');
 const dbUtils = require('./utils/dbUtils');
 
@@ -41,6 +26,9 @@ const app = express();
 // Trust proxy - Required for deployment behind reverse proxy (Render, Heroku, etc.)
 // This allows Express to trust the X-Forwarded-* headers from the proxy
 app.set('trust proxy', 1);
+
+// Request ID Middleware - Must be first for request tracing
+app.use(requestIdMiddleware);
 
 // ========================================
 // CORS CONFIGURATION - Environment-Driven
