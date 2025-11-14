@@ -42,32 +42,52 @@ const app = express();
 // This allows Express to trust the X-Forwarded-* headers from the proxy
 app.set('trust proxy', 1);
 
-// CORS configuration - Environment-based allowed origins
+// ========================================
+// CORS CONFIGURATION - Environment-Driven
+// ========================================
+// SECURITY: Only allow requests from explicitly configured origins
+// Set ALLOWED_ORIGINS in .env as comma-separated list of allowed domains
+// Example: ALLOWED_ORIGINS=http://localhost:3000,https://yourdomain.com
+// If ALLOWED_ORIGINS is not set, defaults to localhost only (development mode)
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
-  : ['http://localhost:3000', 'http://localhost:5000'];
+  : ['http://localhost:3000']; // Default: localhost only
+
+// Log CORS configuration on startup
+console.log('🔒 CORS Configuration:');
+console.log('   Allowed Origins:', allowedOrigins.length > 0 ? allowedOrigins.join(', ') : 'NONE (localhost only)');
+if (!process.env.ALLOWED_ORIGINS) {
+  console.warn('⚠️  WARNING: ALLOWED_ORIGINS not set in .env - defaulting to localhost only');
+  console.warn('   Set ALLOWED_ORIGINS in production to allow your frontend domain');
+}
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, Postman, curl)
+    // Allow requests with no origin (mobile apps, Postman, server-to-server)
     if (!origin) {
       return callback(null, true);
     }
     
-    // Check if origin is in allowed list
+    // Check if origin is in explicitly allowed list
     if (allowedOrigins.indexOf(origin) !== -1) {
       return callback(null, true);
     }
     
-    // Allow local network IPs (10.x.x.x, 192.168.x.x, 172.16-31.x.x)
-    const localNetworkRegex = /^https?:\/\/(localhost|127\.0\.0\.1|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/;
-    
-    if (localNetworkRegex.test(origin)) {
-      return callback(null, true);
+    // In development mode only: Allow localhost with any port
+    if (process.env.NODE_ENV === 'development') {
+      const localhostRegex = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+      if (localhostRegex.test(origin)) {
+        return callback(null, true);
+      }
     }
     
+    // Block unauthorized origins
     console.error('❌ CORS: Blocked unauthorized origin:', origin);
-    logger.warn('CORS blocked request from unauthorized origin', { origin });
+    logger.warn('CORS blocked request from unauthorized origin', { 
+      origin, 
+      allowedOrigins,
+      environment: process.env.NODE_ENV 
+    });
     callback(new Error('Not allowed by CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],

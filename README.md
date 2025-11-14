@@ -69,8 +69,35 @@ npm install
 # Backend: Create .env file in backend directory
 cd backend
 cp .env.example .env
-# Edit .env with your MongoDB URI and JWT secret
+# Edit .env with your configuration
 ```
+
+**CRITICAL: CORS Configuration** 🔒
+
+The backend uses environment-driven CORS for security. You MUST configure `ALLOWED_ORIGINS` in your `.env` file:
+
+```env
+# Development (local testing)
+ALLOWED_ORIGINS=http://localhost:3000
+
+# Production (deployed frontend)
+ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+```
+
+**⚠️ Security Rules:**
+- NEVER use wildcards (`*`) in production
+- Always use HTTPS in production
+- Include ALL frontend domains (www and non-www)
+- If not set, defaults to `http://localhost:3000` only
+- Unauthorized origins will be blocked with CORS error
+
+**Required environment variables:**
+- `MONGODB_URI` - MongoDB Atlas connection string
+- `JWT_SECRET` - Generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+- `ALLOWED_ORIGINS` - Comma-separated list of frontend URLs
+- `EMAIL_USER` & `EMAIL_PASSWORD` - For sending notifications
+
+See `backend/.env.example` for complete configuration template.
 
 4. **Seed database with test data**
 
@@ -243,12 +270,52 @@ This project is configured for automatic deployment to:
 **Backend** (`backend/.env`)
 
 ```env
+# Database
+MONGODB_URI=your_mongodb_atlas_connection_string
+
+# Authentication (minimum 32 characters)
+JWT_SECRET=your_generated_secret_key
+JWT_EXPIRE_IN=12h
+
+# CORS Configuration (CRITICAL FOR PRODUCTION)
+# Comma-separated list of allowed frontend origins
+# Example: ALLOWED_ORIGINS=https://yourapp.vercel.app,https://www.yourapp.vercel.app
+ALLOWED_ORIGINS=https://your-app.vercel.app
+
+# Server
 NODE_ENV=production
 PORT=5000
-MONGODB_URI=your_mongodb_atlas_connection_string
-JWT_SECRET=your_generated_secret_key
+
+# Frontend URL (for email links)
 FRONTEND_URL=https://your-app.vercel.app
+
+# Email Configuration
+EMAIL_SERVICE=gmail
+EMAIL_USER=your_email@gmail.com
+EMAIL_PASSWORD=your_app_specific_password
+EMAIL_FROM=Your App <noreply@yourapp.com>
 ```
+
+**Frontend** (Vercel Environment Variables)
+
+```env
+VITE_API_BASE_URL=https://your-backend.onrender.com/api/v1
+VITE_NODE_ENV=production
+```
+
+**🔒 CORS Security Checklist:**
+
+1. ✅ Set `ALLOWED_ORIGINS` in Render backend environment variables
+2. ✅ Use your actual Vercel domain (e.g., `https://yourapp.vercel.app`)
+3. ✅ Include both `www` and non-`www` versions if applicable
+4. ✅ NEVER use wildcards (`*`) in production
+5. ✅ Always use HTTPS in production
+6. ✅ Test CORS after deployment with browser dev tools
+
+**Common CORS Issues:**
+- **"CORS policy blocked"** → Check `ALLOWED_ORIGINS` includes your frontend URL
+- **Mixed content errors** → Ensure both frontend and backend use HTTPS
+- **Credentials issue** → Verify `credentials: true` in API calls matches server
 
 **Frontend** (Vercel dashboard)
 
