@@ -722,11 +722,17 @@ Generated on: ${new Date().toLocaleString()}
           onSubmit={isEditMode ? handleUpdateVendor : handleAddVendor}
           initialData={selectedVendor ? {
             vendor_name: selectedVendor.vendor_name,
-            contact_person: selectedVendor.contact_person,
-            email: selectedVendor.email,
-            phone: selectedVendor.phone,
-            address: selectedVendor.address,
-            payment_terms: selectedVendor.payment_terms,
+            contact_person: selectedVendor.contact_person || '',
+            email: selectedVendor.email || '',
+            phone: selectedVendor.phone || '',
+            address: {
+              street: selectedVendor.address?.street || '',
+              city: selectedVendor.address?.city || '',
+              state: selectedVendor.address?.state || '',
+              zip_code: selectedVendor.address?.zip_code || '',
+              country: selectedVendor.address?.country || ''
+            },
+            payment_terms: selectedVendor.payment_terms || '',
             is_active: selectedVendor.is_active
           } : undefined}
           isEdit={isEditMode}
