@@ -19,15 +19,26 @@ const requestLogger = require('./middleware/requestLogger');
 const requestIdMiddleware = require('./middleware/requestId');
 const { swaggerUi, swaggerSpec } = require('./config/swagger');
 const dbUtils = require('./utils/dbUtils');
+const sentry = require('./config/sentry');
 
 // Initialize express
 const app = express();
+
+// Initialize Sentry (must be before any other middleware)
+sentry.initSentry(app);
+
+// Initialize Sentry (must be before any other middleware)
+sentry.initSentry(app);
 
 // Trust proxy - Required for deployment behind reverse proxy (Render, Heroku, etc.)
 // This allows Express to trust the X-Forwarded-* headers from the proxy
 app.set('trust proxy', 1);
 
-// Request ID Middleware - Must be first for request tracing
+// Sentry request handler - Must be first after trust proxy
+app.use(sentry.requestHandler());
+app.use(sentry.tracingHandler());
+
+// Request ID Middleware - Must be early for request tracing
 app.use(requestIdMiddleware);
 
 // ========================================
@@ -320,46 +331,97 @@ app.use('/api', v1Router);
 
 // Health check endpoint - Comprehensive monitoring
 app.get('/health', async (req, res) => {
+  const startTime = Date.now();
   const healthcheck = {
     uptime: process.uptime(),
     status: 'OK',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
+    version: '1.0.0',
     checks: {
-      database: 'unknown',
-      memory: 'unknown'
+      database: { status: 'unknown', responseTime: null },
+      memory: { status: 'unknown', details: null },
+      redis: { status: 'unknown', responseTime: null }
     }
   };
 
   try {
-    // Check database connection
+    // Check database connection with timing
+    const dbStartTime = Date.now();
     if (mongoose.connection.readyState === 1) {
       await mongoose.connection.db.admin().ping();
-      healthcheck.checks.database = 'connected';
+      healthcheck.checks.database = {
+        status: 'connected',
+        responseTime: `${Date.now() - dbStartTime}ms`,
+        state: mongoose.connection.readyState
+      };
     } else {
-      healthcheck.checks.database = 'disconnected';
+      healthcheck.checks.database = {
+        status: 'disconnected',
+        responseTime: null,
+        state: mongoose.connection.readyState
+      };
       healthcheck.status = 'DEGRADED';
     }
     
     // Check memory usage 
     const memUsage = process.memoryUsage();
     const memUsagePercent = Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100);
+    const rssMemoryMB = Math.round(memUsage.rss / 1024 / 1024);
     healthcheck.checks.memory = {
       usage: `${memUsagePercent}%`,
       heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
       heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+      rss: `${rssMemoryMB}MB`,
       status: memUsagePercent > 90 ? 'critical' : memUsagePercent > 75 ? 'warning' : 'healthy'
     };
     
-    if (healthcheck.checks.database === 'disconnected' || healthcheck.checks.memory.status === 'critical') {
+    // Check Redis connection with timing
+    const redisStartTime = Date.now();
+    try {
+      const redis = require('./config/redis');
+      const testKey = 'health:check:test';
+      await redis.set(testKey, 'ok', 10);
+      const value = await redis.get(testKey);
+      
+      healthcheck.checks.redis = {
+        status: value === 'ok' ? 'connected' : 'degraded',
+        responseTime: `${Date.now() - redisStartTime}ms`,
+        type: redis.client ? 'redis' : 'in-memory'
+      };
+    } catch (redisError) {
+      healthcheck.checks.redis = {
+        status: 'unavailable',
+        responseTime: null,
+        error: redisError.message
+      };
+      // Redis is optional, don't degrade overall status
+    }
+    
+    // Calculate total response time
+    healthcheck.responseTime = `${Date.now() - startTime}ms`;
+    
+    // Determine overall status
+    if (healthcheck.checks.database.status === 'disconnected' || healthcheck.checks.memory.status === 'critical') {
+      healthcheck.status = 'UNHEALTHY';
       return res.status(503).json(healthcheck);
+    }
+    
+    if (healthcheck.checks.memory.status === 'warning') {
+      healthcheck.status = 'DEGRADED';
     }
     
     res.status(200).json(healthcheck);
   } catch (error) {
     logger.error('Health check failed', { error: error.message });
+    sentry.captureException(error, {
+      tags: { component: 'health-check' },
+      level: 'error',
+    });
+    
     healthcheck.status = 'ERROR';
-    healthcheck.checks.database = 'error';
+    healthcheck.checks.database.status = 'error';
+    healthcheck.error = error.message;
     res.status(503).json(healthcheck);
   }
 });
@@ -392,6 +454,9 @@ app.use((req, res) => {
     error: 'Route not found'
   });
 });
+
+// Sentry error handler - Must be before other error handlers
+app.use(sentry.errorHandler());
 
 // Global error handler
 app.use(errorHandler);
@@ -543,6 +608,12 @@ process.on('uncaughtException', (err) => {
     name: err.name,
     message: err.message,
     stack: err.stack
+  });
+  
+  // Capture in Sentry
+  sentry.captureException(err, {
+    tags: { type: 'uncaughtException' },
+    level: 'fatal',
   });
   
   process.exit(1);

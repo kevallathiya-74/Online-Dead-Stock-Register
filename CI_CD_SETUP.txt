@@ -1,0 +1,220 @@
+# CI/CD Pipeline Setup Instructions
+
+This document contains instructions for setting up the CI/CD pipeline with GitHub Actions.
+
+## Required GitHub Secrets
+
+Configure the following secrets in your GitHub repository:
+**Settings → Secrets and variables → Actions → New repository secret**
+
+### Backend Deployment (Render)
+
+| Secret Name | Description | How to Get |
+|-------------|-------------|------------|
+| `RENDER_DEPLOY_HOOK_URL` | Webhook URL to trigger Render deployment | 1. Go to your Render dashboard<br>2. Select your backend service<br>3. Settings → Deploy Hook<br>4. Create a deploy hook<br>5. Copy the webhook URL |
+| `BACKEND_URL` | Your deployed backend API URL | Example: `https://your-app-name.onrender.com` |
+
+### Frontend Deployment (Vercel)
+
+| Secret Name | Description | How to Get |
+|-------------|-------------|------------|
+| `VERCEL_TOKEN` | Vercel authentication token | 1. Go to https://vercel.com/account/tokens<br>2. Create new token<br>3. Give it a name: "GitHub Actions"<br>4. Copy the token |
+| `VERCEL_ORG_ID` | Vercel organization ID | Run in your project: `vercel link`<br>Check `.vercel/project.json` for `orgId` |
+| `VERCEL_PROJECT_ID` | Vercel project ID | Run in your project: `vercel link`<br>Check `.vercel/project.json` for `projectId` |
+| `FRONTEND_URL` | Your deployed frontend URL | Example: `https://your-app.vercel.app` |
+
+### Optional: Code Coverage
+
+| Secret Name | Description | How to Get |
+|-------------|-------------|------------|
+| `CODECOV_TOKEN` | Token for uploading coverage reports | 1. Sign up at https://codecov.io<br>2. Link your GitHub repository<br>3. Copy the upload token |
+
+## Environment Variables in Render
+
+Configure these in Render Dashboard → Service → Environment:
+
+```bash
+# Database
+MONGODB_URI=your_mongodb_atlas_connection_string
+
+# Authentication
+JWT_SECRET=your_generated_secret_minimum_32_characters_long
+JWT_EXPIRE_IN=12h
+
+# CORS - Add your Vercel frontend URL
+ALLOWED_ORIGINS=https://your-app.vercel.app,https://your-app-production.vercel.app
+
+# Server
+NODE_ENV=production
+PORT=5000
+
+# Email (Brevo/SendinBlue)
+BREVO_API_KEY=your_brevo_api_key
+EMAIL_FROM=noreply@yourdomain.com
+EMAIL_FROM_NAME=Your App Name
+
+# Error Tracking (Optional)
+SENTRY_DSN=your_sentry_dsn_from_sentry_io
+
+# Redis (Optional - if using managed Redis)
+REDIS_HOST=your_redis_host
+REDIS_PORT=6379
+REDIS_PASSWORD=your_redis_password
+```
+
+## Environment Variables in Vercel
+
+Configure these in Vercel Dashboard → Project → Settings → Environment Variables:
+
+```bash
+# Backend API URL
+VITE_API_BASE_URL=https://your-app-name.onrender.com/api/v1
+
+# Optional: Sentry for frontend error tracking
+VITE_SENTRY_DSN=your_frontend_sentry_dsn
+```
+
+## CI/CD Workflow Overview
+
+### 1. **ci-cd.yml** - Main Pipeline
+- **Triggers**: Push to `main`/`develop`, Pull Requests to `main`
+- **Jobs**:
+  - `backend-test`: Runs backend tests with MongoDB
+  - `frontend-test`: Runs frontend tests and builds
+  - `security-audit`: Checks for vulnerabilities
+  - `deploy-backend`: Deploys to Render (main branch only)
+  - `deploy-frontend`: Deploys to Vercel (main branch only)
+
+### 2. **code-quality.yml** - Code Quality Checks
+- **Triggers**: Pull Requests
+- **Jobs**:
+  - ESLint analysis
+  - TypeScript type checking
+  - Dependency review
+  - Bundle size analysis
+
+### 3. **backup.yml** - Automated Database Backups
+- **Triggers**: Daily at 2 AM UTC, Manual trigger
+- **Jobs**:
+  - Creates MongoDB backup using mongodump
+  - Stores as GitHub artifact (7-day retention)
+  - Can be enhanced to upload to S3/Google Cloud Storage
+
+### 4. **health-check.yml** - Production Monitoring
+- **Triggers**: Every 15 minutes, Manual trigger
+- **Jobs**:
+  - Checks backend health endpoint
+  - Checks frontend accessibility
+  - Validates API endpoints
+  - Notifies on failure (configure webhook)
+
+## Testing Locally
+
+### Backend Tests
+```bash
+cd backend
+npm test
+```
+
+### Frontend Tests
+```bash
+npm test
+```
+
+### Build Frontend
+```bash
+npm run build
+```
+
+## Deployment Process
+
+### Automatic Deployment (Recommended)
+1. Push code to `main` branch
+2. GitHub Actions runs all tests
+3. If tests pass, deploys to Render (backend) and Vercel (frontend)
+4. Health check validates deployment
+
+### Manual Deployment
+- **Backend**: Click "Deploy Hook URL" in Render dashboard
+- **Frontend**: Push to Vercel or use `vercel --prod`
+
+## Monitoring & Alerts
+
+### Health Check Monitoring
+The `health-check.yml` workflow runs every 15 minutes. To receive notifications:
+
+1. **Slack**: Add this step to the workflow:
+```yaml
+- name: Notify Slack
+  if: failure()
+  uses: slackapi/slack-github-action@v1
+  with:
+    webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+    payload: |
+      {
+        "text": "🚨 Production Health Check Failed!",
+        "blocks": [
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Health check failed for the backend API"
+            }
+          }
+        ]
+      }
+```
+
+2. **Discord**: Add this step:
+```yaml
+- name: Notify Discord
+  if: failure()
+  run: |
+    curl -H "Content-Type: application/json" \
+         -d '{"content":"🚨 Production health check failed!"}' \
+         ${{ secrets.DISCORD_WEBHOOK_URL }}
+```
+
+3. **Email**: Use GitHub's built-in notification settings
+
+### Sentry Monitoring
+- Frontend errors: Automatic capture with source maps
+- Backend errors: Automatic capture with stack traces
+- Performance monitoring: 10% of transactions sampled
+- View errors at: https://sentry.io
+
+## Best Practices
+
+1. **Never commit secrets** - Always use environment variables
+2. **Test before merge** - CI runs on all PRs
+3. **Review dependencies** - Weekly security audits
+4. **Monitor production** - Check health endpoints regularly
+5. **Backup database** - Automated daily backups
+6. **Review logs** - Check Sentry and Render logs for issues
+
+## Troubleshooting
+
+### CI Fails on Tests
+```bash
+# Run locally to debug
+npm test
+npm run build
+```
+
+### Deployment Fails
+1. Check Render/Vercel logs
+2. Verify all environment variables are set
+3. Check MongoDB Atlas IP whitelist (allow 0.0.0.0/0 for Render)
+
+### Health Check Fails
+1. Check Render service status
+2. Verify MongoDB connection
+3. Check API logs in Render dashboard
+
+## Security Notes
+
+- All secrets are encrypted by GitHub
+- Deploy hooks are unique per service
+- Tokens can be revoked and regenerated
+- CORS restricts frontend origins
+- Rate limiting protects against abuse
