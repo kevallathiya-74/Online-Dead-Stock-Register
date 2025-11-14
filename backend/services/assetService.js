@@ -167,7 +167,7 @@ class AssetService {
     try {
       // Use aggregation for better performance
       const result = await Asset.aggregate([
-        { $match: { _id: mongoose.Types.ObjectId(assetId) } },
+        { $match: { _id: new mongoose.Types.ObjectId(assetId) } },
         {
           $lookup: {
             from: 'users',

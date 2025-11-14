@@ -42,26 +42,28 @@ import api from '../../services/api';
 
 interface Approval {
   _id: string;
-  request_type: 'ASSET_TRANSFER' | 'MAINTENANCE' | 'PURCHASE' | 'DISPOSAL';
+  request_type: 'ASSET_TRANSFER' | 'MAINTENANCE' | 'PURCHASE' | 'DISPOSAL' | 'Repair' | 'Upgrade' | 'Scrap' | 'New Asset' | 'Other';
   requested_by: {
     _id: string;
     name: string;
     email: string;
-    employee_id: string;
+    employee_id?: string;
   };
   asset_id?: {
     _id: string;
-    name: string;
+    name?: string;
     unique_asset_id: string;
   };
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  request_details: {
+  status: 'Pending' | 'Accepted' | 'Rejected';
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  request_data: {
     reason: string;
     from_location?: string;
     to_location?: string;
     estimated_cost?: number;
     maintenance_type?: string;
+    priority?: string;
+    specifications?: string;
   };
   created_at: string;
   approved_at?: string;
@@ -83,7 +85,6 @@ const ApprovalsPage: React.FC = () => {
         const response = await api.get('/approvals');
         const approvalData = response.data.data || response.data;
         setApprovals(approvalData);
-        toast.success('Approvals loaded successfully');
       } catch (error) {
         console.error('Failed to load approvals:', error);
         toast.error('Failed to load approvals');
@@ -281,11 +282,11 @@ const ApprovalsPage: React.FC = () => {
                         <TableCell>
                           <Box>
                             <Typography variant="subtitle2">
-                              {approval.request_details.reason}
+                              {approval.request_data.reason}
                             </Typography>
-                            {approval.request_details.estimated_cost && (
-                              <Typography variant="caption" color="textSecondary">
-                                Est. Cost: ₹{approval.request_details.estimated_cost.toLocaleString()}
+                            {approval.request_data.estimated_cost && (
+                              <Typography variant="caption" color="text.secondary">
+                                Est. Cost: ₹{approval.request_data.estimated_cost.toLocaleString()}
                               </Typography>
                             )}
                           </Box>
@@ -401,16 +402,27 @@ const ApprovalsPage: React.FC = () => {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="subtitle2" gutterBottom>Priority</Typography>
-                  <Chip label={selectedApproval.priority} size="small" />
+                  <Chip 
+                    label={(selectedApproval.request_data?.priority || selectedApproval.priority || 'MEDIUM').toUpperCase()} 
+                    size="small"
+                    color={
+                      (selectedApproval.request_data?.priority || selectedApproval.priority || '').toLowerCase() === 'high' || 
+                      (selectedApproval.request_data?.priority || selectedApproval.priority || '').toLowerCase() === 'critical'
+                        ? 'error'
+                        : (selectedApproval.request_data?.priority || selectedApproval.priority || '').toLowerCase() === 'medium'
+                        ? 'warning'
+                        : 'default'
+                    }
+                  />
                 </Grid>
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" gutterBottom>Reason</Typography>
-                  <Typography variant="body2">{selectedApproval.request_details.reason}</Typography>
+                  <Typography variant="body2">{selectedApproval.request_data.reason}</Typography>
                 </Grid>
-                {selectedApproval.request_details.estimated_cost && (
+                {selectedApproval.request_data.estimated_cost && (
                   <Grid item xs={12} sm={6}>
                     <Typography variant="subtitle2" gutterBottom>Estimated Cost</Typography>
-                    <Typography variant="body2">₹{selectedApproval.request_details.estimated_cost.toLocaleString()}</Typography>
+                    <Typography variant="body2">₹{selectedApproval.request_data.estimated_cost.toLocaleString()}</Typography>
                   </Grid>
                 )}
                 <Grid item xs={12}>

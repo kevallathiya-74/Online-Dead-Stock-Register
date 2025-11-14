@@ -487,50 +487,6 @@ const AdminDashboard: React.FC = () => {
               </Grid>
             </Paper>
           </Grid>
-
-          {/* Recent Activities */}
-          <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Recent Activities
-              </Typography>
-              <List sx={{ maxHeight: 400, overflow: 'auto' }}>
-                {recentActivities.map((activity, index) => (
-                  <ListItem key={index} divider={index < recentActivities.length - 1}>
-                    <Avatar sx={{ mr: 2, bgcolor: activity.severity === 'Error' ? 'error.main' : 'primary.main' }}>
-                      {activity.severity === 'Error' ? <Error /> : <Info />}
-                    </Avatar>
-                    <ListItemText
-                      primary={activity.action}
-                      secondary={
-                        <Box>
-                          <Typography variant="body2" color="text.secondary">
-                            {activity.user.name} • {activity.timestamp}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {activity.description}
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                    <Chip 
-                      label={activity.severity} 
-                      size="small" 
-                      color={activity.severity === 'Error' ? 'error' : 'default'}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-              <Button
-                fullWidth
-                variant="outlined"
-                sx={{ mt: 2 }}
-                onClick={() => navigate('/admin/audit-logs')}
-              >
-                View All Activities
-              </Button>
-            </Paper>
-          </Grid>
         </Grid>
 
         {/* System Status and Navigation */}

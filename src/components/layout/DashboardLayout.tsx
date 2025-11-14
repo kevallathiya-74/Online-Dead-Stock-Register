@@ -24,7 +24,6 @@ import {
   ExpandMore,
   Logout as LogoutIcon,
   Person as PersonIcon,
-  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -238,14 +237,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               </ListItemIcon>
               Profile
             </MenuItem>
-            {user?.role === 'ADMIN' && (
-              <MenuItem onClick={() => { navigate('/admin/settings'); handleProfileMenuClose(); }}>
-                <ListItemIcon>
-                  <SettingsIcon fontSize="small" />
-                </ListItemIcon>
-                Settings
-              </MenuItem>
-            )}
             <Divider />
             <MenuItem onClick={handleLogout}>
               <ListItemIcon>

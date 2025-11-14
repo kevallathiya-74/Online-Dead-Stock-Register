@@ -211,38 +211,221 @@ exports.getReportStats = async (req, res, next) => {
  */
 exports.generateReport = async (req, res, next) => {
   try {
-    const { templateId, format, parameters } = req.body;
+    const { template_id, templateId, format, parameters } = req.body;
+    const actualTemplateId = template_id || templateId;
+
+    if (!actualTemplateId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Template ID is required'
+      });
+    }
 
     logger.info('Report generation requested', { 
       userId: req.user.id, 
-      templateId,
+      templateId: actualTemplateId,
       format 
     });
 
-    // Simulate report generation (replace with actual implementation)
-    const report = {
-      _id: `REP-${Date.now()}`,
-      templateId: templateId || 'RPT-001',
-      name: 'Generated Report',
-      format: format || 'PDF',
+    // Find the template
+    const template = await ReportTemplate.findOne({ template_id: actualTemplateId });
+    
+    if (!template) {
+      return res.status(404).json({
+        success: false,
+        message: 'Report template not found'
+      });
+    }
+
+    // Generate unique report ID
+    const reportId = `REP-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Fetch real data from Asset model based on template category
+    const Asset = require('../models/asset');
+    let reportData = {};
+    let totalRecords = 0;
+
+    // Build query based on parameters
+    const query = {};
+    if (parameters?.startDate && parameters?.endDate) {
+      query.created_at = {
+        $gte: new Date(parameters.startDate),
+        $lte: new Date(parameters.endDate)
+      };
+    }
+
+    // Get data based on template category
+    switch (template.category) {
+      case 'Inventory':
+        const assets = await Asset.find(query).populate('assigned_to', 'name email').lean();
+        totalRecords = assets.length;
+        reportData = {
+          assets,
+          summary: {
+            total: totalRecords,
+            active: assets.filter(a => a.status === 'Active').length,
+            inactive: assets.filter(a => a.status === 'Inactive').length,
+            underMaintenance: assets.filter(a => a.status === 'Under Maintenance').length
+          }
+        };
+        break;
+
+      case 'Analytics':
+        const analyticsAssets = await Asset.find(query).lean();
+        totalRecords = analyticsAssets.length;
+        
+        // Calculate analytics data
+        const utilizationData = analyticsAssets.reduce((acc, asset) => {
+          const status = asset.status || 'Unknown';
+          acc[status] = (acc[status] || 0) + 1;
+          return acc;
+        }, {});
+
+        reportData = {
+          utilizationByStatus: utilizationData,
+          totalAssets: totalRecords,
+          averageCost: analyticsAssets.reduce((sum, a) => sum + (a.cost || 0), 0) / totalRecords || 0
+        };
+        break;
+
+      case 'Financial':
+        const financialAssets = await Asset.find(query).lean();
+        totalRecords = financialAssets.length;
+        
+        reportData = {
+          totalValue: financialAssets.reduce((sum, a) => sum + (a.cost || 0), 0),
+          depreciatedValue: financialAssets.reduce((sum, a) => sum + (a.current_value || a.cost || 0), 0),
+          byCategory: financialAssets.reduce((acc, asset) => {
+            const category = asset.category || 'Uncategorized';
+            if (!acc[category]) {
+              acc[category] = { count: 0, value: 0 };
+            }
+            acc[category].count++;
+            acc[category].value += asset.cost || 0;
+            return acc;
+          }, {}),
+          totalRecords
+        };
+        break;
+
+      case 'Compliance':
+        const complianceAssets = await Asset.find(query).populate('assigned_to').lean();
+        const Maintenance = require('../models/maintenance');
+        const maintenanceRecords = await Maintenance.find(query).lean();
+        
+        totalRecords = complianceAssets.length;
+        reportData = {
+          assets: complianceAssets,
+          maintenanceCompliance: {
+            totalAssets: totalRecords,
+            withMaintenance: maintenanceRecords.length,
+            complianceRate: ((maintenanceRecords.length / totalRecords) * 100).toFixed(2)
+          }
+        };
+        break;
+
+      case 'Tracking':
+        const AssetTransfer = require('../models/assetTransfer');
+        const transfers = await AssetTransfer.find(query)
+          .populate('asset_id', 'asset_id name')
+          .populate('transferred_by', 'name email')
+          .lean();
+        
+        totalRecords = transfers.length;
+        reportData = {
+          transfers,
+          summary: {
+            total: totalRecords,
+            byStatus: transfers.reduce((acc, t) => {
+              acc[t.status] = (acc[t.status] || 0) + 1;
+              return acc;
+            }, {})
+          }
+        };
+        break;
+
+      case 'Vendor':
+        const Vendor = require('../models/vendor');
+        const vendors = await Vendor.find().lean();
+        const PurchaseOrder = require('../models/purchaseOrder');
+        const orders = await PurchaseOrder.find(query).populate('vendor_id').lean();
+        
+        totalRecords = orders.length;
+        reportData = {
+          vendors,
+          purchaseOrders: orders,
+          summary: {
+            totalVendors: vendors.length,
+            totalOrders: totalRecords,
+            totalValue: orders.reduce((sum, o) => sum + (o.total_amount || 0), 0)
+          }
+        };
+        break;
+
+      default:
+        const defaultAssets = await Asset.find(query).lean();
+        totalRecords = defaultAssets.length;
+        reportData = { assets: defaultAssets, totalRecords };
+    }
+
+    // Create report record in database
+    const generatedReport = new GeneratedReport({
+      report_id: reportId,
+      template: template._id,
+      report_name: template.name,
+      category: template.category,
+      generated_by: req.user.id,
+      generated_at: new Date(),
       status: 'completed',
-      generatedBy: req.user.email,
-      generatedAt: new Date(),
+      format: format || 'PDF',
       parameters: parameters || {},
-      downloadUrl: `/api/v1/reports/download/${Date.now()}`,
-      fileSize: '2.4 MB'
-    };
+      data_summary: {
+        total_records: totalRecords,
+        date_range: parameters?.startDate && parameters?.endDate ? {
+          start: new Date(parameters.startDate),
+          end: new Date(parameters.endDate)
+        } : null
+      }
+    });
+
+    await generatedReport.save();
+
+    // Update template's last generated time and count
+    template.last_generated = new Date();
+    template.generation_count = (template.generation_count || 0) + 1;
+    await template.save();
+
+    logger.info('Report generated successfully', {
+      userId: req.user.id,
+      reportId,
+      templateId: actualTemplateId,
+      totalRecords
+    });
 
     res.status(201).json({
       success: true,
       message: 'Report generated successfully',
-      data: report
+      data: {
+        _id: reportId,
+        report_id: reportId,
+        templateId: actualTemplateId,
+        name: template.name,
+        format: format || 'PDF',
+        status: 'completed',
+        generatedBy: req.user.email,
+        generatedAt: new Date(),
+        parameters: parameters || {},
+        downloadUrl: `/api/v1/reports/${reportId}/download`,
+        totalRecords,
+        reportData // Include actual data for immediate use
+      }
     });
   } catch (error) {
     logger.error('Error generating report:', error);
     next(error);
   }
 };
+
 
 /**
  * @desc    Download a generated report
@@ -258,28 +441,140 @@ exports.downloadReport = async (req, res, next) => {
       reportId: id 
     });
 
-    // Simulate PDF file generation (replace with actual file retrieval)
-    // In production, you would:
-    // 1. Fetch report metadata from database
-    // 2. Read the actual file from storage
-    // 3. Stream the file to the client
-    
-    const samplePdfContent = Buffer.from(
-      '%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n/Pages 2 0 R\n>>\nendobj\n' +
-      '2 0 obj\n<<\n/Type /Pages\n/Kids [3 0 R]\n/Count 1\n>>\nendobj\n' +
-      '3 0 obj\n<<\n/Type /Page\n/Parent 2 0 R\n/Resources <<\n/Font <<\n/F1 4 0 R\n>>\n>>\n' +
-      '/MediaBox [0 0 612 792]\n/Contents 5 0 R\n>>\nendobj\n' +
-      '4 0 obj\n<<\n/Type /Font\n/Subtype /Type1\n/BaseFont /Helvetica\n>>\nendobj\n' +
-      '5 0 obj\n<<\n/Length 44\n>>\nstream\nBT\n/F1 24 Tf\n100 700 Td\n(Report Generated) Tj\nET\nendstream\nendobj\n' +
-      'xref\n0 6\n0000000000 65535 f\n0000000009 00000 n\n0000000058 00000 n\n' +
-      '0000000115 00000 n\n0000000262 00000 n\n0000000341 00000 n\n' +
-      'trailer\n<<\n/Size 6\n/Root 1 0 R\n>>\nstartxref\n435\n%%EOF'
+    // Find the generated report
+    const report = await GeneratedReport.findOne({ report_id: id })
+      .populate('template', 'name description')
+      .populate('generated_by', 'name email')
+      .lean();
+
+    if (!report) {
+      return res.status(404).json({
+        success: false,
+        message: 'Report not found'
+      });
+    }
+
+    // Update download statistics
+    await GeneratedReport.findOneAndUpdate(
+      { report_id: id },
+      { 
+        $inc: { download_count: 1 },
+        last_downloaded: new Date()
+      }
     );
 
+    // Fetch the actual data for the report
+    const Asset = require('../models/asset');
+    let reportContent = '';
+
+    // Build the report content based on category
+    const template = report.template;
+    const dateRange = report.parameters?.startDate && report.parameters?.endDate ? 
+      `${new Date(report.parameters.startDate).toLocaleDateString()} - ${new Date(report.parameters.endDate).toLocaleDateString()}` :
+      'All Time';
+
+    // Create PDF-like text content
+    reportContent = `
+ASSET MANAGEMENT REPORT
+=======================
+
+Report Name: ${report.report_name}
+Category: ${report.category}
+Generated By: ${report.generated_by?.name || 'System'} (${report.generated_by?.email || ''})
+Generated At: ${new Date(report.generated_at).toLocaleString()}
+Date Range: ${dateRange}
+Total Records: ${report.data_summary?.total_records || 0}
+
+DESCRIPTION
+-----------
+${template?.description || 'No description available'}
+
+REPORT DATA
+-----------
+`;
+
+    // Add category-specific data
+    const query = {};
+    if (report.parameters?.startDate && report.parameters?.endDate) {
+      query.created_at = {
+        $gte: new Date(report.parameters.startDate),
+        $lte: new Date(report.parameters.endDate)
+      };
+    }
+
+    switch (report.category) {
+      case 'Inventory':
+        const assets = await Asset.find(query).populate('assigned_to', 'name email').lean();
+        reportContent += `\nINVENTORY SUMMARY\n`;
+        reportContent += `Total Assets: ${assets.length}\n`;
+        reportContent += `Active: ${assets.filter(a => a.status === 'Active').length}\n`;
+        reportContent += `Inactive: ${assets.filter(a => a.status === 'Inactive').length}\n\n`;
+        reportContent += `ASSET LIST:\n`;
+        assets.forEach((asset, idx) => {
+          reportContent += `${idx + 1}. ${asset.asset_id} - ${asset.name}\n`;
+          reportContent += `   Status: ${asset.status}\n`;
+          reportContent += `   Category: ${asset.category}\n`;
+          reportContent += `   Location: ${asset.location}\n`;
+          reportContent += `   Value: ₹${asset.cost || 0}\n\n`;
+        });
+        break;
+
+      case 'Analytics':
+        const analyticsAssets = await Asset.find(query).lean();
+        const statusCounts = analyticsAssets.reduce((acc, a) => {
+          acc[a.status] = (acc[a.status] || 0) + 1;
+          return acc;
+        }, {});
+        reportContent += `\nASSET UTILIZATION ANALYTICS\n`;
+        reportContent += `Total Assets: ${analyticsAssets.length}\n\n`;
+        reportContent += `BY STATUS:\n`;
+        Object.entries(statusCounts).forEach(([status, count]) => {
+          reportContent += `  ${status}: ${count} (${((count / analyticsAssets.length) * 100).toFixed(2)}%)\n`;
+        });
+        break;
+
+      case 'Financial':
+        const financialAssets = await Asset.find(query).lean();
+        const totalValue = financialAssets.reduce((sum, a) => sum + (a.cost || 0), 0);
+        const byCategory = financialAssets.reduce((acc, a) => {
+          const cat = a.category || 'Uncategorized';
+          if (!acc[cat]) acc[cat] = { count: 0, value: 0 };
+          acc[cat].count++;
+          acc[cat].value += a.cost || 0;
+          return acc;
+        }, {});
+        
+        reportContent += `\nFINANCIAL SUMMARY\n`;
+        reportContent += `Total Assets Value: ₹${totalValue.toLocaleString()}\n\n`;
+        reportContent += `BY CATEGORY:\n`;
+        Object.entries(byCategory).forEach(([cat, data]) => {
+          reportContent += `  ${cat}: ${data.count} assets, ₹${data.value.toLocaleString()}\n`;
+        });
+        break;
+
+      case 'Compliance':
+        const complianceAssets = await Asset.find(query).lean();
+        reportContent += `\nCOMPLIANCE AUDIT\n`;
+        reportContent += `Total Assets: ${complianceAssets.length}\n`;
+        reportContent += `Assets with Complete Information: ${complianceAssets.filter(a => a.name && a.category && a.location).length}\n`;
+        reportContent += `Compliance Rate: ${((complianceAssets.filter(a => a.name && a.category && a.location).length / complianceAssets.length) * 100).toFixed(2)}%\n`;
+        break;
+
+      default:
+        const defaultAssets = await Asset.find(query).lean();
+        reportContent += `\nGENERAL REPORT\n`;
+        reportContent += `Total Records: ${defaultAssets.length}\n`;
+    }
+
+    reportContent += `\n\n---\nReport ID: ${report.report_id}\nGenerated by Dead Stock Register System\n`;
+
+    // Create a simple PDF structure or send as text
+    const pdfContent = Buffer.from(reportContent, 'utf-8');
+
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=report-${id}.pdf`);
-    res.setHeader('Content-Length', samplePdfContent.length);
-    res.send(samplePdfContent);
+    res.setHeader('Content-Disposition', `attachment; filename=report-${report.report_name.replace(/\s+/g, '-')}-${id}.txt`);
+    res.setHeader('Content-Length', pdfContent.length);
+    res.send(pdfContent);
 
   } catch (error) {
     logger.error('Error downloading report:', error);

@@ -21,8 +21,8 @@ exports.getApprovals = async (filters = {}, pagination = {}, userRole, userId) =
     } else if (userRole === 'Manager' || userRole === 'Department Head') {
       // Managers see approvals they need to approve or have approved
       query.$or = [
-        { current_approver_id: userId },
-        { 'approval_chain.approver_id': userId }
+        { approver: userId },
+        { requested_by: userId }
       ];
     }
     // Admin sees all
@@ -52,7 +52,7 @@ exports.getApprovals = async (filters = {}, pagination = {}, userRole, userId) =
     const [approvals, total] = await Promise.all([
       Approval.find(query)
         .populate('requested_by', 'name email role')
-        .populate('current_approver_id', 'name email role')
+        .populate('approver', 'name email role')
         .populate('asset_id', 'asset_name unique_asset_id')
         .sort({ created_at: -1 })
         .skip(skip)
@@ -83,9 +83,8 @@ exports.getApprovalById = async (approvalId, userRole, userId) => {
   try {
     const approval = await Approval.findById(approvalId)
       .populate('requested_by', 'name email role department')
-      .populate('current_approver_id', 'name email role')
+      .populate('approver', 'name email role')
       .populate('asset_id', 'asset_name unique_asset_id category status')
-      .populate('approval_chain.approver_id', 'name email role')
       .lean();
     
     if (!approval) {
@@ -96,10 +95,7 @@ exports.getApprovalById = async (approvalId, userRole, userId) => {
     const hasAccess = 
       userRole === 'Admin' ||
       approval.requested_by._id.toString() === userId.toString() ||
-      approval.current_approver_id?._id.toString() === userId.toString() ||
-      approval.approval_chain.some(chain => 
-        chain.approver_id._id.toString() === userId.toString()
-      );
+      approval.approver?._id.toString() === userId.toString();
     
     if (!hasAccess) {
       throw new Error('Unauthorized access to approval request');

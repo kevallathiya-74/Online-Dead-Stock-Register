@@ -1,5 +1,6 @@
 const assetService = require('../services/assetService');
 const logger = require('../utils/logger');
+const Asset = require('../models/asset');
 
 // GET all assets with pagination and filtering
 exports.getAssets = async (req, res, next) => {

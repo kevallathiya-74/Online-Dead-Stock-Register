@@ -128,14 +128,35 @@ const ReportsPage = () => {
       });
 
       if (response.data.success) {
-        toast.success(`Report "${template.name}" generated successfully!`);
-        
         // Refresh templates to update last generated time
         const templatesRes = await api.get('/reports/templates');
         setReportTemplates(templatesRes.data.data || []);
         
-        if (response.data.data?.downloadUrl) {
-          window.open(response.data.data.downloadUrl, '_blank');
+        // Download the report using authenticated API call
+        if (response.data.data?.report_id) {
+          try {
+            const downloadResponse = await api.get(
+              `/reports/${response.data.data.report_id}/download`,
+              { responseType: 'blob' }
+            );
+            
+            // Create blob URL and trigger download
+            const blob = new Blob([downloadResponse.data], { type: 'application/octet-stream' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${template.name.replace(/\s+/g, '-')}-${response.data.data.report_id}.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            // Show single success message for both generation and download
+            toast.success(`Report "${template.name}" generated and downloaded successfully!`);
+          } catch (downloadError) {
+            console.error('Download error:', downloadError);
+            toast.error('Failed to download report');
+          }
         }
       }
     } catch (error: any) {

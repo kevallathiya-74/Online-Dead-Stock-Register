@@ -204,17 +204,22 @@ const getPendingApprovals = async (req, res) => {
       .limit(limit)
       .lean();
 
-    const formattedApprovals = approvals.map(approval => ({
-      id: approval._id,
-      type: approval.request_type,
-      requestor: approval.requested_by?.name || 'Unknown User',
-      requestorId: approval.requested_by?._id,
-      amount: approval.request_data?.cost_estimate || approval.asset_id?.purchase_cost || 0,
-      status: approval.status.toLowerCase(),
-      priority: approval.request_data?.priority?.toLowerCase() || 'medium',
-      createdAt: approval.created_at,
-      description: approval.comments
-    }));
+    const formattedApprovals = approvals.map(approval => {
+      const requestData = approval.request_data || {};
+      return {
+        id: approval._id,
+        type: approval.request_type,
+        requestor: approval.requested_by?.name || 'Unknown User',
+        requestorId: approval.requested_by?._id,
+        amount: requestData.estimated_cost || approval.asset_id?.purchase_cost || 0,
+        status: approval.status.toLowerCase(),
+        priority: (requestData.priority || 'medium').toLowerCase(),
+        createdAt: approval.created_at,
+        description: approval.comments || '',
+        photo: requestData.photo || requestData.image || null,
+        asset_id: approval.asset_id?._id
+      };
+    });
 
     res.json({
       success: true,
@@ -339,17 +344,22 @@ const getPendingApprovalsData = async (limit = 10) => {
     .limit(limit)
     .lean();
 
-  return approvals.map(approval => ({
-    id: approval._id,
-    type: approval.request_type,
-    requestor: approval.requested_by?.name || 'Unknown User',
-    requestorId: approval.requested_by?._id,
-    amount: approval.request_data?.cost_estimate || approval.asset_id?.purchase_cost || 0,
-    status: approval.status.toLowerCase(),
-    priority: approval.request_data?.priority?.toLowerCase() || 'medium',
-    createdAt: approval.created_at,
-    description: approval.comments
-  }));
+  return approvals.map(approval => {
+    const requestData = approval.request_data || {};
+    return {
+      id: approval._id,
+      type: approval.request_type,
+      requestor: approval.requested_by?.name || 'Unknown User',
+      requestorId: approval.requested_by?._id,
+      amount: requestData.estimated_cost || approval.asset_id?.purchase_cost || 0,
+      status: approval.status.toLowerCase(),
+      priority: (requestData.priority || 'medium').toLowerCase(),
+      createdAt: approval.created_at,
+      description: approval.comments || '',
+      photo: requestData.photo || requestData.image || null,
+      asset_id: approval.asset_id?._id
+    };
+  });
 };
 
 // Get users by role statistics

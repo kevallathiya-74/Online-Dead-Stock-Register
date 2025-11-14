@@ -130,13 +130,31 @@ const AssetsPage = () => {
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
 
-  const categories = ['IT Equipment', 'Office Equipment', 'Mobile Device', 'Furniture', 'Machinery'];
-
-  // Load assets from API on component mount
+  // Load assets and categories from API on component mount
   useEffect(() => {
     loadAssets();
+    loadCategories();
   }, []);
+
+  const loadCategories = async () => {
+    try {
+      const response = await api.get('/assets/categories');
+      if (response.data.success && response.data.data) {
+        // Extract unique asset_type values from the database categories
+        const assetTypes = response.data.data
+          .map((cat: any) => cat.asset_type)
+          .filter((type: string) => type); // Remove any null/undefined
+        const uniqueTypes = Array.from(new Set(assetTypes));
+        setCategories(uniqueTypes as string[]);
+      }
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+      // Fallback to some basic categories if API fails
+      setCategories(['Computer', 'Laptop', 'Monitor', 'Printer', 'Scanner', 'Other']);
+    }
+  };
 
   // Subscribe to global asset updates (any asset changes)
   useEffect(() => {
@@ -856,7 +874,9 @@ const AssetsPage = () => {
       (asset.model?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (asset.serial_number?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     
-    const matchesCategory = selectedCategory === 'all' || asset.category === selectedCategory;
+    const matchesCategory = selectedCategory === 'all' || 
+      asset.category === selectedCategory || 
+      (asset.category && selectedCategory && asset.category.toLowerCase().includes(selectedCategory.toLowerCase()));
     const matchesStatus = selectedStatus === 'all' || asset.status === selectedStatus;
     
     return matchesSearch && matchesCategory && matchesStatus;
@@ -1725,7 +1745,7 @@ const AssetsPage = () => {
                         </Grid>
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body2" color="text.secondary">Category</Typography>
-                          <Typography variant="body1">{selectedAsset.category || 'N/A'}</Typography>
+                          <Typography variant="body1">{selectedAsset.category || (selectedAsset as any).asset_type || 'N/A'}</Typography>
                         </Grid>
                       </Grid>
                     </CardContent>

@@ -77,6 +77,21 @@ const formatCurrency = (amount: number | string): string => {
   return `₹${numAmount.toLocaleString("en-IN")}`;
 };
 
+// Approval interface
+interface Approval {
+  id: string;
+  type: string;
+  requestor: string;
+  requestorId: string;
+  amount: number;
+  status: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  createdAt: string;
+  description?: string;
+  photo?: string;
+  asset_id?: string;
+}
+
 interface StatCardProps {
   title: string;
   value: string | number;
@@ -198,11 +213,11 @@ const AdminDashboard = () => {
   });
 
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
-  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<Approval[]>([]);
   const [categoriesModalOpen, setCategoriesModalOpen] = useState(false);
 
   const handleApprovalAction = (
-    approvalId: number,
+    approvalId: string,
     action: "approve" | "reject"
   ) => {
     toast.success(`Approval ${action}d successfully!`);
@@ -247,14 +262,27 @@ const AdminDashboard = () => {
     try {
       // Fetch pending approvals from API
       const approvalsResponse = await api.get("/dashboard/approvals");
-      const approvalsData =
-        approvalsResponse.data.data || approvalsResponse.data;
-      setPendingApprovals(
-        Array.isArray(approvalsData) ? approvalsData.slice(0, 3) : []
-      );
-    } catch (error) {
+      console.log("Pending Approvals API Response:", approvalsResponse.data);
+      
+      const approvalsData = approvalsResponse.data.data || approvalsResponse.data;
+      
+      if (Array.isArray(approvalsData)) {
+        // Limit to 3 for dashboard display
+        const limitedApprovals = approvalsData.slice(0, 3);
+        console.log("Setting pending approvals:", limitedApprovals);
+        setPendingApprovals(limitedApprovals);
+      } else {
+        console.warn("Approvals data is not an array:", approvalsData);
+        setPendingApprovals([]);
+      }
+    } catch (error: any) {
       console.error("Error loading approvals:", error);
+      console.error("Error details:", error.response?.data || error.message);
       setPendingApprovals([]);
+      // Don't show error toast for missing approvals
+      if (error.response?.status !== 404) {
+        toast.error("Failed to load pending approvals");
+      }
     }
 
     setLoading(false);
@@ -477,64 +505,8 @@ const AdminDashboard = () => {
         </Grid>
 
         <Grid container spacing={3}>
-          {/* Recent Activities */}
-          <Grid item xs={12} md={8}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Recent System Activities
-              </Typography>
-              <List>
-                {recentActivities.map((activity, index) => (
-                  <ListItem
-                    key={index}
-                    divider={index < recentActivities.length - 1}
-                  >
-                    <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: "primary.main" }}>
-                        {activity.user[0]}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Box>
-                          <Typography
-                            component="span"
-                            sx={{ fontWeight: "medium" }}
-                          >
-                            {activity.user}
-                          </Typography>{" "}
-                          {activity.action}{" "}
-                          <Typography
-                            component="span"
-                            sx={{ fontWeight: "medium", color: "primary.main" }}
-                          >
-                            {activity.asset}
-                          </Typography>
-                        </Box>
-                      }
-                      secondary={formatTimeAgo(activity.time)}
-                    />
-                    <Chip
-                      label={activity.type}
-                      size="small"
-                      color={
-                        activity.type === "create"
-                          ? "success"
-                          : activity.type === "approve"
-                          ? "primary"
-                          : activity.type === "update"
-                          ? "warning"
-                          : "default"
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </Paper>
-          </Grid>
-
           {/* Pending Approvals */}
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
                 Pending Approvals
@@ -550,55 +522,63 @@ const AdminDashboard = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {pendingApprovals.map((approval) => (
-                      <TableRow key={approval.id}>
-                        <TableCell>
-                          <Typography
-                            variant="body2"
-                            sx={{ fontWeight: "medium" }}
-                          >
-                            {approval.type}
+                    {pendingApprovals.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center">
+                          <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                            No pending approvals
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {approval.requestor}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>{formatCurrency(approval.amount)}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={approval.priority}
-                            size="small"
-                            color={
-                              approval.priority === "high"
-                                ? "error"
-                                : approval.priority === "medium"
-                                ? "warning"
-                                : "default"
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() =>
-                              navigate(`/approvals/${approval.id}`)
-                            }
-                          >
-                            <Visibility />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="success"
-                            onClick={() =>
-                              handleApprovalAction(approval.id, "approve")
-                            }
-                          >
-                            <Edit />
-                          </IconButton>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      pendingApprovals.map((approval) => (
+                        <TableRow key={approval.id}>
+                          <TableCell>
+                            <Typography
+                              variant="body2"
+                              sx={{ fontWeight: "medium" }}
+                            >
+                              {approval.type}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {approval.requestor}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>{formatCurrency(approval.amount)}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={approval.priority}
+                              size="small"
+                              color={
+                                approval.priority === "high" || approval.priority === "critical"
+                                  ? "error"
+                                  : approval.priority === "medium"
+                                  ? "warning"
+                                  : "default"
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => navigate('/approvals')}
+                              title="View details"
+                            >
+                              <Visibility />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color="success"
+                              onClick={() => navigate('/approvals')}
+                              title="Manage approval"
+                            >
+                              <Edit />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </TableContainer>
