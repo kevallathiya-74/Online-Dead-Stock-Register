@@ -54,7 +54,7 @@ interface Approval {
     name?: string;
     unique_asset_id: string;
   };
-  status: 'Pending' | 'Accepted' | 'Rejected';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
   priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   request_data: {
     reason: string;
