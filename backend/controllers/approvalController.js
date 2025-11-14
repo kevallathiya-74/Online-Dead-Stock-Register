@@ -1,160 +1,182 @@
-const Approval = require('../models/approval');
+const approvalService = require('../services/approvalService');
+const logger = require('../utils/logger');
 
-exports.getApprovals = async (req, res) => {
+/**
+ * Get all approvals with filters and RBAC
+ */
+exports.getApprovals = async (req, res, next) => {
   try {
-    const approvals = await Approval.find().populate('requested_by approver asset_id', 'name email employee_id unique_asset_id');
+    const { page = 1, limit = 10, status, type, startDate, endDate } = req.query;
     
-    // Transform data to match frontend expectations
-    const transformedApprovals = approvals.map(approval => ({
-      _id: approval._id,
-      request_type: approval.request_type.toUpperCase().replace(' ', '_'),
-      requested_by: approval.requested_by ? {
-        _id: approval.requested_by._id,
-        name: approval.requested_by.name || 'Unknown',
-        email: approval.requested_by.email || '',
-        employee_id: approval.requested_by.employee_id || ''
-      } : null,
-      asset_id: approval.asset_id ? {
-        _id: approval.asset_id._id,
-        name: approval.asset_id.name || 'Unknown Asset',
-        unique_asset_id: approval.asset_id.unique_asset_id || ''
-      } : null,
-      status: approval.status.toUpperCase() === 'ACCEPTED' ? 'APPROVED' : approval.status.toUpperCase(),
-      priority: approval.request_data?.priority || 'MEDIUM',
-      request_details: {
-        reason: approval.request_data?.reason || approval.comments || 'No reason provided',
-        from_location: approval.request_data?.from_location,
-        to_location: approval.request_data?.to_location,
-        estimated_cost: approval.request_data?.estimated_cost,
-        maintenance_type: approval.request_data?.maintenance_type
-      },
-      created_at: approval.created_at,
-      approved_at: approval.approved_at,
-      comments: approval.comments
-    }));
+    const filters = {};
+    if (status) {
+      filters.status = status;
+    }
+    if (type) {
+      filters.type = type;
+    }
+    if (startDate) {
+      filters.startDate = startDate;
+    }
+    if (endDate) {
+      filters.endDate = endDate;
+    }
     
-    res.json(transformedApprovals);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    const result = await approvalService.getApprovals(
+      filters,
+      { page: parseInt(page), limit: parseInt(limit) },
+      req.user.role,
+      req.user._id
+    );
+    
+    res.status(200).json({
+      success: true,
+      data: result.approvals,
+      pagination: result.pagination
+    });
+  } catch (error) {
+    logger.error('Error fetching approvals:', error);
+    next(error);
   }
 };
 
-exports.getApprovalById = async (req, res) => {
+/**
+ * Get approval by ID
+ */
+exports.getApprovalById = async (req, res, next) => {
   try {
-    const ap = await Approval.findById(req.params.id);
-    if (!ap) return res.status(404).json({ message: 'Approval not found' });
-    res.json(ap);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    const approval = await approvalService.getApprovalById(
+      req.params.id,
+      req.user.role,
+      req.user._id
+    );
+    
+    if (!approval) {
+      return res.status(404).json({
+        success: false,
+        error: 'Approval not found'
+      });
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: approval
+    });
+  } catch (error) {
+    logger.error('Error fetching approval:', error);
+    next(error);
   }
 };
 
-exports.createApproval = async (req, res) => {
+/**
+ * Create new approval request
+ */
+exports.createApproval = async (req, res, next) => {
   try {
-    const request = new Approval(req.body);
-    const saved = await request.save();
-    res.status(201).json(saved);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
+    const approval = await approvalService.createApproval(req.body, req.user._id);
+    
+    res.status(201).json({
+      success: true,
+      data: approval
+    });
+  } catch (error) {
+    logger.error('Error creating approval:', error);
+    next(error);
   }
 };
 
-exports.approveRequest = async (req, res) => {
+/**
+ * Approve request
+ */
+exports.approveRequest = async (req, res, next) => {
   try {
     const { comments } = req.body;
-    const ap = await Approval.findByIdAndUpdate(
-      req.params.id, 
-      { 
-        status: 'Accepted', 
-        approved_at: Date.now(),
-        comments: comments || 'Approved by manager'
-      }, 
-      { new: true }
-    ).populate('requested_by approver asset_id', 'name email employee_id unique_asset_id');
     
-    if (!ap) return res.status(404).json({ message: 'Approval not found' });
+    const approval = await approvalService.processApproval(
+      req.params.id,
+      'Approved',
+      comments,
+      req.user._id
+    );
     
-    // Transform response to match frontend expectations
-    const transformed = {
-      _id: ap._id,
-      request_type: ap.request_type.toUpperCase().replace(' ', '_'),
-      requested_by: ap.requested_by ? {
-        _id: ap.requested_by._id,
-        name: ap.requested_by.name || 'Unknown',
-        email: ap.requested_by.email || '',
-        employee_id: ap.requested_by.employee_id || ''
-      } : null,
-      asset_id: ap.asset_id ? {
-        _id: ap.asset_id._id,
-        name: ap.asset_id.name || 'Unknown Asset',
-        unique_asset_id: ap.asset_id.unique_asset_id || ''
-      } : null,
-      status: 'APPROVED',
-      priority: ap.request_data?.priority || 'MEDIUM',
-      request_details: {
-        reason: ap.request_data?.reason || ap.comments || 'No reason provided',
-        from_location: ap.request_data?.from_location,
-        to_location: ap.request_data?.to_location,
-        estimated_cost: ap.request_data?.estimated_cost,
-        maintenance_type: ap.request_data?.maintenance_type
-      },
-      created_at: ap.created_at,
-      approved_at: ap.approved_at,
-      comments: ap.comments
-    };
+    if (!approval) {
+      return res.status(404).json({
+        success: false,
+        error: 'Approval request not found'
+      });
+    }
     
-    res.json(transformed);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(200).json({
+      success: true,
+      data: approval
+    });
+  } catch (error) {
+    logger.error('Error approving request:', error);
+    next(error);
   }
 };
 
-exports.rejectRequest = async (req, res) => {
+/**
+ * Reject request
+ */
+exports.rejectRequest = async (req, res, next) => {
   try {
     const { comments } = req.body;
-    const ap = await Approval.findByIdAndUpdate(
-      req.params.id, 
-      { 
-        status: 'Rejected', 
-        approved_at: Date.now(),
-        comments: comments || 'Rejected by manager'
-      }, 
-      { new: true }
-    ).populate('requested_by approver asset_id', 'name email employee_id unique_asset_id');
     
-    if (!ap) return res.status(404).json({ message: 'Approval not found' });
+    const approval = await approvalService.processApproval(
+      req.params.id,
+      'Rejected',
+      comments,
+      req.user._id
+    );
     
-    // Transform response to match frontend expectations
-    const transformed = {
-      _id: ap._id,
-      request_type: ap.request_type.toUpperCase().replace(' ', '_'),
-      requested_by: ap.requested_by ? {
-        _id: ap.requested_by._id,
-        name: ap.requested_by.name || 'Unknown',
-        email: ap.requested_by.email || '',
-        employee_id: ap.requested_by.employee_id || ''
-      } : null,
-      asset_id: ap.asset_id ? {
-        _id: ap.asset_id._id,
-        name: ap.asset_id.name || 'Unknown Asset',
-        unique_asset_id: ap.asset_id.unique_asset_id || ''
-      } : null,
-      status: 'REJECTED',
-      priority: ap.request_data?.priority || 'MEDIUM',
-      request_details: {
-        reason: ap.request_data?.reason || ap.comments || 'No reason provided',
-        from_location: ap.request_data?.from_location,
-        to_location: ap.request_data?.to_location,
-        estimated_cost: ap.request_data?.estimated_cost,
-        maintenance_type: ap.request_data?.maintenance_type
-      },
-      created_at: ap.created_at,
-      approved_at: ap.approved_at,
-      comments: ap.comments
-    };
+    if (!approval) {
+      return res.status(404).json({
+        success: false,
+        error: 'Approval request not found'
+      });
+    }
     
-    res.json(transformed);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(200).json({
+      success: true,
+      data: approval
+    });
+  } catch (error) {
+    logger.error('Error rejecting request:', error);
+    next(error);
+  }
+};
+
+/**
+ * Get pending approvals for current user
+ */
+exports.getPendingApprovals = async (req, res, next) => {
+  try {
+    const pendingApprovals = await approvalService.getPendingApprovalsForUser(req.user._id);
+    
+    res.status(200).json({
+      success: true,
+      data: pendingApprovals
+    });
+  } catch (error) {
+    logger.error('Error fetching pending approvals:', error);
+    next(error);
+  }
+};
+
+/**
+ * Get approval statistics
+ */
+exports.getApprovalStats = async (req, res, next) => {
+  try {
+    const stats = await approvalService.getApprovalStats(req.user._id, req.user.role);
+    
+    res.status(200).json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    logger.error('Error fetching approval stats:', error);
+    next(error);
   }
 };
