@@ -11,14 +11,23 @@ Configure the following secrets in your GitHub repository:
 
 | Secret Name | Description | How to Get |
 |-------------|-------------|------------|
-| `RENDER_DEPLOY_HOOK_URL` | Webhook URL to trigger Render deployment | 1. Go to your Render dashboard<br>2. Select your backend service<br>3. Settings → Deploy Hook<br>4. Create a deploy hook<br>5. Copy the webhook URL |
-| `BACKEND_URL` | Your deployed backend API URL | Example: `https://your-app-name.onrender.com` |
+`RENDER_DEPLOY_HOOK_URL` | Webhook URL to trigger Render deployment | 
+1. Go to your Render dashboard<br>
+2. Select your backend service<br>
+3. Settings → Deploy Hook<br>
+4. Create a deploy hook<br>
+5. Copy the webhook URL |
+`BACKEND_URL` | Your deployed backend API URL | Example: `https://your-app-name.onrender.com` |
 
 ### Frontend Deployment (Vercel)
 
 | Secret Name | Description | How to Get |
 |-------------|-------------|------------|
-| `VERCEL_TOKEN` | Vercel authentication token | 1. Go to https://vercel.com/account/tokens<br>2. Create new token<br>3. Give it a name: "GitHub Actions"<br>4. Copy the token |
+| `VERCEL_TOKEN` | Vercel authentication token | 
+1. Go to https://vercel.com/account/tokens<br>
+2. Create new token<br>
+3. Give it a name: "GitHub Actions"<br>
+4. Copy the token |
 | `VERCEL_ORG_ID` | Vercel organization ID | Run in your project: `vercel link`<br>Check `.vercel/project.json` for `orgId` |
 | `VERCEL_PROJECT_ID` | Vercel project ID | Run in your project: `vercel link`<br>Check `.vercel/project.json` for `projectId` |
 | `FRONTEND_URL` | Your deployed frontend URL | Example: `https://your-app.vercel.app` |
@@ -27,7 +36,10 @@ Configure the following secrets in your GitHub repository:
 
 | Secret Name | Description | How to Get |
 |-------------|-------------|------------|
-| `CODECOV_TOKEN` | Token for uploading coverage reports | 1. Sign up at https://codecov.io<br>2. Link your GitHub repository<br>3. Copy the upload token |
+| `CODECOV_TOKEN` | Token for uploading coverage reports | 
+1. Sign up at https://codecov.io<br>
+2. Link your GitHub repository<br>
+3. Copy the upload token |
 
 ## Environment Variables in Render
 
@@ -48,13 +60,12 @@ ALLOWED_ORIGINS=https://your-app.vercel.app,https://your-app-production.vercel.a
 NODE_ENV=production
 PORT=5000
 
-# Email (Brevo/SendinBlue)
-BREVO_API_KEY=your_brevo_api_key
-EMAIL_FROM=noreply@yourdomain.com
-EMAIL_FROM_NAME=Your App Name
-
-# Error Tracking (Optional)
-SENTRY_DSN=your_sentry_dsn_from_sentry_io
+# Email Configuration (Gmail App Password - Recommended)
+EMAIL_SERVICE=gmail
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASSWORD=your_gmail_app_password
+EMAIL_FROM=Your App Name <your-email@gmail.com>
+EMAIL_PORT=587
 
 # Redis (Optional - if using managed Redis)
 REDIS_HOST=your_redis_host
@@ -69,9 +80,6 @@ Configure these in Vercel Dashboard → Project → Settings → Environment Var
 ```bash
 # Backend API URL
 VITE_API_BASE_URL=https://your-app-name.onrender.com/api/v1
-
-# Optional: Sentry for frontend error tracking
-VITE_SENTRY_DSN=your_frontend_sentry_dsn
 ```
 
 ## CI/CD Workflow Overview
@@ -177,12 +185,6 @@ The `health-check.yml` workflow runs every 15 minutes. To receive notifications:
 
 3. **Email**: Use GitHub's built-in notification settings
 
-### Sentry Monitoring
-- Frontend errors: Automatic capture with source maps
-- Backend errors: Automatic capture with stack traces
-- Performance monitoring: 10% of transactions sampled
-- View errors at: https://sentry.io
-
 ## Best Practices
 
 1. **Never commit secrets** - Always use environment variables
@@ -190,7 +192,7 @@ The `health-check.yml` workflow runs every 15 minutes. To receive notifications:
 3. **Review dependencies** - Weekly security audits
 4. **Monitor production** - Check health endpoints regularly
 5. **Backup database** - Automated daily backups
-6. **Review logs** - Check Sentry and Render logs for issues
+6. **Review logs** - Check backend logs in Render dashboard for issues
 
 ## Troubleshooting
 

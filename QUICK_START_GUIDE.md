@@ -266,9 +266,11 @@ PORT=5000
 
 #### Email (Required for notifications)
 ```bash
-BREVO_API_KEY=your_brevo_api_key
-EMAIL_FROM=noreply@yourdomain.com
-EMAIL_FROM_NAME=Dead Stock Register
+EMAIL_SERVICE=gmail
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASSWORD=your_gmail_app_password
+EMAIL_FROM=Dead Stock Register <your-email@gmail.com>
+EMAIL_PORT=587
 ```
 
 #### Optional (Recommended for production)

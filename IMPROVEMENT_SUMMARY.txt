@@ -164,7 +164,7 @@ Backend (Render):
 - ALLOWED_ORIGINS (Vercel URLs)
 - SENTRY_DSN (optional)
 - REDIS_HOST/PORT/PASSWORD (optional)
-- BREVO_API_KEY (email)
+- EMAIL_SERVICE, EMAIL_USER, EMAIL_PASSWORD (Gmail App Password)
 
 Frontend (Vercel):
 - VITE_API_BASE_URL (Render backend URL)

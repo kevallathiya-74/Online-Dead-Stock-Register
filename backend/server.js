@@ -19,24 +19,13 @@ const requestLogger = require('./middleware/requestLogger');
 const requestIdMiddleware = require('./middleware/requestId');
 const { swaggerUi, swaggerSpec } = require('./config/swagger');
 const dbUtils = require('./utils/dbUtils');
-const sentry = require('./config/sentry');
 
 // Initialize express
 const app = express();
 
-// Initialize Sentry (must be before any other middleware)
-sentry.initSentry(app);
-
-// Initialize Sentry (must be before any other middleware)
-sentry.initSentry(app);
-
 // Trust proxy - Required for deployment behind reverse proxy (Render, Heroku, etc.)
 // This allows Express to trust the X-Forwarded-* headers from the proxy
 app.set('trust proxy', 1);
-
-// Sentry request handler - Must be first after trust proxy
-app.use(sentry.requestHandler());
-app.use(sentry.tracingHandler());
 
 // Request ID Middleware - Must be early for request tracing
 app.use(requestIdMiddleware);
@@ -414,10 +403,6 @@ app.get('/health', async (req, res) => {
     res.status(200).json(healthcheck);
   } catch (error) {
     logger.error('Health check failed', { error: error.message });
-    sentry.captureException(error, {
-      tags: { component: 'health-check' },
-      level: 'error',
-    });
     
     healthcheck.status = 'ERROR';
     healthcheck.checks.database.status = 'error';
@@ -454,9 +439,6 @@ app.use((req, res) => {
     error: 'Route not found'
   });
 });
-
-// Sentry error handler - Must be before other error handlers
-app.use(sentry.errorHandler());
 
 // Global error handler
 app.use(errorHandler);
@@ -608,12 +590,6 @@ process.on('uncaughtException', (err) => {
     name: err.name,
     message: err.message,
     stack: err.stack
-  });
-  
-  // Capture in Sentry
-  sentry.captureException(err, {
-    tags: { type: 'uncaughtException' },
-    level: 'fatal',
   });
   
   process.exit(1);
