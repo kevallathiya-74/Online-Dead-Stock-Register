@@ -720,7 +720,15 @@ Generated on: ${new Date().toLocaleString()}
             setIsEditMode(false);
           }}
           onSubmit={isEditMode ? handleUpdateVendor : handleAddVendor}
-          initialData={selectedVendor || undefined}
+          initialData={selectedVendor ? {
+            vendor_name: selectedVendor.vendor_name,
+            contact_person: selectedVendor.contact_person,
+            email: selectedVendor.email,
+            phone: selectedVendor.phone,
+            address: selectedVendor.address,
+            payment_terms: selectedVendor.payment_terms,
+            is_active: selectedVendor.is_active
+          } : undefined}
           isEdit={isEditMode}
         />
 

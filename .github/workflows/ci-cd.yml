@@ -52,10 +52,13 @@ jobs:
       
       - name: Upload backend coverage
         uses: codecov/codecov-action@v4
+        continue-on-error: true
         with:
           files: ./backend/coverage/lcov.info
           flags: backend
           name: backend-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
       
       - name: Archive backend test results
         if: always()
@@ -104,10 +107,13 @@ jobs:
       - name: Upload frontend coverage
         if: always()
         uses: codecov/codecov-action@v4
+        continue-on-error: true
         with:
           files: ./coverage/lcov.info
           flags: frontend
           name: frontend-coverage
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
 
   # Security audit
   security-audit:

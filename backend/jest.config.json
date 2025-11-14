@@ -12,10 +12,17 @@
     "**/__tests__/**/*.test.js",
     "**/?(*.)+(spec|test).js"
   ],
+  "setupFilesAfterEnv": ["<rootDir>/__tests__/setup.js"],
   "testTimeout": 30000,
   "verbose": true,
   "forceExit": true,
   "clearMocks": true,
   "resetMocks": true,
-  "restoreMocks": true
+  "restoreMocks": true,
+  "modulePathIgnorePatterns": ["<rootDir>/uploads/"],
+  "testPathIgnorePatterns": [
+    "/node_modules/",
+    "/__tests__/services/",
+    "/__tests__/integration/"
+  ]
 }

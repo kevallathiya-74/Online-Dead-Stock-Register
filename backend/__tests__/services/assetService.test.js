@@ -2,14 +2,19 @@
  * Unit tests for Asset Service
  */
 
+// Mock mongoose models BEFORE importing anything else
+jest.mock('../../models/asset');
+jest.mock('../../models/auditLog');
+jest.mock('../../utils/logger', () => ({
+  info: jest.fn(),
+  error: jest.fn(),
+  warn: jest.fn(),
+}));
+
 const assetService = require('../../services/assetService');
 const Asset = require('../../models/asset');
 const AuditLog = require('../../models/auditLog');
 const mongoose = require('mongoose');
-
-// Mock mongoose models
-jest.mock('../../models/asset');
-jest.mock('../../models/auditLog');
 
 describe('AssetService', () => {
   beforeEach(() => {
