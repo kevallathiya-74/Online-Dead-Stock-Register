@@ -28,12 +28,15 @@ import { toast } from 'react-toastify';
 import api from '../../services/api';
 
 interface AssetCategory {
-  id: string;
+  _id: string;
   name: string;
   description: string;
   count: number;
   icon?: string;
   color?: string;
+  active?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface CategoriesModalProps {
@@ -58,17 +61,18 @@ const CategoriesModal: React.FC<CategoriesModalProps> = ({ open, onClose }) => {
     try {
       setLoading(true);
       const response = await api.get('/assets/categories');
+      console.log('Categories API response:', response.data);
 
-      if (response.data?.success && response.data?.data) {
+      if (response.data?.success && Array.isArray(response.data?.data)) {
         setCategories(response.data.data);
       } else {
         setCategories([]);
-        toast.error('No categories found');
+        console.warn('No categories in response or invalid format');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching categories:', error);
       setCategories([]);
-      toast.error('Failed to load categories');
+      toast.error(error?.response?.data?.message || 'Failed to load categories');
     } finally {
       setLoading(false);
     }
@@ -81,10 +85,11 @@ const CategoriesModal: React.FC<CategoriesModalProps> = ({ open, onClose }) => {
     } else {
       setEditMode(false);
       setCurrentCategory({
-        id: '',
+        _id: '',
         name: '',
         description: '',
         count: 0,
+        color: '#1976d2',
       });
     }
     setOpenCategoryDialog(true);
@@ -97,39 +102,53 @@ const CategoriesModal: React.FC<CategoriesModalProps> = ({ open, onClose }) => {
   };
 
   const handleSaveCategory = async () => {
-    if (!currentCategory?.name) {
+    if (!currentCategory?.name?.trim()) {
       toast.error('Category name is required');
       return;
     }
 
     try {
-      if (editMode) {
-        await api.put(`/assets/categories/${currentCategory.id}`, currentCategory);
-        toast.success('Category updated successfully');
+      const payload = {
+        name: currentCategory.name.trim(),
+        description: currentCategory.description?.trim() || '',
+        color: currentCategory.color || '#1976d2',
+      };
+
+      if (editMode && currentCategory._id) {
+        const response = await api.put(`/assets/categories/${currentCategory._id}`, payload);
+        if (response.data?.success) {
+          toast.success('Category updated successfully');
+        }
       } else {
-        await api.post('/assets/categories', currentCategory);
-        toast.success('Category created successfully');
+        const response = await api.post('/assets/categories', payload);
+        if (response.data?.success) {
+          toast.success('Category created successfully');
+        }
       }
-      fetchCategories();
+      await fetchCategories();
       handleCloseCategoryDialog();
-    } catch (error) {
-      toast.error('Failed to save category');
+    } catch (error: any) {
       console.error('Error saving category:', error);
+      const errorMsg = error?.response?.data?.message || 'Failed to save category';
+      toast.error(errorMsg);
     }
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    if (!window.confirm('Are you sure you want to delete this category?')) {
+    if (!window.confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
       return;
     }
 
     try {
-      await api.delete(`/assets/categories/${categoryId}`);
-      toast.success('Category deleted successfully');
-      fetchCategories();
-    } catch (error) {
-      toast.error('Failed to delete category');
+      const response = await api.delete(`/assets/categories/${categoryId}`);
+      if (response.data?.success) {
+        toast.success('Category deleted successfully');
+        await fetchCategories();
+      }
+    } catch (error: any) {
       console.error('Error deleting category:', error);
+      const errorMsg = error?.response?.data?.message || 'Failed to delete category';
+      toast.error(errorMsg);
     }
   };
 
@@ -237,7 +256,7 @@ const CategoriesModal: React.FC<CategoriesModalProps> = ({ open, onClose }) => {
           ) : (
             <Grid container spacing={2}>
               {categories.map((category) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={category.id}>
+                <Grid item xs={12} sm={6} md={4} lg={3} key={category._id}>
                   <Card
                     sx={{
                       height: '100%',
@@ -288,7 +307,7 @@ const CategoriesModal: React.FC<CategoriesModalProps> = ({ open, onClose }) => {
                       <IconButton
                         size="small"
                         color="error"
-                        onClick={() => handleDeleteCategory(category.id)}
+                        onClick={() => handleDeleteCategory(category._id)}
                         title="Delete category"
                       >
                         <DeleteIcon fontSize="small" />
