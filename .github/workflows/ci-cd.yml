@@ -75,6 +75,11 @@ jobs:
           find . -name "*.js" -not -path "./node_modules/*" -exec node -c {} \;
           echo "✅ Syntax validation passed"
       
+      - name: Initialize Git config for Jest
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+      
       - name: Run backend tests with retry
         working-directory: ./backend
         run: |
@@ -97,6 +102,7 @@ jobs:
           MONGODB_URI: mongodb://localhost:27017/test_db
           JWT_SECRET: test_jwt_secret_minimum_32_characters_long_for_testing
           NODE_ENV: test
+          JEST_SKIP_GIT: true
       
       - name: Upload backend coverage
         if: always()
