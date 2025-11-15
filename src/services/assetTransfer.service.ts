@@ -1,6 +1,21 @@
 import api from './api';
 import { ApiResponse } from '../types';
 
+interface User {
+  id: string;
+  email: string;
+  full_name: string;
+  role: string;
+}
+
+interface Asset {
+  id: string;
+  unique_asset_id: string;
+  name: string;
+  manufacturer: string;
+  model: string;
+}
+
 // Asset Transfer Service - Placeholder for future implementation
 export interface AssetTransferRequest {
   asset_id: string;
@@ -17,9 +32,9 @@ export interface AssetTransferRequest {
 export interface AssetTransfer {
   id: string;
   transfer_id: string;
-  asset: any;
-  from_user: any;
-  to_user: any;
+  asset: Asset;
+  from_user: User;
+  to_user: User;
   from_location: string;
   to_location: string;
   status: string;

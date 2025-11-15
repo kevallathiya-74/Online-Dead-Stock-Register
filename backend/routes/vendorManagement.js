@@ -18,18 +18,18 @@ const requireInventoryAccess = (req, res, next) => {
 // Get all vendors with filtering and pagination
 router.get('/', vendorManagementController.getAllVendors);
 
-// Get vendor by ID with performance metrics
-router.get('/:id', vendorManagementController.getVendorById);
+// Protected vendor routes (inventory manager/admin only)
+// Get vendor statistics for dashboard - MUST come before /:id
+router.get('/dashboard/stats', requireInventoryAccess, vendorManagementController.getVendorStats);
 
-// Get vendors by category
+// Get vendors by category - MUST come before /:id
 router.get('/category/:category', vendorManagementController.getVendorsByCategory);
 
-// Get vendor performance metrics
+// Get vendor performance metrics - specific route before generic :id
 router.get('/:id/performance', vendorManagementController.getVendorPerformance);
 
-// Protected vendor routes (inventory manager/admin only)
-// Get vendor statistics for dashboard
-router.get('/dashboard/stats', requireInventoryAccess, vendorManagementController.getVendorStats);
+// Get vendor by ID with performance metrics - MUST be last among GET routes
+router.get('/:id', vendorManagementController.getVendorById);
 
 // Create new vendor
 router.post('/', requireInventoryAccess, vendorManagementController.createVendor);

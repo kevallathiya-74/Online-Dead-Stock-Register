@@ -3,20 +3,16 @@
 const getApiBaseUrl = () => {
   // If VITE_API_BASE_URL is set in .env, use it
   if (import.meta.env.VITE_API_BASE_URL) {
-    console.log('✅ Using .env VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL);
     return import.meta.env.VITE_API_BASE_URL;
   }
   
   // In development, use relative URL to leverage Vite proxy
   // Proxy configured in vite.config.ts forwards /api/* to http://localhost:5000
   const url = '/api/v1';
-  console.log('✅ Using Vite proxy:', url, '→ http://localhost:5000');
   return url;
 };
 
 export const API_BASE_URL = getApiBaseUrl();
-
-console.log('🌐 API Base URL:', API_BASE_URL);
 
 export const API_ENDPOINTS = {
   // Auth endpoints

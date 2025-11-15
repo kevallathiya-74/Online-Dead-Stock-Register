@@ -4,16 +4,17 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const emailService = require('../utils/emailService');
+const logger = require('../utils/logger');
 
 
 
-// Password validation
+// Password validation - matches express-validator pattern
 const validatePassword = (password) => {
   const minLength = 8;
   const hasUpperCase = /[A-Z]/.test(password);
   const hasLowerCase = /[a-z]/.test(password);
   const hasNumbers = /\d/.test(password);
-  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  const hasSpecialChar = /[@$!%*?&]/.test(password); // Match validationMiddleware allowed chars
   
   return password.length >= minLength && 
          hasUpperCase && 
@@ -112,12 +113,12 @@ exports.signup = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    console.log('🔐 Login attempt:', { email: req.body.email });
+    logger.info('Login attempt', { email: req.body.email });
     
     const { email, password } = req.body;
     
     if (!email || !password) {
-      console.log('❌ Missing credentials');
+      logger.warn('Login failed: Missing credentials');
       return res.status(400).json({ message: 'Email and password are required' });
     }
     
@@ -125,21 +126,21 @@ exports.login = async (req, res) => {
     const user = await User.findOne({ email }).select('+password');
     
     if (!user) {
-      console.log('❌ User not found:', email);
+      logger.warn('Login failed: User not found', { email });
       return res.status(400).json({ message: 'Invalid credentials' });
     }
     
-    console.log('✅ User found:', { id: user._id, email: user.email, role: user.role });
+    logger.debug('User found', { id: user._id, email: user.email, role: user.role });
     
     // Verify password
     const valid = await bcrypt.compare(password, user.password);
     
     if (!valid) {
-      console.log('❌ Invalid password for:', email);
+      logger.warn('Login failed: Invalid password', { email });
       return res.status(400).json({ message: 'Invalid credentials' });
     }
     
-    console.log('✅ Password verified');
+    logger.debug('Password verified for user', { email });
 
     // Update last login
     user.last_login = new Date();
@@ -149,12 +150,12 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       { id: user._id, email: user.email, role: user.role }, 
       process.env.JWT_SECRET, 
-      { expiresIn: '8h' }
+      { expiresIn: '24h' }
     );
-    
-    console.log('✅ Token generated, sending response');
-    
-    res.json({ 
+
+    logger.info('User logged in successfully', { userId: user._id, email: user.email });
+
+    res.json({
       user: {
         id: user._id,
         email: user.email,

@@ -1,5 +1,6 @@
 const assetDisposalAutomation = require('../services/assetDisposalAutomation');
 const scheduledJobs = require('../services/scheduledJobs');
+const logger = require('../utils/logger');
 
 /**
  * 🤖 DISPOSAL AUTOMATION CONTROLLER

@@ -1,5 +1,5 @@
 {
-  "name": "client",
+  "name": "dsr-client",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
@@ -29,7 +29,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit",
+    "verify": "npm run type-check && npm run build"
   },
   "browserslist": {
     "production": [

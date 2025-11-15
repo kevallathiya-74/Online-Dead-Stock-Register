@@ -1,7 +1,7 @@
 {
-  "name": "dead-stock-register-backend",
+  "name": "dsr-backend",
   "version": "1.0.0",
-  "description": "Backend for Dead Stock Register Application",
+  "description": "DSR - Dead Stock Register Backend API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -9,7 +9,9 @@
     "test": "jest --coverage",
     "test:watch": "jest --watch",
     "test:unit": "jest --testPathPattern=__tests__/unit",
-    "test:integration": "jest --testPathPattern=__tests__/integration"
+    "test:integration": "jest --testPathPattern=__tests__/integration",
+    "validate": "node -c server.js && echo 'Syntax validation passed'",
+    "verify": "npm run validate && npm test"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

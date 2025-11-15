@@ -4,19 +4,25 @@ const Asset = require('../models/asset');
 exports.getTransactions = async (req, res) => {
   try {
     const txns = await Transaction.find().populate('asset_id requested_by from_user to_user approved_by', 'name email');
-    res.json(txns);
+    res.json({
+      success: true,
+      data: txns
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
 exports.getTransactionById = async (req, res) => {
   try {
     const txn = await Transaction.findById(req.params.id);
-    if (!txn) return res.status(404).json({ message: 'Transaction not found' });
-    res.json(txn);
+    if (!txn) return res.status(404).json({ success: false, message: 'Transaction not found' });
+    res.json({
+      success: true,
+      data: txn
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -34,8 +40,12 @@ exports.createTransaction = async (req, res) => {
       });
     }
 
-    res.status(201).json(saved);
+    res.status(201).json({
+      success: true,
+      data: saved,
+      message: 'Transaction created successfully'
+    });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.status(400).json({ success: false, message: err.message });
   }
 };

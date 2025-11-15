@@ -26,19 +26,23 @@ exports.getUserNotifications = async (req, res) => {
     });
 
     res.json({
-      notifications,
-      pagination: {
-        current_page: parseInt(page),
-        total_pages: Math.ceil(total / limit),
-        total_notifications: total,
-        unread_count: unreadCount,
-        has_next: page * limit < total,
-        has_prev: page > 1
+      success: true,
+      data: {
+        notifications,
+        pagination: {
+          current_page: parseInt(page),
+          total_pages: Math.ceil(total / limit),
+          total_notifications: total,
+          unread_count: unreadCount,
+          has_next: page * limit < total,
+          has_prev: page > 1
+        }
       }
     });
   } catch (error) {
-    console.error('Error fetching notifications:', error);
-    res.status(500).json({ message: 'Failed to fetch notifications' });
+    const logger = require('../utils/logger');
+    logger.error('Error fetching notifications:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch notifications' });
   }
 };
 
@@ -51,10 +55,11 @@ exports.getUnreadCount = async (req, res) => {
       is_read: false 
     });
 
-    res.json({ unread_count: unreadCount });
+    res.json({ success: true, data: { unread_count: unreadCount } });
   } catch (error) {
-    console.error('Error fetching unread count:', error);
-    res.status(500).json({ message: 'Failed to fetch unread count' });
+    const logger = require('../utils/logger');
+    logger.error('Error fetching unread count:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch unread count' });
   }
 };
 
@@ -74,16 +79,18 @@ exports.markAsRead = async (req, res) => {
     );
 
     if (!notification) {
-      return res.status(404).json({ message: 'Notification not found' });
+      return res.status(404).json({ success: false, message: 'Notification not found' });
     }
 
     res.json({
-      message: 'Notification marked as read',
-      notification
+      success: true,
+      data: notification,
+      message: 'Notification marked as read'
     });
   } catch (error) {
-    console.error('Error marking notification as read:', error);
-    res.status(500).json({ message: 'Failed to mark notification as read' });
+    const logger = require('../utils/logger');
+    logger.error('Error marking notification as read:', error);
+    res.status(500).json({ success: false, message: 'Failed to mark notification as read' });
   }
 };
 

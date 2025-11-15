@@ -1,338 +1,481 @@
+const settingsService = require('../services/settingsService');
 const logger = require('../utils/logger');
 
-// System settings in-memory store (in production, use a database)
-let systemSettings = [
-  // Security Settings
-  {
-    id: 'sec-001',
-    category: 'Security',
-    name: 'Session Timeout',
-    value: 30,
-    description: 'Session timeout duration in minutes',
-    type: 'number',
-    required: true
-  },
-  {
-    id: 'sec-002',
-    category: 'Security',
-    name: 'Password Expiry',
-    value: 90,
-    description: 'Password expiration period in days',
-    type: 'number',
-    required: true
-  },
-  {
-    id: 'sec-003',
-    category: 'Security',
-    name: 'Two-Factor Authentication',
-    value: true,
-    description: 'Enable two-factor authentication for all users',
-    type: 'boolean',
-    required: false
-  },
-  {
-    id: 'sec-004',
-    category: 'Security',
-    name: 'Maximum Login Attempts',
-    value: 5,
-    description: 'Maximum failed login attempts before account lockout',
-    type: 'number',
-    required: true
-  },
-  // Database Settings
-  {
-    id: 'db-001',
-    category: 'Database',
-    name: 'Connection Pool Size',
-    value: 50,
-    description: 'Maximum number of database connections',
-    type: 'number',
-    required: true
-  },
-  {
-    id: 'db-002',
-    category: 'Database',
-    name: 'Auto Backup',
-    value: true,
-    description: 'Enable automatic daily database backups',
-    type: 'boolean',
-    required: false
-  },
-  // Email Settings
-  {
-    id: 'email-001',
-    category: 'Email',
-    name: 'SMTP Server',
-    value: 'smtp.gmail.com',
-    description: 'SMTP server address for sending emails',
-    type: 'text',
-    required: true,
-    sensitive: true
-  },
-  {
-    id: 'email-002',
-    category: 'Email',
-    name: 'SMTP Port',
-    value: 587,
-    description: 'SMTP server port number',
-    type: 'number',
-    required: true
-  },
-  {
-    id: 'email-003',
-    category: 'Email',
-    name: 'Email Notifications',
-    value: true,
-    description: 'Enable email notifications for system events',
-    type: 'boolean',
-    required: false
-  },
-  // Application Settings
-  {
-    id: 'app-001',
-    category: 'Application',
-    name: 'Application Name',
-    value: 'Dead Stock Register',
-    description: 'Application display name',
-    type: 'text',
-    required: true
-  },
-  {
-    id: 'app-002',
-    category: 'Application',
-    name: 'Maintenance Mode',
-    value: false,
-    description: 'Enable maintenance mode (blocks user access)',
-    type: 'boolean',
-    required: false
-  },
-  {
-    id: 'app-003',
-    category: 'Application',
-    name: 'Default Language',
-    value: 'English',
-    description: 'Default application language',
-    type: 'select',
-    options: ['English', 'Hindi', 'Spanish', 'French'],
-    required: true
-  }
-];
-
 /**
- * @desc    Get all system settings
- * @route   GET /api/v1/settings
- * @access  Private (ADMIN only)
+ * SYSTEM SETTINGS CONTROLLER
+ * Manages system-wide configuration settings with MongoDB persistence
  */
-const getAllSettings = async (req, res) => {
-  try {
-    logger.info('System settings retrieved', { userId: req.user.id });
 
-    res.status(200).json({
+// Get all settings
+exports.getSettings = async (req, res) => {
+  try {
+    const userRole = req.user?.role;
+    const settings = await settingsService.getSettings(false, userRole);
+
+    res.json({
       success: true,
-      data: systemSettings
+      data: settings,
+      message: 'Settings retrieved successfully',
     });
   } catch (error) {
-    logger.error('Error fetching system settings:', error);
+    logger.error('Error in getSettings:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch system settings'
+      message: 'Failed to retrieve settings',
+      error: error.message,
     });
   }
 };
 
-/**
- * @desc    Get single system setting
- * @route   GET /api/v1/settings/:id
- * @access  Private (ADMIN only)
- */
-const getSetting = async (req, res) => {
+// Update settings
+exports.updateSettings = async (req, res) => {
   try {
-    const { id } = req.params;
+    const updates = req.body;
+    const userId = req.user._id;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('user-agent') || 'unknown';
+
+    const settings = await settingsService.updateSettings(updates, userId, ipAddress, userAgent);
+
+    // Sanitize password in response
+    const response = settings.toObject();
+    if (response.email && response.email.smtpPassword) {
+      response.email.smtpPassword = '••••••••';
+    }
+
+    res.json({
+      success: true,
+      data: response,
+      message: 'Settings updated successfully',
+    });
+  } catch (error) {
+    logger.error('Error in updateSettings:', error);
     
-    const setting = systemSettings.find(s => s.id === id);
-    
-    if (!setting) {
-      return res.status(404).json({
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
         success: false,
-        message: 'Setting not found'
+        message: 'Validation failed',
+        errors: Object.values(error.errors).map(e => ({
+          field: e.path,
+          message: e.message,
+        })),
       });
     }
 
-    logger.info('System setting retrieved', { userId: req.user.id, settingId: id });
-
-    res.status(200).json({
-      success: true,
-      data: setting
-    });
-  } catch (error) {
-    logger.error('Error fetching system setting:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch system setting'
+      message: 'Failed to update settings',
+      error: error.message,
     });
   }
 };
 
-/**
- * @desc    Update system setting
- * @route   PUT /api/v1/settings/:id
- * @access  Private (ADMIN only)
- */
-const updateSetting = async (req, res) => {
+// Update specific category
+exports.updateCategory = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { value } = req.body;
+    const { category } = req.params;
+    const updates = req.body;
+    const userId = req.user._id;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('user-agent') || 'unknown';
+
+    const settings = await settingsService.updateCategory(category, updates, userId, ipAddress, userAgent);
+
+    // Sanitize password in response
+    const response = settings.toObject();
+    if (response.email && response.email.smtpPassword) {
+      response.email.smtpPassword = '••••••••';
+    }
+
+    res.json({
+      success: true,
+      data: response,
+      message: `${category} settings updated successfully`,
+    });
+  } catch (error) {
+    logger.error('Error in updateCategory:', error);
     
-    const settingIndex = systemSettings.findIndex(s => s.id === id);
-    
-    if (settingIndex === -1) {
-      return res.status(404).json({
+    if (error.message.includes('Invalid category')) {
+      return res.status(400).json({
         success: false,
-        message: 'Setting not found'
+        message: error.message,
       });
     }
 
-    // Update the setting value
-    systemSettings[settingIndex].value = value;
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: Object.values(error.errors).map(e => ({
+          field: e.path,
+          message: e.message,
+        })),
+      });
+    }
 
-    logger.info('System setting updated', {
-      userId: req.user.id,
-      settingId: id,
-      newValue: value
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update category settings',
+      error: error.message,
     });
+  }
+};
 
-    res.status(200).json({
+// Search settings
+exports.searchSettings = async (req, res) => {
+  try {
+    const { query } = req.query;
+
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required',
+      });
+    }
+
+    const results = await settingsService.searchSettings(query);
+
+    res.json({
       success: true,
-      message: 'Setting updated successfully',
-      data: systemSettings[settingIndex]
+      data: results,
+      count: results.length,
+      message: 'Search completed successfully',
     });
   } catch (error) {
-    logger.error('Error updating system setting:', error);
+    logger.error('Error in searchSettings:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to update system setting'
+      message: 'Search failed',
+      error: error.message,
     });
   }
 };
 
-/**
- * @desc    Test connection (email, database, etc.)
- * @route   POST /api/v1/settings/test-connection/:type
- * @access  Private (ADMIN only)
- */
-const testConnection = async (req, res) => {
+// Get settings history
+exports.getHistory = async (req, res) => {
   try {
-    const { type } = req.params;
-    
-    // Simulate connection test
-    logger.info('Connection test initiated', { userId: req.user.id, type });
-
-    // In production, implement actual connection tests
-    const success = Math.random() > 0.2; // 80% success rate for demo
-
-    res.status(200).json({
-      success: success,
-      message: success ? `${type} connection successful` : `${type} connection failed`,
-      data: {
-        type,
-        tested_at: new Date(),
-        result: success ? 'CONNECTED' : 'FAILED'
-      }
-    });
-  } catch (error) {
-    logger.error('Error testing connection:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Connection test failed'
-    });
-  }
-};
-
-/**
- * @desc    Create backup
- * @route   POST /api/v1/settings/backup
- * @access  Private (ADMIN only)
- */
-const createBackup = async (req, res) => {
-  try {
-    const { type } = req.body; // 'full' or 'incremental'
-    
-    logger.info('Backup initiated', { userId: req.user.id, type });
-
-    // In production, implement actual backup logic
-    const backup = {
-      id: Date.now().toString(),
-      date: new Date().toISOString(),
-      type: type === 'incremental' ? 'Incremental' : 'Full',
-      size: `${(Math.random() * 2 + 0.5).toFixed(1)} GB`,
-      status: 'Success',
-      filename: `backup_${type}_${new Date().toISOString().split('T')[0]}.zip`,
-      description: `${type === 'incremental' ? 'Incremental' : 'Full'} backup created by ${req.user.name}`
+    const filters = {
+      category: req.query.category,
+      field: req.query.field,
+      userId: req.query.userId,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+      page: parseInt(req.query.page, 10) || 1,
+      limit: parseInt(req.query.limit, 10) || 50,
     };
 
-    res.status(200).json({
+    const result = await settingsService.getHistory(filters);
+
+    res.json({
       success: true,
-      message: 'Backup created successfully',
-      data: backup
+      data: result.history,
+      pagination: result.pagination,
+      message: 'History retrieved successfully',
     });
   } catch (error) {
-    logger.error('Error creating backup:', error);
+    logger.error('Error in getHistory:', error);
     res.status(500).json({
       success: false,
-      message: 'Backup creation failed'
+      message: 'Failed to retrieve history',
+      error: error.message,
     });
   }
 };
 
-/**
- * @desc    Get backup history
- * @route   GET /api/v1/settings/backups
- * @access  Private (ADMIN only)
- */
-const getBackupHistory = async (req, res) => {
+// Get recent changes
+exports.getRecentChanges = async (req, res) => {
   try {
-    // Mock backup history (in production, fetch from database)
-    const backupHistory = [
-      {
-        id: '1',
-        date: '2024-01-15T02:00:00Z',
-        type: 'Full',
-        size: '2.4 GB',
-        status: 'Success',
-        filename: 'backup_full_20240115_020000.zip',
-        description: 'Scheduled full backup'
-      },
-      {
-        id: '2', 
-        date: '2024-01-14T14:30:00Z',
-        type: 'Incremental',
-        size: '145 MB',
-        status: 'Success',
-        filename: 'backup_incr_20240114_143000.zip',
-        description: 'Incremental backup after major updates'
-      }
-    ];
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const changes = await settingsService.getRecentChanges(limit);
 
-    logger.info('Backup history retrieved', { userId: req.user.id });
-
-    res.status(200).json({
+    res.json({
       success: true,
-      data: backupHistory
+      data: changes,
+      message: 'Recent changes retrieved successfully',
     });
   } catch (error) {
-    logger.error('Error fetching backup history:', error);
+    logger.error('Error in getRecentChanges:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch backup history'
+      message: 'Failed to retrieve recent changes',
+      error: error.message,
     });
   }
 };
 
-module.exports = {
-  getAllSettings,
-  getSetting,
-  updateSetting,
-  testConnection,
-  createBackup, 
-  getBackupHistory
+// Test database connection
+exports.testDatabaseConnection = async (req, res) => {
+  try {
+    const { connectionString } = req.body;
+    const result = await settingsService.testDatabaseConnection(connectionString);
+
+    res.json({
+      success: result.success,
+      data: result,
+      message: result.message,
+    });
+  } catch (error) {
+    logger.error('Error in testDatabaseConnection:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Connection test failed',
+      error: error.message,
+    });
+  }
+};
+
+// Test email connection
+exports.testEmailConnection = async (req, res) => {
+  try {
+    const emailConfig = req.body.emailConfig || null;
+    const result = await settingsService.testEmailConnection(emailConfig);
+
+    res.json({
+      success: result.success,
+      data: result,
+      message: result.message,
+    });
+  } catch (error) {
+    logger.error('Error in testEmailConnection:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Connection test failed',
+      error: error.message,
+    });
+  }
+};
+
+// Test Redis connection
+exports.testRedisConnection = async (req, res) => {
+  try {
+    const { redisUrl } = req.body;
+    const result = await settingsService.testRedisConnection(redisUrl);
+
+    res.json({
+      success: result.success,
+      data: result,
+      message: result.message,
+    });
+  } catch (error) {
+    logger.error('Error in testRedisConnection:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Connection test failed',
+      error: error.message,
+    });
+  }
+};
+
+// Test all connections
+exports.testAllConnections = async (req, res) => {
+  try {
+    const result = await settingsService.testAllConnections();
+
+    res.json({
+      success: result.success,
+      data: result,
+      message: result.message,
+    });
+  } catch (error) {
+    logger.error('Error in testAllConnections:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Connection tests failed',
+      error: error.message,
+    });
+  }
+};
+
+// Send test email
+exports.sendTestEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email address is required',
+      });
+    }
+
+    const result = await settingsService.sendTestEmail(email);
+
+    res.json({
+      success: result.success,
+      data: result,
+      message: result.message,
+    });
+  } catch (error) {
+    logger.error('Error in sendTestEmail:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send test email',
+      error: error.message,
+    });
+  }
+};
+
+// Reset settings to defaults
+exports.resetToDefaults = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('user-agent') || 'unknown';
+
+    const settings = await settingsService.resetToDefaults(userId, ipAddress, userAgent);
+
+    res.json({
+      success: true,
+      data: settings,
+      message: 'Settings reset to defaults successfully',
+    });
+  } catch (error) {
+    logger.error('Error in resetToDefaults:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reset settings',
+      error: error.message,
+    });
+  }
+};
+
+// Export settings
+exports.exportSettings = async (req, res) => {
+  try {
+    const exportData = await settingsService.exportSettings();
+
+    res.json({
+      success: true,
+      data: exportData,
+      message: 'Settings exported successfully',
+    });
+  } catch (error) {
+    logger.error('Error in exportSettings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to export settings',
+      error: error.message,
+    });
+  }
+};
+
+// Import settings
+exports.importSettings = async (req, res) => {
+  try {
+    const importData = req.body;
+    const userId = req.user._id;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('user-agent') || 'unknown';
+
+    const settings = await settingsService.importSettings(importData, userId, ipAddress, userAgent);
+
+    res.json({
+      success: true,
+      data: settings,
+      message: 'Settings imported successfully',
+    });
+  } catch (error) {
+    logger.error('Error in importSettings:', error);
+    
+    if (error.message.includes('Invalid import data')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to import settings',
+      error: error.message,
+    });
+  }
+};
+
+// Get accessible categories for current user
+exports.getAccessibleCategories = async (req, res) => {
+  try {
+    const userRole = req.user?.role;
+    const categories = await settingsService.getAccessibleCategories(userRole);
+
+    res.json({
+      success: true,
+      data: categories,
+      message: 'Accessible categories retrieved successfully',
+    });
+  } catch (error) {
+    logger.error('Error in getAccessibleCategories:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve accessible categories',
+      error: error.message,
+    });
+  }
+};
+
+// Get role permissions configuration
+exports.getRolePermissions = async (req, res) => {
+  try {
+    const permissions = await settingsService.getRolePermissions();
+
+    res.json({
+      success: true,
+      data: permissions,
+      message: 'Role permissions retrieved successfully',
+    });
+  } catch (error) {
+    logger.error('Error in getRolePermissions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve role permissions',
+      error: error.message,
+    });
+  }
+};
+
+// Update role permissions
+exports.updateRolePermissions = async (req, res) => {
+  try {
+    const { category, roles } = req.body;
+    const userId = req.user._id;
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('user-agent') || 'unknown';
+
+    if (!category || !roles || !Array.isArray(roles)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Category and roles array are required',
+      });
+    }
+
+    const validCategories = ['security', 'database', 'email', 'application'];
+    if (!validCategories.includes(category)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid category',
+      });
+    }
+
+    const permissions = await settingsService.updateRolePermissions(
+      category,
+      roles,
+      userId,
+      ipAddress,
+      userAgent
+    );
+
+    res.json({
+      success: true,
+      data: permissions,
+      message: 'Role permissions updated successfully',
+    });
+  } catch (error) {
+    logger.error('Error in updateRolePermissions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update role permissions',
+      error: error.message,
+    });
+  }
 };

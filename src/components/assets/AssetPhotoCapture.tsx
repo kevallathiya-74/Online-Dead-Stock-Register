@@ -232,7 +232,7 @@ const AssetPhotoCapture: React.FC<AssetPhotoCaptureProps> = ({
       formData.append('asset_id', assetId);
 
       const response = await axios.post(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/photos/upload`,
+        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/photos/upload`,
         formData,
         {
           headers: {

@@ -67,7 +67,7 @@ exports.deleteDocument = async (req, res) => {
 
 exports.uploadDocument = async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ message: 'File missing' });
+    if (!req.file) return res.status(400).json({ success: false, message: 'File missing' });
     const doc = new Document({
       asset_id: req.params.assetId,
       document_type: req.body.document_type || 'Other',
@@ -77,7 +77,7 @@ exports.uploadDocument = async (req, res) => {
       uploaded_by: req.body.uploaded_by
     });
     const saved = await doc.save();
-    res.status(201).json(saved);
+    res.status(201).json({ success: true, data: saved, message: 'Document uploaded successfully' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

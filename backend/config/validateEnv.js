@@ -4,6 +4,8 @@
  * Prevents the application from starting with missing critical configuration
  */
 
+const logger = require('../utils/logger');
+
 const requiredEnvVars = [
   'MONGODB_URI',
   'JWT_SECRET',
@@ -19,7 +21,7 @@ const recommendedEnvVars = [
 ];
 
 const validateEnv = () => {
-  console.log('🔍 Validating environment variables...');
+  logger.info('🔍 Validating environment variables...');
   
   const missing = [];
   const missingRecommended = [];
@@ -40,54 +42,53 @@ const validateEnv = () => {
   
   // Fail if required variables are missing
   if (missing.length > 0) {
-    console.error('❌ FATAL ERROR: Missing required environment variables:');
+    logger.error('❌ FATAL ERROR: Missing required environment variables:');
     missing.forEach(varName => {
-      console.error(`   - ${varName}`);
+      logger.error(`   - ${varName}`);
     });
-    console.error('\n📝 Please check your .env file and ensure all required variables are set.');
-    console.error('   See backend/.env.example for reference.\n');
+    logger.error('\n📝 Please check your .env file and ensure all required variables are set.');
+    logger.error('   See backend/.env.example for reference.\n');
     process.exit(1);
   }
   
   // Validate JWT_SECRET length
   if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
-    console.error('❌ FATAL ERROR: JWT_SECRET must be at least 32 characters long!');
-    console.error(`   Current length: ${process.env.JWT_SECRET.length}`);
-    console.error('   Generate a strong secret with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"\n');
+    logger.error('❌ FATAL ERROR: JWT_SECRET must be at least 32 characters long!');
+    logger.error('   Generate a strong secret with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"\n');
     process.exit(1);
   }
   
   // Validate MONGODB_URI format
   if (process.env.MONGODB_URI && !process.env.MONGODB_URI.startsWith('mongodb')) {
-    console.error('❌ FATAL ERROR: MONGODB_URI appears to be invalid.');
-    console.error('   It should start with "mongodb://" or "mongodb+srv://"\n');
+    logger.error('❌ FATAL ERROR: MONGODB_URI appears to be invalid.');
+    logger.error('   It should start with "mongodb://" or "mongodb+srv://"\n');
     process.exit(1);
   }
   
   // Warn about missing recommended variables
   if (missingRecommended.length > 0) {
-    console.warn('⚠️  WARNING: Missing recommended environment variables:');
+    logger.warn('⚠️  WARNING: Missing recommended environment variables:');
     missingRecommended.forEach(varName => {
-      console.warn(`   - ${varName}`);
+      logger.warn(`   - ${varName}`);
     });
-    console.warn('   Some features may not work correctly.\n');
+    logger.warn('   Some features may not work correctly.\n');
   }
   
   // Validate production-specific requirements
   if (process.env.NODE_ENV === 'production') {
     if (!process.env.ALLOWED_ORIGINS) {
-      console.error('❌ FATAL ERROR: ALLOWED_ORIGINS must be set in production!');
-      console.error('   This is a critical security requirement for CORS.\n');
+      logger.error('❌ FATAL ERROR: ALLOWED_ORIGINS must be set in production!');
+      logger.error('   This is a critical security requirement for CORS.\n');
       process.exit(1);
     }
     
     if (process.env.ALLOWED_ORIGINS.includes('localhost')) {
-      console.warn('⚠️  WARNING: ALLOWED_ORIGINS contains localhost in production mode.');
-      console.warn('   This may be a security risk.\n');
+      logger.warn('⚠️  WARNING: ALLOWED_ORIGINS contains localhost in production mode.');
+      logger.warn('   This may be a security risk.\n');
     }
   }
   
-  console.log('✅ Environment validation passed\n');
+  logger.info('✅ Environment validation passed\n');
 };
 
 module.exports = validateEnv;

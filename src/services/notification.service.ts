@@ -10,7 +10,7 @@ export interface Notification {
   priority: 'low' | 'medium' | 'high' | 'urgent';
   read: boolean;
   action_url?: string;
-  data?: any;
+  data?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -27,11 +27,18 @@ export interface NotificationStats {
   };
 }
 
+export interface NotificationPagination {
+  current_page: number;
+  total_pages: number;
+  total_items: number;
+  items_per_page: number;
+}
+
 class NotificationService {
   // Get user notifications
   async getNotifications(page = 1, limit = 20): Promise<{
     notifications: Notification[];
-    pagination: any;
+    pagination: NotificationPagination;
     stats: NotificationStats;
   }> {
     try {
@@ -40,9 +47,10 @@ class NotificationService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch notifications');
-    } catch (error: any) {
-      console.error('Error fetching notifications:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch notifications');
+    } catch (error: unknown) {
+      const err = error as Error & { response?: { data?: { message?: string } }; message: string };
+      console.error('Error fetching notifications:', err);
+      throw new Error(err.response?.data?.message || err.message || 'Failed to fetch notifications');
     }
   }
 

@@ -53,7 +53,7 @@ export interface VendorData {
 
 export class DashboardDataService {
   private static instance: DashboardDataService;
-  private cache: Map<string, { data: any; timestamp: number }> = new Map();
+  private cache: Map<string, { data: unknown; timestamp: number }> = new Map();
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   static getInstance(): DashboardDataService {
@@ -66,7 +66,7 @@ export class DashboardDataService {
   private getCachedData<T>(key: string): T | null {
     const cached = this.cache.get(key);
     if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
-      return cached.data;
+      return cached.data as T;
     }
     this.cache.delete(key);
     return null;
@@ -103,12 +103,13 @@ export class DashboardDataService {
       // Extract data from the response (backend returns { success: true, data: {...} })
       const statsData = response.data.data || response.data;
       return this.setCachedData(cacheKey, statsData);
-    } catch (error: any) {
-      console.error('DashboardDataService: Error fetching dashboard stats:', error);
+    } catch (error: unknown) {
+      const err = error as Error & { response?: { status?: number; data?: { message?: string } }; config?: { url?: string } };
+      console.error('DashboardDataService: Error fetching dashboard stats:', err);
       console.error('DashboardDataService: Error details:', {
-        status: error.response?.status,
-        message: error.response?.data?.message || error.message,
-        endpoint: error.config?.url
+        status: err.response?.status,
+        message: err.response?.data?.message || err.message,
+        endpoint: err.config?.url
       });
       throw error;
     }

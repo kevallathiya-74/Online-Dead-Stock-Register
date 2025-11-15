@@ -1,5 +1,6 @@
 const User = require('../models/user');
 const bcrypt = require('bcryptjs');
+const logger = require('../utils/logger');
 
 // GET current user profile
 exports.getProfile = async (req, res) => {

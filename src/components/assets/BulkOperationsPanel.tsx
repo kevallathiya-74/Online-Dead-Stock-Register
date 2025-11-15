@@ -61,7 +61,7 @@ const BulkOperationsPanel: React.FC<BulkOperationsPanelProps> = ({
   const fetchUsers = async () => {
     try {
       const response = await axios.get(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/users`,
+        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/users`,
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -106,7 +106,7 @@ const BulkOperationsPanel: React.FC<BulkOperationsPanelProps> = ({
 
     try {
       const response = await axios.post(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/bulk/validate`,
+        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/bulk/validate`,
         {
           asset_ids: Array.from(selectedAssets),
           operation: operationType,
@@ -141,8 +141,8 @@ const BulkOperationsPanel: React.FC<BulkOperationsPanelProps> = ({
     try {
       const endpoint = `/api/bulk/${operationType}`;
       const url = forceMode 
-        ? `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${endpoint}?force=true`
-        : `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${endpoint}`;
+        ? `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}${endpoint}?force=true`
+        : `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}${endpoint}`;
 
       const response = await axios.post(
         url,

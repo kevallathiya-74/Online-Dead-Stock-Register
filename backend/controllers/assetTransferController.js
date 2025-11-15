@@ -122,14 +122,18 @@ exports.getAssetTransferById = async (req, res) => {
                         transfer.to_user._id.toString() === req.user.id;
       
       if (!isInvolved) {
-        return res.status(403).json({ message: 'Access denied to this transfer' });
+        return res.status(403).json({ success: false, message: 'Access denied to this transfer' });
       }
     }
 
-    res.json(transfer);
+    res.json({
+      success: true,
+      data: transfer
+    });
   } catch (error) {
-    console.error('Error fetching asset transfer:', error);
-    res.status(500).json({ message: 'Failed to fetch asset transfer' });
+    const logger = require('../utils/logger');
+    logger.error('Error fetching asset transfer:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch asset transfer' });
   }
 };
 
@@ -143,11 +147,12 @@ exports.createAssetTransfer = async (req, res) => {
     // Validate asset exists and is available
     const asset = await Asset.findById(transferData.asset);
     if (!asset) {
-      return res.status(404).json({ message: 'Asset not found' });
+      return res.status(404).json({ success: false, message: 'Asset not found' });
     }
 
     if (asset.current_status !== 'assigned') {
       return res.status(400).json({ 
+        success: false, 
         message: 'Asset must be in assigned status to initiate transfer' 
       });
     }

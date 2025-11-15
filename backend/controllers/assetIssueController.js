@@ -1,5 +1,8 @@
 const AssetIssue = require('../models/assetIssue');
 const Asset = require('../models/asset');
+const User = require('../models/user');
+const Notification = require('../models/notification');
+const logger = require('../utils/logger');
 const AuditLog = require('../models/auditLog');
 
 /**

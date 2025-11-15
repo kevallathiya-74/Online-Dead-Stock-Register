@@ -47,7 +47,7 @@ const BulkOperationsHistory: React.FC = () => {
       }
 
       const response = await axios.get(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/bulk/history?${params}`,
+        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/bulk/history?${params}`,
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`

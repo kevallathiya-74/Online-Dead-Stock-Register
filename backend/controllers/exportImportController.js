@@ -2,6 +2,7 @@ const Asset = require('../models/asset');
 const fs = require('fs');
 const path = require('path');
 const XLSX = require('xlsx');
+const logger = require('../utils/logger');
 
 // Helper function to convert JSON to CSV
 const jsonToCSV = (data) => {

@@ -39,7 +39,7 @@ const AssetPhotoGallery: React.FC<AssetPhotoGalleryProps> = ({
     try {
       setLoading(true);
       const response = await axios.get(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/photos/asset/${assetId}`,
+        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/photos/asset/${assetId}`,
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -63,7 +63,7 @@ const AssetPhotoGallery: React.FC<AssetPhotoGalleryProps> = ({
     try {
       setIsDeleting(true);
       await axios.delete(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/photos/${photoId}`,
+        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/photos/${photoId}`,
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`

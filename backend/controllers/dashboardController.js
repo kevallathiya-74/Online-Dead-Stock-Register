@@ -495,7 +495,10 @@ const getInventoryStats = async (req, res) => {
         { $match: { status: { $ne: 'Scrapped' } } },
         { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
       ]),
-      Asset.distinct('location').then(locations => locations.length),
+      Asset.distinct('location').then(locations => locations.length).catch(err => {
+        logger.error('Failed to get distinct locations', { error: err.message });
+        return 0;
+      }),
       Asset.countDocuments({
         warranty_expiry: { 
           $gte: currentDate,
