@@ -82,7 +82,7 @@ jobs:
           max_attempts=${{ env.RETRY_ATTEMPTS }}
           while [ $attempt -le $max_attempts ]; do
             echo "🧪 Running tests (attempt $attempt/$max_attempts)..."
-            if npm test; then
+            if npm run test:ci; then
               echo "✅ Tests passed"
               exit 0
             else

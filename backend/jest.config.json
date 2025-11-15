@@ -24,5 +24,7 @@
     "/node_modules/",
     "/__tests__/services/",
     "/__tests__/integration/"
-  ]
+  ],
+  "changedFilesWithAncestor": false,
+  "changedSince": false
 }
