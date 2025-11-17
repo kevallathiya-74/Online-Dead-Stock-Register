@@ -95,7 +95,10 @@ const VendorsPage = () => {
   };
 
   // Real-time polling every 30 seconds
-  usePolling(loadVendors, 30000, true);
+  usePolling(loadVendors, {
+    interval: 30000,
+    enabled: true
+  });
 
   useEffect(() => {
     loadVendors();

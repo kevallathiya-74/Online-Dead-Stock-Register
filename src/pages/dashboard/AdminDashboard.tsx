@@ -276,13 +276,13 @@ const AdminDashboard = () => {
     }
   });
 
-  const handleApprovalAction = async (
+  const handleApproval = async (
     approvalId: string,
     action: "approve" | "reject"
   ) => {
     try {
       // Optimistic UI update
-      const updatedApprovals = pendingApprovals.filter((a: Approval) => a.id !== approvalId);
+      const updatedApprovals = (pendingApprovals || []).filter((a: Approval) => a.id !== approvalId);
       
       // Call API
       await api.post(`/approvals/${approvalId}/${action}`);
@@ -313,21 +313,21 @@ const AdminDashboard = () => {
         totalValue: `₹${dashboardStats.totalValue.toLocaleString()}`,
         activeUsers: dashboardStats.activeUsers,
         pendingApprovals: dashboardStats.pendingApprovals,
-        scrapAssets: dashboardStats.scrapAssets || 0,
+        scrapAssets: dashboardStats.disposedAssets || 0,
         monthlyPurchase: `₹${
-          dashboardStats.monthlyPurchase?.toLocaleString() || "0"
+          dashboardStats.monthlyPurchaseValue?.toLocaleString() || "0"
         }`,
       });
 
-      // Set trends from backend data
-      if (dashboardStats.trends) {
-        setTrends(dashboardStats.trends);
-      }
+      // Set trends from backend data (if available)
+      // if (dashboardStats.trends) {
+      //   setTrends(dashboardStats.trends);
+      // }
 
-      // Set system health from backend data
-      if (dashboardStats.systemHealth) {
-        setSystemHealth(dashboardStats.systemHealth);
-      }
+      // Set system health from backend data (if available)
+      // if (dashboardStats.systemHealth) {
+      //   setSystemHealth(dashboardStats.systemHealth);
+      // }
     } catch (error) {
       console.error("Error loading dashboard stats:", error);
       toast.error("Failed to load dashboard statistics");
@@ -580,7 +580,7 @@ const AdminDashboard = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {pendingApprovals.length === 0 ? (
+                    {(pendingApprovals || []).length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} align="center">
                           <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
@@ -589,7 +589,7 @@ const AdminDashboard = () => {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      pendingApprovals.map((approval) => (
+                      (pendingApprovals || []).map((approval) => (
                         <TableRow key={approval.id}>
                           <TableCell>
                             <Typography

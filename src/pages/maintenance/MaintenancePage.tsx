@@ -133,7 +133,10 @@ const MaintenancePage = () => {
   // Real-time polling every 30 seconds
   usePolling(async () => {
     await loadData();
-  }, 30000, true);
+  }, {
+    interval: 30000,
+    enabled: true
+  });
 
   const filteredRecords = maintenanceRecords.filter((record) => {
     const matchesSearch = 

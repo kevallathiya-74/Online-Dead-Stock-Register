@@ -110,7 +110,10 @@ const InvoicesPage = () => {
   };
 
   // Real-time polling every 30 seconds
-  usePolling(loadInvoiceData, 30000, true);
+  usePolling(loadInvoiceData, {
+    interval: 30000,
+    enabled: true
+  });
 
   useEffect(() => {
     loadInvoiceData();
@@ -604,7 +607,7 @@ const InvoicesPage = () => {
             >
               Print
             </Button>
-            {selectedInvoice?.status === 'Received' && (
+            {selectedInvoice?.status === 'received' && (
               <Button 
                 variant="contained" 
                 color="success"
@@ -616,7 +619,7 @@ const InvoicesPage = () => {
                 Approve
               </Button>
             )}
-            {selectedInvoice?.status === 'Approved' && (
+            {selectedInvoice?.status === 'approved' && (
               <Button 
                 variant="contained" 
                 color="primary"

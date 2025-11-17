@@ -136,7 +136,10 @@ const PurchaseOrdersPage = () => {
   // Real-time polling every 30 seconds
   usePolling(async () => {
     await loadData();
-  }, 30000, true);
+  }, {
+    interval: 30000,
+    enabled: true
+  });
 
   const filteredOrders = purchaseOrders.filter((order) => {
     const matchesSearch = 
@@ -199,7 +202,7 @@ const PurchaseOrdersPage = () => {
 
   const handleCreatePO = async (newPO: PurchaseOrder) => {
     // Refresh the purchase orders list
-    await loadPurchaseOrders();
+    await loadData();
     setCreatePOOpen(false);
   };
 

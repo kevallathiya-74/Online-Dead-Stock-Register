@@ -101,8 +101,10 @@ const AssetTransfersPage: React.FC = () => {
     async () => {
       await loadTransfers();
     },
-    30000,
-    true
+    {
+      interval: 30000,
+      enabled: true
+    }
   );
 
   const loadTransfers = async () => {
