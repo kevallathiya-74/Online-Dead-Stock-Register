@@ -53,6 +53,7 @@ const VendorsPage = lazy(() => import('./pages/vendors/VendorsPage'));
 const MaintenancePage = lazy(() => import('./pages/maintenance/MaintenancePage'));
 const ReportsPage = lazy(() => import('./pages/reports/ReportsPage'));
 const PurchaseOrdersPage = lazy(() => import('./pages/purchase-orders/PurchaseOrdersPage'));
+const InvoicesPage = lazy(() => import('./pages/purchase-orders/InvoicesPage'));
 const LocationsPage = lazy(() => import('./pages/locations/LocationsPage'));
 const ApprovalsPage = lazy(() => import('./pages/approvals/ApprovalsPage'));
 
@@ -145,6 +146,7 @@ const App = () => {
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/reports/*" element={<ReportsPage />} />
               <Route path="/purchase-orders" element={<PurchaseOrdersPage />} />
+              <Route path="/purchase-orders/invoices" element={<InvoicesPage />} />
               <Route path="/purchase-orders/*" element={<PurchaseOrdersPage />} />
               <Route path="/locations" element={<LocationsPage />} />
               <Route path="/locations/*" element={<LocationsPage />} />

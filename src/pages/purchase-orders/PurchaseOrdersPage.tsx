@@ -58,37 +58,50 @@ import {
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { toast } from 'react-toastify';
 import api from '../../services/api';
+import { usePolling } from '../../hooks/usePolling';
+import PurchaseOrderModal from '../../components/modals/PurchaseOrderModal';
 
 interface PurchaseOrder {
-  id: string;
-  vendor_name: string;
-  vendor_id: string;
-  order_date: string;
-  expected_delivery: string;
-  actual_delivery?: string;
-  status: 'Draft' | 'Pending Approval' | 'Approved' | 'Ordered' | 'Delivered' | 'Cancelled' | 'Invoiced';
-  priority: 'Low' | 'Medium' | 'High' | 'Urgent';
+  _id: string;
+  po_number: string;
+  vendor: {
+    _id: string;
+    name: string;
+    vendor_code: string;
+    contact_person?: string;
+  };
+  requested_by: {
+    _id: string;
+    full_name: string;
+    email: string;
+  };
+  approved_by?: {
+    _id: string;
+    full_name: string;
+    email: string;
+  };
+  department: string;
+  items: Array<{
+    description: string;
+    category: string;
+    quantity: number;
+    unit_price: number;
+    total_price: number;
+  }>;
+  subtotal: number;
+  tax_amount: number;
+  shipping_cost: number;
   total_amount: number;
   currency: string;
-  items_count: number;
-  created_by: string;
-  approved_by?: string;
-  notes?: string;
+  status: 'draft' | 'pending_approval' | 'approved' | 'sent_to_vendor' | 'acknowledged' | 'in_progress' | 'partially_received' | 'completed' | 'cancelled' | 'rejected';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  expected_delivery_date: string;
+  actual_delivery_date?: string;
   payment_terms: string;
-  delivery_address: string;
-  discount_percent: number;
-  tax_amount: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
-
-// interface POItem {
-//   id: string;
-//   item_name: string;
-//   description: string;
-//   quantity: number;
-//   unit_price: number;
-//   total_price: number;
-//   category: string;
-// }
 
 const PurchaseOrdersPage = () => {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
@@ -100,29 +113,37 @@ const PurchaseOrdersPage = () => {
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [viewPOOpen, setViewPOOpen] = useState(false);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const response = await api.get('/purchase-management/purchase-orders');
-        const poData = response.data.data || response.data;
-        setPurchaseOrders(poData);
-      } catch (error) {
-        console.error('Failed to load purchase orders:', error);
-        toast.error('Failed to load purchase orders');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadData = async () => {
+    try {
+      const response = await api.get('/purchase-management/orders');
+      const poData = response.data.purchase_orders || response.data.data || response.data || [];
+      setPurchaseOrders(Array.isArray(poData) ? poData : []);
+    } catch (error: any) {
+      console.error('Failed to load purchase orders:', error);
+      toast.error(error.response?.data?.message || 'Failed to load purchase orders');
+    }
+  };
 
-    loadData();
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setLoading(true);
+      await loadData();
+      setLoading(false);
+    };
+    loadInitialData();
   }, []);
+
+  // Real-time polling every 30 seconds
+  usePolling(async () => {
+    await loadData();
+  }, 30000, true);
 
   const filteredOrders = purchaseOrders.filter((order) => {
     const matchesSearch = 
-      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.vendor_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.created_by.toLowerCase().includes(searchTerm.toLowerCase());
+      order.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.vendor?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.requested_by?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.department.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = selectedStatus === 'all' || order.status === selectedStatus;
     const matchesPriority = selectedPriority === 'all' || order.priority === selectedPriority;
@@ -132,36 +153,54 @@ const PurchaseOrdersPage = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Draft': return 'default';
-      case 'Pending Approval': return 'warning';
-      case 'Approved': return 'info';
-      case 'Ordered': return 'primary';
-      case 'Delivered': return 'success';
-      case 'Cancelled': return 'error';
-      case 'Invoiced': return 'secondary';
+      case 'draft': return 'default';
+      case 'pending_approval': return 'warning';
+      case 'approved': return 'info';
+      case 'sent_to_vendor': return 'primary';
+      case 'acknowledged': return 'info';
+      case 'in_progress': return 'primary';
+      case 'partially_received': return 'warning';
+      case 'completed': return 'success';
+      case 'cancelled': return 'error';
+      case 'rejected': return 'error';
       default: return 'default';
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'Urgent': return 'error';
-      case 'High': return 'warning';
-      case 'Medium': return 'info';
-      case 'Low': return 'default';
+      case 'urgent': return 'error';
+      case 'high': return 'warning';
+      case 'medium': return 'info';
+      case 'low': return 'default';
       default: return 'default';
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'Approved': return <ApprovedIcon />;
-      case 'Delivered': return <ShippingIcon />;
-      case 'Cancelled': return <CancelledIcon />;
-      case 'Pending Approval': return <PendingIcon />;
-      case 'Invoiced': return <InvoiceIcon />;
+      case 'approved': return <ApprovedIcon />;
+      case 'completed': return <ShippingIcon />;
+      case 'cancelled': return <CancelledIcon />;
+      case 'rejected': return <CancelledIcon />;
+      case 'pending_approval': return <PendingIcon />;
+      case 'in_progress': return <OrderIcon />;
       default: return <OrderIcon />;
     }
+  };
+
+  const getStatusLabel = (status: string) => {
+    return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+
+  const getPriorityLabel = (priority: string) => {
+    return priority.charAt(0).toUpperCase() + priority.slice(1);
+  };
+
+  const handleCreatePO = async (newPO: PurchaseOrder) => {
+    // Refresh the purchase orders list
+    await loadPurchaseOrders();
+    setCreatePOOpen(false);
   };
 
   const handleViewPO = (po: PurchaseOrder) => {
@@ -171,20 +210,20 @@ const PurchaseOrdersPage = () => {
 
   const stats = {
     totalOrders: purchaseOrders.length,
-    pendingApproval: purchaseOrders.filter(o => o.status === 'Pending Approval').length,
-    approved: purchaseOrders.filter(o => o.status === 'Approved').length,
-    delivered: purchaseOrders.filter(o => o.status === 'Delivered').length,
+    pendingApproval: purchaseOrders.filter(o => o.status === 'pending_approval').length,
+    approved: purchaseOrders.filter(o => o.status === 'approved' || o.status === 'sent_to_vendor').length,
+    delivered: purchaseOrders.filter(o => o.status === 'completed').length,
     totalValue: purchaseOrders.reduce((sum, order) => sum + order.total_amount, 0),
     avgOrderValue: purchaseOrders.length > 0 ? 
       purchaseOrders.reduce((sum, order) => sum + order.total_amount, 0) / purchaseOrders.length : 0,
   };
 
   const recentOrders = purchaseOrders
-    .sort((a, b) => new Date(b.order_date).getTime() - new Date(a.order_date).getTime())
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5);
 
   const urgentOrders = purchaseOrders
-    .filter(o => o.priority === 'Urgent' && !['Delivered', 'Cancelled'].includes(o.status))
+    .filter(o => o.priority === 'urgent' && !['completed', 'cancelled', 'rejected'].includes(o.status))
     .slice(0, 5);
 
   return (
@@ -371,13 +410,16 @@ const PurchaseOrdersPage = () => {
                         onChange={(e) => setSelectedStatus(e.target.value)}
                       >
                         <MenuItem value="all">All Status</MenuItem>
-                        <MenuItem value="Draft">Draft</MenuItem>
-                        <MenuItem value="Pending Approval">Pending Approval</MenuItem>
-                        <MenuItem value="Approved">Approved</MenuItem>
-                        <MenuItem value="Ordered">Ordered</MenuItem>
-                        <MenuItem value="Delivered">Delivered</MenuItem>
-                        <MenuItem value="Cancelled">Cancelled</MenuItem>
-                        <MenuItem value="Invoiced">Invoiced</MenuItem>
+                        <MenuItem value="draft">Draft</MenuItem>
+                        <MenuItem value="pending_approval">Pending Approval</MenuItem>
+                        <MenuItem value="approved">Approved</MenuItem>
+                        <MenuItem value="sent_to_vendor">Sent to Vendor</MenuItem>
+                        <MenuItem value="acknowledged">Acknowledged</MenuItem>
+                        <MenuItem value="in_progress">In Progress</MenuItem>
+                        <MenuItem value="partially_received">Partially Received</MenuItem>
+                        <MenuItem value="completed">Completed</MenuItem>
+                        <MenuItem value="cancelled">Cancelled</MenuItem>
+                        <MenuItem value="rejected">Rejected</MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
@@ -390,10 +432,10 @@ const PurchaseOrdersPage = () => {
                         onChange={(e) => setSelectedPriority(e.target.value)}
                       >
                         <MenuItem value="all">All Priority</MenuItem>
-                        <MenuItem value="Urgent">Urgent</MenuItem>
-                        <MenuItem value="High">High</MenuItem>
-                        <MenuItem value="Medium">Medium</MenuItem>
-                        <MenuItem value="Low">Low</MenuItem>
+                        <MenuItem value="urgent">Urgent</MenuItem>
+                        <MenuItem value="high">High</MenuItem>
+                        <MenuItem value="medium">Medium</MenuItem>
+                        <MenuItem value="low">Low</MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
@@ -442,18 +484,34 @@ const PurchaseOrdersPage = () => {
                             <TableCell><Skeleton variant="text" width={100} /></TableCell>
                           </TableRow>
                         ))
+                      ) : filteredOrders.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={9}>
+                            <Box sx={{ p: 4, textAlign: 'center' }}>
+                              <OrderIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                              <Typography variant="h6" gutterBottom>
+                                No purchase orders found
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {searchTerm || selectedStatus !== 'all' || selectedPriority !== 'all'
+                                  ? 'Try adjusting your filters to see more results.'
+                                  : 'Click "Create Purchase Order" to get started.'}
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
                       ) : (
                         filteredOrders.slice(0, 10).map((order) => (
-                          <TableRow key={order.id}>
+                          <TableRow key={order._id}>
                             <TableCell>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 {getStatusIcon(order.status)}
                                 <Box>
                                   <Typography variant="subtitle2" sx={{ fontWeight: 'medium' }}>
-                                    {order.id}
+                                    {order.po_number}
                                   </Typography>
                                   <Typography variant="caption" color="text.secondary">
-                                    by {order.created_by}
+                                    by {order.requested_by?.full_name || 'Unknown'}
                                   </Typography>
                                 </Box>
                               </Box>
@@ -461,23 +519,23 @@ const PurchaseOrdersPage = () => {
                             <TableCell>
                               <Box>
                                 <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                                  {order.vendor_name}
+                                  {order.vendor?.name || 'N/A'}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                  {order.vendor_id}
+                                  {order.vendor?.vendor_code || ''}
                                 </Typography>
                               </Box>
                             </TableCell>
                             <TableCell>
                               <Chip
-                                label={order.status}
+                                label={getStatusLabel(order.status)}
                                 color={getStatusColor(order.status) as any}
                                 size="small"
                               />
                             </TableCell>
                             <TableCell>
                               <Chip
-                                label={order.priority}
+                                label={getPriorityLabel(order.priority)}
                                 color={getPriorityColor(order.priority) as any}
                                 size="small"
                                 variant="outlined"
@@ -485,16 +543,19 @@ const PurchaseOrdersPage = () => {
                             </TableCell>
                             <TableCell>
                               <Typography variant="body2">
-                                {new Date(order.order_date).toLocaleDateString()}
+                                {new Date(order.createdAt).toLocaleDateString()}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {order.department}
                               </Typography>
                             </TableCell>
                             <TableCell>
                               <Typography variant="body2">
-                                {new Date(order.expected_delivery).toLocaleDateString()}
+                                {new Date(order.expected_delivery_date).toLocaleDateString()}
                               </Typography>
-                              {order.actual_delivery && (
+                              {order.actual_delivery_date && (
                                 <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
-                                  Delivered: {new Date(order.actual_delivery).toLocaleDateString()}
+                                  Delivered: {new Date(order.actual_delivery_date).toLocaleDateString()}
                                 </Typography>
                               )}
                             </TableCell>
@@ -502,15 +563,15 @@ const PurchaseOrdersPage = () => {
                               <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                                 ₹{(order.total_amount / 100000).toFixed(1)}L
                               </Typography>
-                              {order.discount_percent > 0 && (
-                                <Typography variant="caption" color="success.main">
-                                  {order.discount_percent}% off
+                              {order.tax_amount > 0 && (
+                                <Typography variant="caption" color="text.secondary">
+                                  +₹{(order.tax_amount / 1000).toFixed(1)}K tax
                                 </Typography>
                               )}
                             </TableCell>
                             <TableCell>
                               <Chip
-                                label={`${order.items_count} items`}
+                                label={`${order.items.length} items`}
                                 size="small"
                                 variant="outlined"
                                 icon={<ItemsIcon />}
@@ -562,10 +623,17 @@ const PurchaseOrdersPage = () => {
                       <Skeleton variant="text" width="80%" />
                     </Box>
                   ))
+                ) : recentOrders.length === 0 ? (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <OrderIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      No recent orders
+                    </Typography>
+                  </Box>
                 ) : (
                   <List>
                     {recentOrders.map((order, index) => (
-                      <React.Fragment key={order.id}>
+                      <React.Fragment key={order._id}>
                         <ListItem sx={{ px: 0 }}>
                           <ListItemAvatar>
                             <Avatar sx={{ bgcolor: getStatusColor(order.status) + '.main' }}>
@@ -573,14 +641,14 @@ const PurchaseOrdersPage = () => {
                             </Avatar>
                           </ListItemAvatar>
                           <ListItemText
-                            primary={order.id}
+                            primary={order.po_number}
                             secondary={
                               <Box>
                                 <Typography variant="body2" color="text.secondary">
-                                  {order.vendor_name}
+                                  {order.vendor?.name || 'N/A'}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                  ₹{(order.total_amount / 100000).toFixed(1)}L • {order.items_count} items
+                                  ₹{(order.total_amount / 100000).toFixed(1)}L • {order.items.length} items
                                 </Typography>
                               </Box>
                             }
@@ -611,28 +679,28 @@ const PurchaseOrdersPage = () => {
                 ) : urgentOrders.length > 0 ? (
                   <Box>
                     {urgentOrders.map((order) => (
-                      <Box key={order.id} sx={{ mb: 2 }}>
+                      <Box key={order._id} sx={{ mb: 2 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                           <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                            {order.id}
+                            {order.po_number}
                           </Typography>
                           <Chip
-                            label={order.status}
+                            label={getStatusLabel(order.status)}
                             color={getStatusColor(order.status) as any}
                             size="small"
                           />
                         </Box>
                         <Typography variant="body2" color="text.secondary">
-                          {order.vendor_name}
+                          {order.vendor?.name || 'N/A'}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Expected: {new Date(order.expected_delivery).toLocaleDateString()}
+                          Expected: {new Date(order.expected_delivery_date).toLocaleDateString()}
                         </Typography>
                         <LinearProgress
                           variant="determinate"
                           value={Math.min(
-                            ((new Date().getTime() - new Date(order.order_date).getTime()) / 
-                            (new Date(order.expected_delivery).getTime() - new Date(order.order_date).getTime())) * 100,
+                            ((new Date().getTime() - new Date(order.createdAt).getTime()) / 
+                            (new Date(order.expected_delivery_date).getTime() - new Date(order.createdAt).getTime())) * 100,
                             100
                           )}
                           color="error"
@@ -651,42 +719,67 @@ const PurchaseOrdersPage = () => {
           </Grid>
         </Grid>
 
-        {/* Create PO Dialog */}
-        <Dialog open={createPOOpen} onClose={() => setCreatePOOpen(false)} maxWidth="md" fullWidth>
-          <DialogTitle>Create New Purchase Order</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2" color="text.secondary">
-              Purchase order creation form would be implemented here with vendor selection, items, pricing, and delivery details.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setCreatePOOpen(false)}>Cancel</Button>
-            <Button variant="contained">Create PO</Button>
-          </DialogActions>
-        </Dialog>
+        {/* Create PO Modal */}
+        <PurchaseOrderModal
+          open={createPOOpen}
+          onClose={() => setCreatePOOpen(false)}
+          onSubmit={handleCreatePO}
+        />
 
         {/* View PO Dialog */}
         <Dialog open={viewPOOpen} onClose={() => setViewPOOpen(false)} maxWidth="lg" fullWidth>
           <DialogTitle>
-            Purchase Order Details - {selectedPO?.id}
+            Purchase Order Details - {selectedPO?.po_number}
           </DialogTitle>
           <DialogContent>
             {selectedPO && (
               <Grid container spacing={3} sx={{ mt: 1 }}>
                 <Grid item xs={12} md={6}>
                   <Typography variant="h6" gutterBottom>Order Information</Typography>
-                  <Typography variant="body2"><strong>Vendor:</strong> {selectedPO.vendor_name}</Typography>
-                  <Typography variant="body2"><strong>Order Date:</strong> {new Date(selectedPO.order_date).toLocaleDateString()}</Typography>
-                  <Typography variant="body2"><strong>Expected Delivery:</strong> {new Date(selectedPO.expected_delivery).toLocaleDateString()}</Typography>
+                  <Typography variant="body2"><strong>Vendor:</strong> {selectedPO.vendor?.name || 'N/A'}</Typography>
+                  <Typography variant="body2"><strong>Vendor Code:</strong> {selectedPO.vendor?.vendor_code || 'N/A'}</Typography>
+                  <Typography variant="body2"><strong>Order Date:</strong> {new Date(selectedPO.createdAt).toLocaleDateString()}</Typography>
+                  <Typography variant="body2"><strong>Expected Delivery:</strong> {new Date(selectedPO.expected_delivery_date).toLocaleDateString()}</Typography>
                   <Typography variant="body2"><strong>Payment Terms:</strong> {selectedPO.payment_terms}</Typography>
+                  <Typography variant="body2"><strong>Department:</strong> {selectedPO.department}</Typography>
+                  <Typography variant="body2">
+                    <strong>Status:</strong>{' '}
+                    <Chip
+                      label={getStatusLabel(selectedPO.status)}
+                      color={getStatusColor(selectedPO.status) as any}
+                      size="small"
+                      sx={{ ml: 1 }}
+                    />
+                  </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="h6" gutterBottom>Financial Summary</Typography>
-                  <Typography variant="body2"><strong>Total Amount:</strong> ₹{(selectedPO.total_amount / 100000).toFixed(2)}L</Typography>
-                  <Typography variant="body2"><strong>Discount:</strong> {selectedPO.discount_percent}%</Typography>
-                  <Typography variant="body2"><strong>Tax:</strong> ₹{(selectedPO.tax_amount / 1000).toFixed(2)}K</Typography>
-                  <Typography variant="body2"><strong>Items Count:</strong> {selectedPO.items_count}</Typography>
+                  <Typography variant="body2"><strong>Subtotal:</strong> ₹{(selectedPO.subtotal / 100000).toFixed(2)}L</Typography>
+                  <Typography variant="body2"><strong>Tax Amount:</strong> ₹{(selectedPO.tax_amount / 1000).toFixed(2)}K</Typography>
+                  <Typography variant="body2"><strong>Shipping:</strong> ₹{(selectedPO.shipping_cost / 1000).toFixed(2)}K</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 'bold', mt: 1 }}>
+                    <strong>Total Amount:</strong> ₹{(selectedPO.total_amount / 100000).toFixed(2)}L
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}><strong>Items Count:</strong> {selectedPO.items.length}</Typography>
+                  <Typography variant="body2"><strong>Currency:</strong> {selectedPO.currency}</Typography>
                 </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="h6" gutterBottom>Requested By</Typography>
+                  <Typography variant="body2">
+                    {selectedPO.requested_by?.full_name || 'Unknown'} ({selectedPO.requested_by?.email || 'N/A'})
+                  </Typography>
+                  {selectedPO.approved_by && (
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      <strong>Approved By:</strong> {selectedPO.approved_by.full_name} ({selectedPO.approved_by.email})
+                    </Typography>
+                  )}
+                </Grid>
+                {selectedPO.notes && (
+                  <Grid item xs={12}>
+                    <Typography variant="h6" gutterBottom>Notes</Typography>
+                    <Typography variant="body2">{selectedPO.notes}</Typography>
+                  </Grid>
+                )}
               </Grid>
             )}
           </DialogContent>

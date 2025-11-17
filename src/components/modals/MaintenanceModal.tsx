@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -17,9 +17,8 @@ import {
   Card,
   CardContent,
   Alert,
-  FormControlLabel,
-  Checkbox,
   Autocomplete,
+  CircularProgress,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -36,34 +35,77 @@ interface MaintenanceModalProps {
   onSubmit: (maintenanceData: any) => void;
 }
 
+interface Asset {
+  _id: string;
+  name: string;
+  unique_asset_id: string;
+  asset_type: string;
+  status: string;
+}
+
+interface Technician {
+  id: string;
+  name: string;
+  email: string;
+  specialization: string[];
+  current_workload: number;
+}
+
 const MaintenanceModal: React.FC<MaintenanceModalProps> = ({ open, onClose, onSubmit }) => {
   const [formData, setFormData] = useState({
     asset_id: '',
     maintenance_type: '',
     priority: 'Medium',
-    scheduled_date: '',
-    estimated_hours: 2,
-    technician: '',
+    maintenance_date: '',
+    estimated_duration: 2,
+    performed_by: '',
     description: '',
-    required_parts: [] as string[],
-    cost_estimate: '',
-    is_recurring: false,
-    recurring_frequency: '',
-    notes: '',
+    cost: 0,
+    downtime_impact: 'Low',
+    status: 'Scheduled',
   });
 
-  const [partInput, setPartInput] = useState('');
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+
+  // Load assets and technicians when modal opens
+  useEffect(() => {
+    if (open) {
+      loadFormData();
+    }
+  }, [open]);
+
+  const loadFormData = async () => {
+    setLoadingData(true);
+    try {
+      const [assetsRes, techniciansRes] = await Promise.all([
+        api.get('/assets'),
+        api.get('/maintenance/technicians')
+      ]);
+
+      const assetsData = assetsRes.data.data || assetsRes.data || [];
+      const techniciansData = techniciansRes.data.data || techniciansRes.data || [];
+
+      setAssets(Array.isArray(assetsData) ? assetsData : []);
+      setTechnicians(Array.isArray(techniciansData) ? techniciansData : []);
+    } catch (error) {
+      console.error('Failed to load form data:', error);
+      toast.error('Failed to load assets and technicians');
+    } finally {
+      setLoadingData(false);
+    }
+  };
 
   const maintenanceTypes = [
-    'Preventive Maintenance',
-    'Corrective Maintenance',
-    'Predictive Maintenance',
-    'Emergency Repair',
-    'Software Update',
-    'Hardware Upgrade',
-    'Cleaning & Inspection',
+    'Preventive',
+    'Corrective',
+    'Predictive',
+    'Emergency',
+    'Inspection',
     'Calibration',
+    'Cleaning',
   ];
 
   const priorities = [
@@ -73,31 +115,7 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({ open, onClose, onSu
     { value: 'Critical', color: 'error' },
   ];
 
-  const technicians = [
-    'Rajesh Kumar - IT Specialist',
-    'Priya Singh - Hardware Tech',
-    'Amit Sharma - Network Admin',
-    'Neha Patel - Software Tech',
-    'Vikram Joshi - Field Technician',
-    'Anita Reddy - Senior Technician',
-  ];
-
-  const assets = [
-    'AST-001 - Dell XPS 15 Laptop',
-    'AST-002 - HP LaserJet Printer',
-    'AST-003 - iPhone 14 Pro',
-    'AST-004 - Ergonomic Office Chair',
-    'AST-005 - Network Switch',
-    'AST-006 - Conference Room Projector',
-  ];
-
-  const recurringFrequencies = [
-    'Weekly',
-    'Monthly',
-    'Quarterly',
-    'Semi-annually',
-    'Annually',
-  ];
+  const downtimeImpacts = ['Low', 'Medium', 'High'];
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
@@ -106,82 +124,50 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({ open, onClose, onSu
     }));
   };
 
-  const addPart = () => {
-    if (partInput.trim() && !formData.required_parts.includes(partInput.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        required_parts: [...prev.required_parts, partInput.trim()]
-      }));
-      setPartInput('');
-    }
-  };
-
-  const removePart = (partToRemove: string) => {
-    setFormData(prev => ({
-      ...prev,
-      required_parts: prev.required_parts.filter(part => part !== partToRemove)
-    }));
-  };
-
-  const generateMaintenanceId = () => {
-    const prefix = 'MNT';
-    const timestamp = Date.now().toString().slice(-6);
-    return `${prefix}-${timestamp}`;
-  };
-
-  const calculateScheduledTime = () => {
-    if (!formData.scheduled_date) return '';
-    
-    const date = new Date(formData.scheduled_date);
-    const options: Intl.DateTimeFormatOptions = { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    };
-    return date.toLocaleDateString('en-IN', options);
-  };
-
   const handleSubmit = async () => {
-    if (!formData.asset_id || !formData.maintenance_type || !formData.scheduled_date) {
+    if (!formData.asset_id || !formData.maintenance_type || !formData.maintenance_date) {
       toast.error('Please fill in all required fields');
       return;
     }
 
     setLoading(true);
     try {
-      const maintenanceId = generateMaintenanceId();
-      const maintenanceData = {
-        ...formData,
-        maintenance_id: maintenanceId,
-        status: 'scheduled',
-        cost_estimate: parseFloat(formData.cost_estimate) || 0,
+      const payload = {
+        asset_id: formData.asset_id,
+        maintenance_type: formData.maintenance_type,
+        description: formData.description,
+        cost: formData.cost,
+        maintenance_date: formData.maintenance_date,
+        performed_by: formData.performed_by,
+        priority: formData.priority,
+        status: 'Scheduled',
+        estimated_duration: formData.estimated_duration,
+        downtime_impact: formData.downtime_impact,
       };
 
-      const response = await api.post('/maintenance', maintenanceData);
+      const response = await api.post('/maintenance', payload);
       const createdMaintenance = response.data.data || response.data;
       
       onSubmit(createdMaintenance);
-      toast.success(`Maintenance scheduled successfully! ID: ${maintenanceId}`);
+      toast.success('Maintenance scheduled successfully!');
       
       // Reset form
       setFormData({
         asset_id: '',
         maintenance_type: '',
         priority: 'Medium',
-        scheduled_date: '',
-        estimated_hours: 2,
-        technician: '',
+        maintenance_date: '',
+        estimated_duration: 2,
+        performed_by: '',
         description: '',
-        required_parts: [],
-        cost_estimate: '',
-        is_recurring: false,
-        recurring_frequency: '',
-        notes: '',
+        cost: 0,
+        downtime_impact: 'Low',
+        status: 'Scheduled',
       });
       onClose();
-    } catch (error) {
-      toast.error('Failed to schedule maintenance. Please try again.');
+    } catch (error: any) {
+      console.error('Failed to schedule maintenance:', error);
+      toast.error(error.response?.data?.message || 'Failed to schedule maintenance');
     } finally {
       setLoading(false);
     }
@@ -210,257 +196,219 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({ open, onClose, onSu
       </DialogTitle>
 
       <DialogContent>
-        <Grid container spacing={3}>
-          {/* Asset & Maintenance Type */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <ScheduleIcon />
-                  Basic Information
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <Autocomplete
-                      options={assets}
-                      value={formData.asset_id}
-                      onChange={(_, newValue) => handleInputChange('asset_id', newValue || '')}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="Asset"
-                          required
-                          placeholder="Search for an asset..."
-                        />
-                      )}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <FormControl fullWidth required>
-                      <InputLabel>Maintenance Type</InputLabel>
-                      <Select
-                        value={formData.maintenance_type}
-                        label="Maintenance Type"
-                        onChange={(e) => handleInputChange('maintenance_type', e.target.value)}
-                      >
-                        {maintenanceTypes.map((type) => (
-                          <MenuItem key={type} value={type}>
-                            {type}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <FormControl fullWidth>
-                      <InputLabel>Priority</InputLabel>
-                      <Select
-                        value={formData.priority}
-                        label="Priority"
-                        onChange={(e) => handleInputChange('priority', e.target.value)}
-                      >
-                        {priorities.map((priority) => (
-                          <MenuItem key={priority.value} value={priority.value}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Box
-                                sx={{
-                                  width: 12,
-                                  height: 12,
-                                  borderRadius: 1,
-                                  bgcolor: `${priority.color}.main`,
-                                }}
-                              />
-                              {priority.value}
-                            </Box>
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Scheduling & Assignment */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <PersonIcon />
-                  Scheduling & Assignment
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Scheduled Date"
-                      type="date"
-                      value={formData.scheduled_date}
-                      onChange={(e) => handleInputChange('scheduled_date', e.target.value)}
-                      required
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Estimated Hours"
-                      type="number"
-                      value={formData.estimated_hours}
-                      onChange={(e) => handleInputChange('estimated_hours', parseInt(e.target.value) || 1)}
-                      inputProps={{ min: 1, max: 24 }}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Autocomplete
-                      options={technicians}
-                      value={formData.technician}
-                      onChange={(_, newValue) => handleInputChange('technician', newValue || '')}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="Assigned Technician"
-                          placeholder="Select technician..."
-                        />
-                      )}
-                    />
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Description */}
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Description"
-              multiline
-              rows={3}
-              value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              placeholder="Describe the maintenance work to be performed..."
-            />
-          </Grid>
-
-          {/* Required Parts */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Required Parts</Typography>
-                <Box sx={{ mb: 2 }}>
-                  <TextField
-                    fullWidth
-                    label="Add Part"
-                    value={partInput}
-                    onChange={(e) => setPartInput(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && addPart()}
-                    placeholder="Type part name and press Enter"
-                  />
-                </Box>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {formData.required_parts.map((part, index) => (
-                    <Button
-                      key={index}
-                      variant="outlined"
-                      size="small"
-                      onClick={() => removePart(part)}
-                      sx={{ textTransform: 'none' }}
-                    >
-                      {part} ×
-                    </Button>
-                  ))}
-                  {formData.required_parts.length === 0 && (
-                    <Typography variant="body2" color="text.secondary">
-                      No parts required
-                    </Typography>
-                  )}
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Cost & Recurring */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Cost & Recurring</Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Cost Estimate"
-                      type="number"
-                      value={formData.cost_estimate}
-                      onChange={(e) => handleInputChange('cost_estimate', e.target.value)}
-                      InputProps={{
-                        startAdornment: <Typography sx={{ mr: 1 }}>₹</Typography>,
-                      }}
-                      placeholder="0"
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={formData.is_recurring}
-                          onChange={(e) => handleInputChange('is_recurring', e.target.checked)}
-                        />
-                      }
-                      label="Recurring Maintenance"
-                    />
-                  </Grid>
-                  {formData.is_recurring && (
+        {loadingData ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Grid container spacing={3}>
+            {/* Asset & Maintenance Type */}
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <ScheduleIcon />
+                    Basic Information
+                  </Typography>
+                  <Grid container spacing={2}>
                     <Grid item xs={12}>
-                      <FormControl fullWidth>
-                        <InputLabel>Frequency</InputLabel>
+                      <Autocomplete
+                        options={assets}
+                        getOptionLabel={(option) => typeof option === 'string' ? option : `${option.unique_asset_id} - ${option.name}`}
+                        value={assets.find(a => a._id === formData.asset_id) || null}
+                        onChange={(_, newValue) => handleInputChange('asset_id', newValue?._id || '')}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Asset"
+                            required
+                            placeholder="Search for an asset..."
+                          />
+                        )}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <FormControl fullWidth required>
+                        <InputLabel>Maintenance Type</InputLabel>
                         <Select
-                          value={formData.recurring_frequency}
-                          label="Frequency"
-                          onChange={(e) => handleInputChange('recurring_frequency', e.target.value)}
+                          value={formData.maintenance_type}
+                          label="Maintenance Type"
+                          onChange={(e) => handleInputChange('maintenance_type', e.target.value)}
                         >
-                          {recurringFrequencies.map((freq) => (
-                            <MenuItem key={freq} value={freq}>
-                              {freq}
+                          {maintenanceTypes.map((type) => (
+                            <MenuItem key={type} value={type}>
+                              {type}
                             </MenuItem>
                           ))}
                         </Select>
                       </FormControl>
                     </Grid>
-                  )}
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Notes */}
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Additional Notes"
-              multiline
-              rows={2}
-              value={formData.notes}
-              onChange={(e) => handleInputChange('notes', e.target.value)}
-              placeholder="Any additional instructions or notes..."
-            />
-          </Grid>
-
-          {/* Preview */}
-          {formData.scheduled_date && (
-            <Grid item xs={12}>
-              <Alert severity="info">
-                <Typography variant="body2">
-                  <strong>Maintenance Summary:</strong> {formData.maintenance_type} for {formData.asset_id} 
-                  scheduled on {calculateScheduledTime()} 
-                  {formData.technician && ` - Assigned to ${formData.technician.split(' - ')[0]}`}
-                  {formData.cost_estimate && ` - Estimated cost: ₹${parseFloat(formData.cost_estimate).toLocaleString()}`}
-                </Typography>
-              </Alert>
+                    <Grid item xs={12}>
+                      <FormControl fullWidth>
+                        <InputLabel>Priority</InputLabel>
+                        <Select
+                          value={formData.priority}
+                          label="Priority"
+                          onChange={(e) => handleInputChange('priority', e.target.value)}
+                        >
+                          {priorities.map((priority) => (
+                            <MenuItem key={priority.value} value={priority.value}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Box
+                                  sx={{
+                                    width: 12,
+                                    height: 12,
+                                    borderRadius: 1,
+                                    bgcolor: `${priority.color}.main`,
+                                  }}
+                                />
+                                {priority.value}
+                              </Box>
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
             </Grid>
-          )}
-        </Grid>
+
+            {/* Scheduling & Assignment */}
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <PersonIcon />
+                    Scheduling & Assignment
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="Maintenance Date"
+                        type="datetime-local"
+                        value={formData.maintenance_date}
+                        onChange={(e) => handleInputChange('maintenance_date', e.target.value)}
+                        required
+                        InputLabelProps={{ shrink: true }}
+                        inputProps={{
+                          min: new Date().toISOString().slice(0, 16)
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="Estimated Duration (hours)"
+                        type="number"
+                        value={formData.estimated_duration}
+                        onChange={(e) => handleInputChange('estimated_duration', parseInt(e.target.value) || 1)}
+                        inputProps={{ min: 0.5, max: 24, step: 0.5 }}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Autocomplete
+                        options={technicians}
+                        getOptionLabel={(option) => typeof option === 'string' ? option : `${option.name} (${option.current_workload} tasks)`}
+                        value={technicians.find(t => t.name === formData.performed_by) || null}
+                        onChange={(_, newValue) => handleInputChange('performed_by', newValue?.name || '')}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Assigned Technician"
+                            placeholder="Select technician..."
+                          />
+                        )}
+                        renderOption={(props, option) => (
+                          <Box component="li" {...props}>
+                            <Box>
+                              <Typography variant="body2">{option.name}</Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {option.specialization.join(', ')} • {option.current_workload} active tasks
+                              </Typography>
+                            </Box>
+                          </Box>
+                        )}
+                      />
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Description */}
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Description"
+                multiline
+                rows={3}
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                placeholder="Describe the maintenance work to be performed..."
+              />
+            </Grid>
+
+            {/* Cost & Downtime */}
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>Cost Estimate</Typography>
+                  <TextField
+                    fullWidth
+                    label="Estimated Cost"
+                    type="number"
+                    value={formData.cost}
+                    onChange={(e) => handleInputChange('cost', parseFloat(e.target.value) || 0)}
+                    InputProps={{
+                      startAdornment: <Typography sx={{ mr: 1 }}>₹</Typography>,
+                    }}
+                    inputProps={{ min: 0, step: 100 }}
+                    placeholder="0"
+                  />
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>Downtime Impact</Typography>
+                  <FormControl fullWidth>
+                    <InputLabel>Impact Level</InputLabel>
+                    <Select
+                      value={formData.downtime_impact}
+                      label="Impact Level"
+                      onChange={(e) => handleInputChange('downtime_impact', e.target.value)}
+                    >
+                      {downtimeImpacts.map((impact) => (
+                        <MenuItem key={impact} value={impact}>
+                          {impact}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Preview */}
+            {formData.asset_id && formData.maintenance_type && formData.maintenance_date && (
+              <Grid item xs={12}>
+                <Alert severity="info">
+                  <Typography variant="body2">
+                    <strong>Maintenance Summary:</strong> {formData.maintenance_type} maintenance for{' '}
+                    {assets.find(a => a._id === formData.asset_id)?.name || 'selected asset'}{' '}
+                    scheduled on {new Date(formData.maintenance_date).toLocaleString()}{' '}
+                    {formData.performed_by && ` - Assigned to ${formData.performed_by}`}
+                    {formData.cost > 0 && ` - Estimated cost: ₹${formData.cost.toLocaleString()}`}
+                  </Typography>
+                </Alert>
+              </Grid>
+            )}
+          </Grid>
+        )}
       </DialogContent>
 
       <DialogActions sx={{ px: 3, pb: 3 }}>

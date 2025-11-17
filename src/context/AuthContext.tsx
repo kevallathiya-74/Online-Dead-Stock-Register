@@ -35,15 +35,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const token = localStorage.getItem('auth_token');
+        const token = localStorage.getItem('token');
         if (token) {
           const userData = await authService.getCurrentUser();
-          setUser(userData);
+          if (userData) {
+            setUser(userData);
+          } else {
+            localStorage.removeItem('token');
+            setUser(null);
+          }
         } else {
           setUser(null);
         }
       } catch (error) {
-        localStorage.removeItem('auth_token');
+        console.error('Auth check failed:', error);
+        localStorage.removeItem('token');
         setUser(null);
       } finally {
         setLoading(false);
@@ -60,13 +66,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (response.error) {
         throw new Error(response.error.message);
       }
-      if (response.token) {
-        localStorage.setItem('auth_token', response.token);
+      if (!response.token || !response.user) {
+        throw new Error('Invalid response from server');
       }
-      if (response.user) {
-        setUser(response.user);
-        toast.success('Login successful');
-      }
+      // Token is already stored by authService.signIn
+      setUser(response.user);
+      toast.success('Login successful');
     } catch (error: any) {
       toast.error(error.message || 'Login failed');
       throw error;
@@ -88,10 +93,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (response.error) {
         throw new Error(response.error.message);
       }
-      if (response.user) {
-        setUser(response.user);
-        toast.success('Registration successful');
+      if (!response.user) {
+        throw new Error('Registration failed - no user data returned');
       }
+      // Token is already stored by authService.signUp
+      setUser(response.user);
+      toast.success('Registration successful');
     } catch (error: any) {
       toast.error(error.message || 'Registration failed');
       throw error;
@@ -103,10 +110,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     try {
       setLoading(true);
-      localStorage.removeItem('auth_token');
+      await authService.signOut();
       setUser(null);
       toast.success('Logged out successfully');
     } catch (error: any) {
+      console.error('Logout error:', error);
       toast.error('Logout failed');
       throw error;
     } finally {

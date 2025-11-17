@@ -66,9 +66,10 @@ export const API_ENDPOINTS = {
     ASSETS_LOCATION: '/dashboard/assets-by-location',
     WARRANTY_EXPIRING: '/dashboard/warranty-expiring',
     MAINTENANCE_SCHEDULE: '/dashboard/maintenance-schedule',
-    VENDOR_PERFORMANCE: '/dashboard/vendor-performance',
+    TOP_VENDORS: '/dashboard/top-vendors',
+    INVENTORY_APPROVALS: '/dashboard/inventory-approvals',
     USER_ASSETS: (userId: string) => `/dashboard/user-assets/${userId}`,
-    AUDIT_ITEMS: '/dashboard/audit-items',
+    AUDIT_ITEMS: '/dashboard/auditor/audit-items',
     CHART_DATA: (type: string) => `/dashboard/chart-data/${type}`,
     REALTIME_UPDATES: '/dashboard/realtime-updates'
   }

@@ -11,8 +11,7 @@ const api = axios.create({
 // Request interceptor
 api.interceptors.request.use(
   (config) => {
-    // Check both 'auth_token' (used by AuthContext) and 'token' for backward compatibility
-    const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+    const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -28,8 +27,6 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Clear both token keys
-      localStorage.removeItem('auth_token');
       localStorage.removeItem('token');
       window.location.href = '/login';
     }

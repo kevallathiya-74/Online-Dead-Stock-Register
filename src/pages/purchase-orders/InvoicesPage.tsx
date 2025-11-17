@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { usePolling } from '../../hooks/usePolling';
 import {
   Box,
   Typography,
@@ -46,22 +47,34 @@ import { toast } from 'react-toastify';
 import api from '../../services/api';
 
 interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  purchaseOrderId: string;
-  vendorName: string;
-  vendorGSTIN: string;
-  invoiceDate: string;
-  dueDate: string;
-  status: 'Draft' | 'Sent' | 'Received' | 'Approved' | 'Paid' | 'Overdue' | 'Cancelled';
-  totalAmount: number;
-  taxAmount: number;
-  netAmount: number;
-  paymentMethod: 'Bank Transfer' | 'Cheque' | 'Cash' | 'UPI' | 'Credit Card';
-  paymentDate?: string;
-  paymentReference?: string;
+  _id: string;
+  invoice_number: string;
+  purchase_order: {
+    _id: string;
+    po_number: string;
+    status: string;
+  };
+  vendor: {
+    _id: string;
+    vendor_name: string;
+    contact_person?: string;
+    email?: string;
+    phone?: string;
+  };
+  vendor_gstin: string;
+  invoice_date: string;
+  due_date: string;
+  status: 'draft' | 'sent' | 'received' | 'approved' | 'paid' | 'overdue' | 'cancelled';
+  total_amount: number;
+  tax_amount: number;
+  subtotal: number;
+  payment_method: 'bank_transfer' | 'cheque' | 'cash' | 'upi' | 'credit_card' | 'other';
+  payment_date?: string;
+  payment_reference?: string;
   items: InvoiceItem[];
   notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface InvoiceItem {
@@ -81,23 +94,27 @@ const InvoicesPage = () => {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadInvoiceData();
-  }, []);
-
   const loadInvoiceData = async () => {
     try {
       setLoading(true);
       const response = await api.get('/purchase-management/invoices');
       const data = response.data.data || response.data;
-      setInvoices(data);
+      setInvoices(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading invoice data:', error);
       toast.error('Failed to load invoice data');
+      setInvoices([]);
     } finally {
       setLoading(false);
     }
   };
+
+  // Real-time polling every 30 seconds
+  usePolling(loadInvoiceData, 30000, true);
+
+  useEffect(() => {
+    loadInvoiceData();
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -136,11 +153,11 @@ const InvoicesPage = () => {
 
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch = 
-      invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.purchaseOrderId.toLowerCase().includes(searchTerm.toLowerCase());
+      invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.vendor?.vendor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.purchase_order?.po_number?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter === 'All' || invoice.status === statusFilter;
+    const matchesStatus = statusFilter === 'All' || invoice.status === statusFilter.toLowerCase();
     
     return matchesSearch && matchesStatus;
   });
@@ -155,35 +172,37 @@ const InvoicesPage = () => {
     setIsDetailModalOpen(false);
   };
 
-  const handleApproveInvoice = (invoice: Invoice) => {
-    toast.success(`Invoice ${invoice.invoiceNumber} approved for payment`);
-    setInvoices(prev => prev.map(inv => 
-      inv.id === invoice.id 
-        ? { ...inv, status: 'Approved' as const }
-        : inv
-    ));
+  const handleApproveInvoice = async (invoice: Invoice) => {
+    try {
+      await api.patch(`/purchase-management/invoices/${invoice._id}/status`, {
+        status: 'approved'
+      });
+      toast.success(`Invoice ${invoice.invoice_number} approved for payment`);
+      loadInvoiceData(); // Refresh the list
+    } catch (error) {
+      toast.error('Failed to approve invoice');
+    }
   };
 
-  const handleMarkAsPaid = (invoice: Invoice) => {
-    toast.success(`Invoice ${invoice.invoiceNumber} marked as paid`);
-    setInvoices(prev => prev.map(inv => 
-      inv.id === invoice.id 
-        ? { 
-            ...inv, 
-            status: 'Paid' as const,
-            paymentDate: new Date().toISOString().split('T')[0],
-            paymentReference: `PAY-${Date.now()}`
-          }
-        : inv
-    ));
+  const handleMarkAsPaid = async (invoice: Invoice) => {
+    try {
+      await api.patch(`/purchase-management/invoices/${invoice._id}/status`, {
+        status: 'paid',
+        payment_date: new Date().toISOString()
+      });
+      toast.success(`Invoice ${invoice.invoice_number} marked as paid`);
+      loadInvoiceData(); // Refresh the list
+    } catch (error) {
+      toast.error('Failed to mark invoice as paid');
+    }
   };
 
-  const paidCount = invoices.filter(inv => inv.status === 'Paid').length;
-  const pendingCount = invoices.filter(inv => ['Received', 'Approved'].includes(inv.status)).length;
-  const overdueCount = invoices.filter(inv => inv.status === 'Overdue').length;
+  const paidCount = invoices.filter(inv => inv.status === 'paid').length;
+  const pendingCount = invoices.filter(inv => ['received', 'approved'].includes(inv.status)).length;
+  const overdueCount = invoices.filter(inv => inv.status === 'overdue').length;
   const totalPaidAmount = invoices
-    .filter(inv => inv.status === 'Paid')
-    .reduce((sum, inv) => sum + inv.totalAmount, 0);
+    .filter(inv => inv.status === 'paid')
+    .reduce((sum, inv) => sum + inv.total_amount, 0);
 
   return (
     <DashboardLayout>
@@ -372,53 +391,53 @@ const InvoicesPage = () => {
                     </TableRow>
                   ) : (
                     filteredInvoices.map((invoice) => (
-                      <TableRow key={invoice.id}>
+                      <TableRow key={invoice._id}>
                         <TableCell>
                           <Box>
                             <Typography variant="subtitle2">
-                              {invoice.invoiceNumber}
+                              {invoice.invoice_number}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                              GSTIN: {invoice.vendorGSTIN}
+                              GSTIN: {invoice.vendor_gstin || 'N/A'}
                             </Typography>
                           </Box>
                         </TableCell>
-                        <TableCell>{invoice.vendorName}</TableCell>
+                        <TableCell>{invoice.vendor?.vendor_name || 'N/A'}</TableCell>
                         <TableCell>
                           <Typography variant="body2" fontFamily="monospace">
-                            {invoice.purchaseOrderId}
+                            {invoice.purchase_order?.po_number || 'N/A'}
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          {format(parseISO(invoice.invoiceDate), 'MMM dd, yyyy')}
+                          {format(parseISO(invoice.invoice_date), 'MMM dd, yyyy')}
                         </TableCell>
                         <TableCell>
                           <Typography 
                             variant="body2"
-                            color={invoice.status === 'Overdue' ? 'error.main' : 'text.primary'}
+                            color={invoice.status === 'overdue' ? 'error.main' : 'text.primary'}
                           >
-                            {format(parseISO(invoice.dueDate), 'MMM dd, yyyy')}
+                            {format(parseISO(invoice.due_date), 'MMM dd, yyyy')}
                           </Typography>
                         </TableCell>
                         <TableCell>
                           <Chip
                             icon={getStatusIcon(invoice.status)}
-                            label={invoice.status}
+                            label={invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                             color={getStatusColor(invoice.status) as any}
                             size="small"
                           />
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" fontWeight="medium">
-                            ₹{invoice.totalAmount.toLocaleString()}
+                            ₹{invoice.total_amount.toLocaleString()}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            Net: ₹{invoice.netAmount.toLocaleString()}
+                            Tax: ₹{invoice.tax_amount.toLocaleString()}
                           </Typography>
                         </TableCell>
                         <TableCell>
                           <Chip
-                            label={invoice.paymentMethod}
+                            label={invoice.payment_method.replace('_', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
                             size="small"
                             variant="outlined"
                           />
@@ -437,12 +456,12 @@ const InvoicesPage = () => {
                               <IconButton
                                 size="small"
                                 color="primary"
-                                onClick={() => toast.info(`Printing invoice ${invoice.invoiceNumber}`)}
+                                onClick={() => toast.info(`Printing invoice ${invoice.invoice_number}`)}
                               >
                                 <PrintIcon />
                               </IconButton>
                             </Tooltip>
-                            {invoice.status === 'Received' && (
+                            {invoice.status === 'received' && (
                               <Tooltip title="Approve">
                                 <IconButton
                                   size="small"
@@ -453,7 +472,7 @@ const InvoicesPage = () => {
                                 </IconButton>
                               </Tooltip>
                             )}
-                            {invoice.status === 'Approved' && (
+                            {invoice.status === 'approved' && (
                               <Tooltip title="Mark as Paid">
                                 <IconButton
                                   size="small"
@@ -483,7 +502,7 @@ const InvoicesPage = () => {
           fullWidth
         >
           <DialogTitle>
-            Invoice Details - {selectedInvoice?.invoiceNumber}
+            Invoice Details - {selectedInvoice?.invoice_number}
           </DialogTitle>
           <DialogContent>
             {selectedInvoice && (
@@ -491,13 +510,13 @@ const InvoicesPage = () => {
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={6}>
                     <Typography variant="subtitle2" gutterBottom>Invoice Information</Typography>
-                    <Typography variant="body2"><strong>Invoice Number:</strong> {selectedInvoice.invoiceNumber}</Typography>
-                    <Typography variant="body2"><strong>Purchase Order:</strong> {selectedInvoice.purchaseOrderId}</Typography>
-                    <Typography variant="body2"><strong>Invoice Date:</strong> {format(parseISO(selectedInvoice.invoiceDate), 'MMM dd, yyyy')}</Typography>
-                    <Typography variant="body2"><strong>Due Date:</strong> {format(parseISO(selectedInvoice.dueDate), 'MMM dd, yyyy')}</Typography>
+                    <Typography variant="body2"><strong>Invoice Number:</strong> {selectedInvoice.invoice_number}</Typography>
+                    <Typography variant="body2"><strong>Purchase Order:</strong> {selectedInvoice.purchase_order?.po_number || 'N/A'}</Typography>
+                    <Typography variant="body2"><strong>Invoice Date:</strong> {format(parseISO(selectedInvoice.invoice_date), 'MMM dd, yyyy')}</Typography>
+                    <Typography variant="body2"><strong>Due Date:</strong> {format(parseISO(selectedInvoice.due_date), 'MMM dd, yyyy')}</Typography>
                     <Typography variant="body2"><strong>Status:</strong> 
                       <Chip
-                        label={selectedInvoice.status}
+                        label={selectedInvoice.status.charAt(0).toUpperCase() + selectedInvoice.status.slice(1)}
                         color={getStatusColor(selectedInvoice.status) as any}
                         size="small"
                         sx={{ ml: 1 }}
@@ -506,14 +525,14 @@ const InvoicesPage = () => {
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="subtitle2" gutterBottom>Vendor Information</Typography>
-                    <Typography variant="body2"><strong>Vendor:</strong> {selectedInvoice.vendorName}</Typography>
-                    <Typography variant="body2"><strong>GSTIN:</strong> {selectedInvoice.vendorGSTIN}</Typography>
-                    <Typography variant="body2"><strong>Payment Method:</strong> {selectedInvoice.paymentMethod}</Typography>
-                    {selectedInvoice.paymentDate && (
-                      <Typography variant="body2"><strong>Payment Date:</strong> {format(parseISO(selectedInvoice.paymentDate), 'MMM dd, yyyy')}</Typography>
+                    <Typography variant="body2"><strong>Vendor:</strong> {selectedInvoice.vendor?.vendor_name || 'N/A'}</Typography>
+                    <Typography variant="body2"><strong>GSTIN:</strong> {selectedInvoice.vendor_gstin || 'N/A'}</Typography>
+                    <Typography variant="body2"><strong>Payment Method:</strong> {selectedInvoice.payment_method.replace('_', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</Typography>
+                    {selectedInvoice.payment_date && (
+                      <Typography variant="body2"><strong>Payment Date:</strong> {format(parseISO(selectedInvoice.payment_date), 'MMM dd, yyyy')}</Typography>
                     )}
-                    {selectedInvoice.paymentReference && (
-                      <Typography variant="body2"><strong>Payment Ref:</strong> {selectedInvoice.paymentReference}</Typography>
+                    {selectedInvoice.payment_reference && (
+                      <Typography variant="body2"><strong>Payment Ref:</strong> {selectedInvoice.payment_reference}</Typography>
                     )}
                   </Grid>
                 </Grid>
@@ -549,12 +568,12 @@ const InvoicesPage = () => {
                 <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
                   <Grid container spacing={2}>
                     <Grid item xs={6}>
-                      <Typography variant="body2"><strong>Net Amount:</strong> ₹{selectedInvoice.netAmount.toLocaleString()}</Typography>
-                      <Typography variant="body2"><strong>Tax Amount:</strong> ₹{selectedInvoice.taxAmount.toLocaleString()}</Typography>
+                      <Typography variant="body2"><strong>Subtotal:</strong> ₹{selectedInvoice.subtotal.toLocaleString()}</Typography>
+                      <Typography variant="body2"><strong>Tax Amount:</strong> ₹{selectedInvoice.tax_amount.toLocaleString()}</Typography>
                     </Grid>
                     <Grid item xs={6}>
                       <Typography variant="h6" color="primary.main">
-                        <strong>Total Amount: ₹{selectedInvoice.totalAmount.toLocaleString()}</strong>
+                        <strong>Total Amount: ₹{selectedInvoice.total_amount.toLocaleString()}</strong>
                       </Typography>
                     </Grid>
                   </Grid>
@@ -579,7 +598,7 @@ const InvoicesPage = () => {
               variant="outlined"
               startIcon={<PrintIcon />}
               onClick={() => {
-                toast.info(`Printing invoice ${selectedInvoice?.invoiceNumber}`);
+                toast.info(`Printing invoice ${selectedInvoice?.invoice_number}`);
                 handleCloseDetailModal();
               }}
             >

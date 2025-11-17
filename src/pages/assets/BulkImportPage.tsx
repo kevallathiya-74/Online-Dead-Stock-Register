@@ -78,34 +78,80 @@ const BulkImportPage: React.FC = () => {
       try {
         // Parse and preview the file
         const text = await file.text();
-        const rows = text.split('\n');
-        const headers = rows[0].split(',').map(h => h.trim().replace(/"/g, ''));
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          toast.error('File appears to be empty or has no data rows');
+          return;
+        }
+
+        // Parse headers - handle both quoted and unquoted CSV
+        const headerLine = lines[0];
+        const headers = headerLine.split(',').map(h => 
+          h.trim().replace(/^"|"$/g, '').toLowerCase().replace(/\s+/g, '_')
+        );
+        
+        // Check required fields
+        const requiredFields = ['name', 'unique_asset_id', 'asset_type'];
+        const missingFields = requiredFields.filter(field => !headers.includes(field));
+        
+        if (missingFields.length > 0) {
+          toast.error(`Missing required columns: ${missingFields.join(', ')}`);
+          return;
+        }
         
         const preview: any[] = [];
-        for (let i = 1; i < Math.min(6, rows.length); i++) {
-          if (rows[i].trim()) {
-            const values = rows[i].split(',').map(v => v.trim().replace(/"/g, ''));
-            const row: any = {};
-            headers.forEach((header, index) => {
-              row[header] = values[index] || '';
-            });
-            
-            // Validate required fields
-            const status = (!row.name || !row.unique_asset_id || !row.asset_type) 
-              ? 'Missing required fields' 
-              : 'Valid';
-            
-            preview.push({
-              name: row.name || row.asset_name,
-              unique_asset_id: row.unique_asset_id || row.asset_id,
-              asset_type: row.asset_type || row.type,
-              status
-            });
+        const maxPreview = Math.min(6, lines.length);
+        
+        for (let i = 1; i < maxPreview; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          // Simple CSV parsing (handles basic quoted values)
+          const values: string[] = [];
+          let current = '';
+          let inQuotes = false;
+          
+          for (let char of line) {
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              values.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
           }
+          values.push(current.trim());
+          
+          const row: any = {};
+          headers.forEach((header, index) => {
+            row[header] = values[index]?.replace(/^"|"$/g, '') || '';
+          });
+          
+          // Validate this row
+          const errors: string[] = [];
+          if (!row.name) errors.push('name');
+          if (!row.unique_asset_id) errors.push('unique_asset_id');
+          if (!row.asset_type) errors.push('asset_type');
+          
+          const status = errors.length === 0 
+            ? 'Valid' 
+            : `Missing: ${errors.join(', ')}`;
+          
+          preview.push({
+            name: row.name,
+            unique_asset_id: row.unique_asset_id,
+            asset_type: row.asset_type,
+            manufacturer: row.manufacturer || '-',
+            model: row.model || '-',
+            status
+          });
         }
         
         setPreviewData(preview);
-        toast.success(`File "${file.name}" loaded successfully (${preview.length} rows preview)`);
+        const validRows = preview.filter(p => p.status === 'Valid').length;
+        toast.success(`File "${file.name}" loaded successfully (${validRows}/${preview.length} rows valid in preview)`);
         setActiveStep(2);
       } catch (error) {
         console.error('Error parsing file:', error);
@@ -133,10 +179,20 @@ const BulkImportPage: React.FC = () => {
         },
       });
 
-      setImportResult(response.data);
+      const result = response.data.data || response.data;
+      setImportResult({
+        success: result.success || result.successCount || 0,
+        failed: result.failed || result.failedCount || 0,
+        errors: result.errors || []
+      });
       setActiveStep(3);
       
-      toast.success(`Import completed: ${response.data.success} assets imported successfully`);
+      const successCount = result.success || result.successCount || 0;
+      if (successCount > 0) {
+        toast.success(`Import completed: ${successCount} assets imported successfully`);
+      } else {
+        toast.warning('Import completed but no assets were created');
+      }
     } catch (error: any) {
       console.error('Import failed:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Import failed';
@@ -198,16 +254,21 @@ const BulkImportPage: React.FC = () => {
                     Required columns:
                   </Typography>
                   <Box component="ul" sx={{ mb: 3 }}>
-                    <li>Asset Name</li>
-                    <li>Unique Asset ID</li>
-                    <li>Asset Type</li>
-                    <li>Manufacturer</li>
-                    <li>Model</li>
-                    <li>Serial Number</li>
-                    <li>Purchase Date</li>
-                    <li>Purchase Value</li>
-                    <li>Status</li>
-                    <li>Location</li>
+                    <li><strong>name</strong> - Asset name</li>
+                    <li><strong>unique_asset_id</strong> - Unique asset identifier</li>
+                    <li><strong>asset_type</strong> - Asset type/category</li>
+                    <li>category - Sub-category (optional)</li>
+                    <li>manufacturer - Manufacturer name (optional)</li>
+                    <li>model - Model name/number (optional)</li>
+                    <li>serial_number - Serial number (optional)</li>
+                    <li>purchase_date - Date in YYYY-MM-DD format (optional)</li>
+                    <li>purchase_value - Purchase cost in ₹ (optional)</li>
+                    <li>warranty_expiry - Warranty expiry date (optional)</li>
+                    <li>status - Available, Active, Under Maintenance, etc. (optional)</li>
+                    <li>condition - Excellent, Good, Fair, Poor, Damaged (optional)</li>
+                    <li>location - Physical location (optional)</li>
+                    <li>department - Department name (optional)</li>
+                    <li>description - Asset description (optional)</li>
                   </Box>
 
                   <Box sx={{ display: 'flex', gap: 2 }}>
@@ -300,18 +361,22 @@ const BulkImportPage: React.FC = () => {
                     <Table size="small">
                       <TableHead>
                         <TableRow>
-                          <TableCell>Asset Name</TableCell>
+                          <TableCell>Name</TableCell>
                           <TableCell>Asset ID</TableCell>
                           <TableCell>Type</TableCell>
-                          <TableCell>Status</TableCell>
+                          <TableCell>Manufacturer</TableCell>
+                          <TableCell>Model</TableCell>
+                          <TableCell>Validation</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {previewData.map((row, index) => (
                           <TableRow key={index}>
-                            <TableCell>{row.name}</TableCell>
+                            <TableCell>{row.name || '-'}</TableCell>
                             <TableCell>{row.unique_asset_id || '-'}</TableCell>
-                            <TableCell>{row.asset_type}</TableCell>
+                            <TableCell>{row.asset_type || '-'}</TableCell>
+                            <TableCell>{row.manufacturer || '-'}</TableCell>
+                            <TableCell>{row.model || '-'}</TableCell>
                             <TableCell>
                               <Chip
                                 label={row.status}
@@ -392,24 +457,33 @@ const BulkImportPage: React.FC = () => {
 
                   {importResult.errors.length > 0 && (
                     <>
+                      <Alert severity="warning" sx={{ mb: 2 }}>
+                        {importResult.errors.length} row(s) failed to import. Please review the errors below and correct your data.
+                      </Alert>
                       <Typography variant="subtitle1" gutterBottom>
-                        Errors:
+                        Import Errors:
                       </Typography>
-                      <TableContainer component={Paper} elevation={0} sx={{ mb: 3 }}>
+                      <TableContainer component={Paper} elevation={0} sx={{ mb: 3, maxHeight: 400, overflow: 'auto' }}>
                         <Table size="small">
                           <TableHead>
                             <TableRow>
-                              <TableCell>Row</TableCell>
-                              <TableCell>Error</TableCell>
-                              <TableCell>Data</TableCell>
+                              <TableCell>Row #</TableCell>
+                              <TableCell>Error Message</TableCell>
+                              <TableCell>Asset ID</TableCell>
+                              <TableCell>Name</TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
                             {importResult.errors.map((error, index) => (
                               <TableRow key={index}>
                                 <TableCell>{error.row}</TableCell>
-                                <TableCell>{error.error}</TableCell>
-                                <TableCell>{JSON.stringify(error.data)}</TableCell>
+                                <TableCell>
+                                  <Typography variant="body2" color="error">
+                                    {error.error}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell>{error.data?.unique_asset_id || '-'}</TableCell>
+                                <TableCell>{error.data?.name || '-'}</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>

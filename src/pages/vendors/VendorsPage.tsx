@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { usePolling } from '../../hooks/usePolling';
 import {
   Box,
   Typography,
@@ -78,10 +79,6 @@ const VendorsPage = () => {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
-  useEffect(() => {
-    loadVendors();
-  }, []);
-
   const loadVendors = async () => {
     setLoading(true);
     try {
@@ -97,10 +94,17 @@ const VendorsPage = () => {
     }
   };
 
+  // Real-time polling every 30 seconds
+  usePolling(loadVendors, 30000, true);
+
+  useEffect(() => {
+    loadVendors();
+  }, []);
+
   const handleAddVendor = async (formData: any) => {
     try {
       const response = await api.post('/vendors', formData);
-      const newVendor = response.data;
+      const newVendor = response.data?.data || response.data;
       setVendors((prev) => [...prev, newVendor]);
       toast.success('Vendor added successfully');
       setFormDialogOpen(false);
@@ -116,7 +120,7 @@ const VendorsPage = () => {
     
     try {
       const response = await api.put(`/vendors/${selectedVendor._id}`, formData);
-      const updatedVendor = response.data;
+      const updatedVendor = response.data?.data || response.data;
       setVendors((prev) =>
         prev.map((v) => (v._id === selectedVendor._id ? updatedVendor : v))
       );

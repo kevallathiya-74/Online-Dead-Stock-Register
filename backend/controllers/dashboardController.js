@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Asset = require('../models/asset');
 const User = require('../models/user');
 const Approval = require('../models/approval');
@@ -114,6 +115,14 @@ const getDashboardStats = async (req, res) => {
     const valueTrend = lastMonthTotalValue > 0 ? 
       Math.round(((currentTotalValue - lastMonthTotalValue) / lastMonthTotalValue) * 100) : 0;
 
+    // Calculate system health metrics (simplified - no db.stats())
+    const systemHealth = {
+      serverHealth: 100, // Server is running if this endpoint is reachable
+      databasePerformance: mongoose.connection.readyState === 1 ? 100 : 0,
+      storageUsage: 0, // Placeholder - would need cloud provider API
+      lastBackup: 'Not configured'
+    };
+
     const stats = {
       totalAssets,
       totalValue: currentTotalValue,
@@ -138,7 +147,8 @@ const getDashboardStats = async (req, res) => {
           value: Math.abs(purchaseTrend),
           isPositive: purchaseTrend >= 0
         }
-      }
+      },
+      systemHealth
     };
 
     res.json({
@@ -811,7 +821,9 @@ const getInventoryStatsData = async () => {
     warrantyExpiring,
     maintenanceDue,
     monthlyPurchases,
-    topVendorsCount
+    topVendorsCount,
+    lastMonthAssets,
+    lastMonthActive
   ] = await Promise.all([
     Asset.countDocuments({ status: { $ne: 'Scrapped' } }),
     Asset.countDocuments({ status: 'Active' }),
@@ -835,8 +847,22 @@ const getInventoryStatsData = async () => {
     Asset.countDocuments({
       purchase_date: { $gte: currentMonth }
     }),
-    Vendor.countDocuments({ is_active: true })
+    Vendor.countDocuments({ is_active: true }),
+    Asset.countDocuments({ 
+      status: { $ne: 'Scrapped' },
+      created_at: { $lt: currentMonth }
+    }),
+    Asset.countDocuments({ 
+      status: 'Active',
+      created_at: { $lt: currentMonth }
+    })
   ]);
+
+  // Calculate trends
+  const assetsTrend = lastMonthAssets > 0 ? 
+    Math.round(((totalAssets - lastMonthAssets) / lastMonthAssets) * 100) : 0;
+  const activeTrend = lastMonthActive > 0 ? 
+    Math.round(((activeAssets - lastMonthActive) / lastMonthActive) * 100) : 0;
 
   return {
     totalAssets,
@@ -850,8 +876,14 @@ const getInventoryStatsData = async () => {
     monthlyPurchases,
     topVendorsCount,
     trends: {
-      assets: { value: 12, isPositive: true },
-      purchases: { value: 15, isPositive: true }
+      assets: { 
+        value: Math.abs(assetsTrend), 
+        isPositive: assetsTrend >= 0 
+      },
+      active: { 
+        value: Math.abs(activeTrend), 
+        isPositive: activeTrend >= 0 
+      }
     }
   };
 };

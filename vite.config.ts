@@ -17,7 +17,7 @@ export default defineConfig({
       '/api': {
         target: process.env.BACKEND_URL || 'http://localhost:5000',
         changeOrigin: true,
-        secure: false,
+        secure: true,
         ws: true,
         configure: (proxy, options) => {
           proxy.on('error', (err, req, res) => {

@@ -47,17 +47,17 @@ const createAuthError = (message: string, status: number = 500): JWTAuthError =>
 
 // Get stored token from localStorage
 const getStoredToken = (): string | null => {
-  return localStorage.getItem('auth_token');
+  return localStorage.getItem('token');
 };
 
 // Store token in localStorage
 const storeToken = (token: string): void => {
-  localStorage.setItem('auth_token', token);
+  localStorage.setItem('token', token);
 };
 
 // Remove token from localStorage
 const removeToken = (): void => {
-  localStorage.removeItem('auth_token');
+  localStorage.removeItem('token');
 };
 
 export const authService = {

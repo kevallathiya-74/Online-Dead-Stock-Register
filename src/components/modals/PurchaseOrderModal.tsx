@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -68,15 +68,30 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ open, onClose, 
   });
   
   const [loading, setLoading] = useState(false);
+  const [vendors, setVendors] = useState<any[]>([]);
+  const [loadingVendors, setLoadingVendors] = useState(true);
 
-  const vendors = [
-    'TechCorp Solutions Pvt Ltd',
-    'Office Plus Supplies',
-    'Global IT Hardware',
-    'Premium Furniture Co.',
-    'Industrial Equipment Ltd',
-    'Digital Solutions Inc',
-  ];
+  // Load vendors from API
+  useEffect(() => {
+    const loadVendors = async () => {
+      try {
+        setLoadingVendors(true);
+        const response = await api.get('/vendors');
+        const vendorData = response.data?.data || response.data || [];
+        setVendors(Array.isArray(vendorData) ? vendorData : []);
+      } catch (error) {
+        console.error('Failed to load vendors:', error);
+        toast.error('Failed to load vendors');
+        setVendors([]);
+      } finally {
+        setLoadingVendors(false);
+      }
+    };
+
+    if (open) {
+      loadVendors();
+    }
+  }, [open]);
 
   const terms = [
     'Net 15',
@@ -156,26 +171,55 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ open, onClose, 
       return;
     }
 
+    if (!formData.delivery_date) {
+      toast.error('Please select expected delivery date');
+      return;
+    }
+
     setLoading(true);
     try {
-      const poNumber = generatePONumber();
       const { subtotal, tax, total } = calculateTotals();
       
+      // Map to backend schema
       const purchaseOrder = {
-        ...formData,
-        items,
-        subtotal,
-        tax,
-        total,
-        status: 'Draft',
-        po_number: poNumber,
+        vendor: formData.vendor, // MongoDB ObjectId
+        department: 'General', // Default department
+        items: items.map(item => ({
+          description: item.description,
+          category: 'General',
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total,
+          specifications: '',
+          brand_preference: ''
+        })),
+        subtotal: subtotal,
+        tax_amount: tax,
+        shipping_cost: 0,
+        total_amount: total,
+        currency: 'INR',
+        status: 'draft',
+        priority: formData.urgent ? 'urgent' : 'medium',
+        expected_delivery_date: new Date(formData.delivery_date).toISOString(),
+        delivery_address: {
+          street: formData.shipping_address || formData.billing_address || '',
+          city: '',
+          state: '',
+          zip_code: '',
+          country: 'India',
+          contact_person: '',
+          contact_phone: ''
+        },
+        payment_terms: formData.terms,
+        payment_method: 'bank_transfer',
+        notes: formData.notes
       };
 
-      const response = await api.post('/purchase-management/purchase-orders', purchaseOrder);
-      const createdPO = response.data.data || response.data;
+      const response = await api.post('/purchase-management/orders', purchaseOrder);
+      const createdPO = response.data?.data || response.data;
       
       onSubmit(createdPO);
-      toast.success(`Purchase Order ${poNumber} created successfully!`);
+      toast.success('Purchase Order created successfully!');
       
       // Reset form
       setFormData({
@@ -189,8 +233,9 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ open, onClose, 
       });
       setItems([]);
       onClose();
-    } catch (error) {
-      toast.error('Failed to create purchase order. Please try again.');
+    } catch (error: any) {
+      console.error('Failed to create purchase order:', error);
+      toast.error(error.response?.data?.message || 'Failed to create purchase order');
     } finally {
       setLoading(false);
     }
@@ -226,18 +271,24 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ open, onClose, 
                 <Typography variant="h6" gutterBottom>Vendor Information</Typography>
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
-                    <FormControl fullWidth required>
+                    <FormControl fullWidth required disabled={loadingVendors}>
                       <InputLabel>Vendor</InputLabel>
                       <Select
                         value={formData.vendor}
                         label="Vendor"
                         onChange={(e) => handleInputChange('vendor', e.target.value)}
                       >
-                        {vendors.map((vendor) => (
-                          <MenuItem key={vendor} value={vendor}>
-                            {vendor}
-                          </MenuItem>
-                        ))}
+                        {loadingVendors ? (
+                          <MenuItem disabled>Loading vendors...</MenuItem>
+                        ) : vendors.length === 0 ? (
+                          <MenuItem disabled>No vendors available</MenuItem>
+                        ) : (
+                          vendors.filter(v => v.is_active).map((vendor) => (
+                            <MenuItem key={vendor._id} value={vendor._id}>
+                              {vendor.vendor_name}
+                            </MenuItem>
+                          ))
+                        )}
                       </Select>
                     </FormControl>
                   </Grid>

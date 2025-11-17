@@ -9,6 +9,14 @@ const {
   createPurchaseRequest,
   getPurchaseStats
 } = require('../controllers/purchaseManagementController');
+const {
+  getAllInvoices,
+  getInvoiceById,
+  createInvoice,
+  updateInvoiceStatus,
+  deleteInvoice,
+  getInvoiceStats
+} = require('../controllers/invoiceController');
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
 
 // Purchase Order Routes
@@ -60,6 +68,49 @@ router.get('/stats',
   authenticateToken, 
   requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
   getPurchaseStats
+);
+
+// Invoice Routes
+// GET /api/purchase-management/invoices - Get all invoices (Admin, Inventory Manager)
+router.get('/invoices', 
+  authenticateToken, 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  getAllInvoices
+);
+
+// GET /api/purchase-management/invoices/stats - Get invoice statistics (Admin, Inventory Manager)
+router.get('/invoices/stats', 
+  authenticateToken, 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  getInvoiceStats
+);
+
+// GET /api/purchase-management/invoices/:id - Get invoice by ID (Admin, Inventory Manager)
+router.get('/invoices/:id', 
+  authenticateToken, 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  getInvoiceById
+);
+
+// POST /api/purchase-management/invoices - Create invoice (Admin, Inventory Manager)
+router.post('/invoices', 
+  authenticateToken, 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  createInvoice
+);
+
+// PATCH /api/purchase-management/invoices/:id/status - Update invoice status (Admin, Inventory Manager)
+router.patch('/invoices/:id/status', 
+  authenticateToken, 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  updateInvoiceStatus
+);
+
+// DELETE /api/purchase-management/invoices/:id - Delete invoice (Admin, Inventory Manager)
+router.delete('/invoices/:id', 
+  authenticateToken, 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  deleteInvoice
 );
 
 module.exports = router;

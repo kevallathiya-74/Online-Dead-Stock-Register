@@ -53,20 +53,23 @@ import {
   CurrencyRupee as CostIcon,
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
+import MaintenanceModal from '../../components/modals/MaintenanceModal';
 import { toast } from 'react-toastify';
 import api from '../../services/api';
+import { usePolling } from '../../hooks/usePolling';
+import { useAuth } from '../../context/AuthContext';
 
 interface MaintenanceRecord {
   id: string;
   asset_id: string;
   asset_name: string;
-  type: 'Preventive' | 'Corrective' | 'Predictive' | 'Emergency';
+  type: 'Preventive' | 'Corrective' | 'Predictive' | 'Emergency' | 'Inspection' | 'Calibration' | 'Cleaning';
   description: string;
-  scheduled_date: string;
+  scheduled_date: string; // This is from backend transformation (maintenance_date)
   completed_date?: string;
   status: 'Scheduled' | 'In Progress' | 'Completed' | 'Overdue' | 'Cancelled';
   priority: 'Low' | 'Medium' | 'High' | 'Critical';
-  assigned_technician: string;
+  assigned_technician: string; // This is from backend transformation (performed_by)
   estimated_cost: number;
   actual_cost?: number;
   estimated_duration: number; // in hours
@@ -86,6 +89,7 @@ interface Technician {
 }
 
 const MaintenancePage = () => {
+  const { user } = useAuth();
   const [maintenanceRecords, setMaintenanceRecords] = useState<MaintenanceRecord[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,30 +103,37 @@ const MaintenancePage = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<MaintenanceRecord | null>(null);
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const [maintenanceResponse, techniciansResponse] = await Promise.all([
-          api.get('/maintenance'),
-          api.get('/maintenance/technicians').catch(() => ({ data: { data: [] } })) // Fallback if endpoint doesn't exist
-        ]);
-        
-        const maintenanceData = maintenanceResponse.data.data || maintenanceResponse.data;
-        const technicianData = techniciansResponse.data.data || [];
-        
-        setMaintenanceRecords(maintenanceData);
-        setTechnicians(technicianData);
-      } catch (error) {
-        console.error('Failed to load maintenance data:', error);
-        toast.error('Failed to load maintenance data');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadData = async () => {
+    try {
+      const [maintenanceResponse, techniciansResponse] = await Promise.all([
+        api.get('/maintenance'),
+        api.get('/maintenance/technicians').catch(() => ({ data: { data: [] } }))
+      ]);
+      
+      const maintenanceData = maintenanceResponse.data.data || maintenanceResponse.data;
+      const technicianData = techniciansResponse.data.data || techniciansResponse.data;
+      
+      setMaintenanceRecords(Array.isArray(maintenanceData) ? maintenanceData : []);
+      setTechnicians(Array.isArray(technicianData) ? technicianData : []);
+    } catch (error) {
+      console.error('Failed to load maintenance data:', error);
+      toast.error('Failed to load maintenance data');
+    }
+  };
 
-    loadData();
+  useEffect(() => {
+    const loadInitialData = async () => {
+      setLoading(true);
+      await loadData();
+      setLoading(false);
+    };
+    loadInitialData();
   }, []);
+
+  // Real-time polling every 30 seconds
+  usePolling(async () => {
+    await loadData();
+  }, 30000, true);
 
   const filteredRecords = maintenanceRecords.filter((record) => {
     const matchesSearch = 
@@ -135,7 +146,14 @@ const MaintenancePage = () => {
     const matchesStatus = selectedStatus === 'all' || record.status === selectedStatus;
     const matchesPriority = selectedPriority === 'all' || record.priority === selectedPriority;
     
-    return matchesSearch && matchesType && matchesStatus && matchesPriority;
+    // Tab-based filtering
+    let matchesTab = true;
+    if (tabValue === 1) { // My Tasks
+      const currentUserName = user?.full_name || user?.name || '';
+      matchesTab = record.assigned_technician === currentUserName;
+    }
+    
+    return matchesSearch && matchesType && matchesStatus && matchesPriority && matchesTab;
   });
 
   const getStatusColor = (status: string) => {
@@ -214,15 +232,18 @@ const MaintenancePage = () => {
   const handleUpdateStatus = async (recordId: string, newStatus: string) => {
     try {
       await api.put(`/maintenance/${recordId}`, { status: newStatus });
-      const response = await api.get('/maintenance');
-      const maintenanceData = response.data.data || response.data;
-      setMaintenanceRecords(maintenanceData);
+      await loadData(); // Reload data instead of making another GET call
       toast.success('Maintenance status updated successfully');
       setEditDialogOpen(false);
       setSelectedRecord(null);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to update maintenance status');
     }
+  };
+
+  const handleMaintenanceScheduled = async () => {
+    await loadData(); // Reload data after scheduling new maintenance
+    setScheduleMaintenanceOpen(false);
   };
 
   return (
@@ -427,6 +448,9 @@ const MaintenancePage = () => {
                         <MenuItem value="Corrective">Corrective</MenuItem>
                         <MenuItem value="Predictive">Predictive</MenuItem>
                         <MenuItem value="Emergency">Emergency</MenuItem>
+                        <MenuItem value="Inspection">Inspection</MenuItem>
+                        <MenuItem value="Calibration">Calibration</MenuItem>
+                        <MenuItem value="Cleaning">Cleaning</MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
@@ -471,12 +495,14 @@ const MaintenancePage = () => {
               </CardContent>
             </Card>
 
-            {/* Maintenance Records Table */}
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Maintenance Schedule ({filteredRecords.length})
-                </Typography>
+            {/* Tab Content */}
+            {tabValue === 0 || tabValue === 1 ? (
+              // All Maintenance & My Tasks Tab
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    {tabValue === 0 ? 'Maintenance Schedule' : 'My Assigned Tasks'} ({filteredRecords.length})
+                  </Typography>
                 <TableContainer component={Paper} elevation={0}>
                   <Table>
                     <TableHead>
@@ -507,6 +533,24 @@ const MaintenancePage = () => {
                             <TableCell><Skeleton variant="text" width={100} /></TableCell>
                           </TableRow>
                         ))
+                      ) : filteredRecords.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={9}>
+                            <Box sx={{ p: 4, textAlign: 'center' }}>
+                              <TaskIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                              <Typography variant="h6" gutterBottom>
+                                {tabValue === 1 ? 'No tasks assigned to you' : 'No maintenance records found'}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {tabValue === 1 
+                                  ? 'You have no maintenance tasks assigned at the moment.'
+                                  : searchTerm || selectedType !== 'all' || selectedStatus !== 'all' || selectedPriority !== 'all'
+                                  ? 'Try adjusting your filters to see more results.'
+                                  : 'Click "Schedule Maintenance" to create your first maintenance task.'}
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
                       ) : (
                         filteredRecords.slice(0, 10).map((record) => (
                           <TableRow key={record.id}>
@@ -585,6 +629,117 @@ const MaintenancePage = () => {
                 </TableContainer>
               </CardContent>
             </Card>
+            ) : tabValue === 2 ? (
+              // Calendar View Tab
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Calendar View
+                  </Typography>
+                  <Box sx={{ p: 4, textAlign: 'center' }}>
+                    <ScheduleIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                    <Typography variant="h6" gutterBottom>
+                      Calendar View Coming Soon
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      View maintenance schedule in a calendar format with drag-and-drop functionality.
+                    </Typography>
+                    <Box sx={{ mt: 3 }}>
+                      <Typography variant="body2" gutterBottom>
+                        <strong>Upcoming Maintenance:</strong>
+                      </Typography>
+                      {upcomingMaintenance.map((record) => (
+                        <Chip
+                          key={record.id}
+                          label={`${record.asset_name} - ${new Date(record.scheduled_date).toLocaleDateString()}`}
+                          sx={{ m: 0.5 }}
+                          onClick={() => handleViewRecord(record)}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            ) : (
+              // Reports Tab
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Maintenance Reports
+                  </Typography>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} md={6}>
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Typography variant="subtitle1" gutterBottom>
+                            <TimelineIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+                            Maintenance Trends
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            View maintenance frequency and cost trends over time
+                          </Typography>
+                          <Box sx={{ mt: 2 }}>
+                            <Typography variant="h4">{stats.totalRecords}</Typography>
+                            <Typography variant="caption" color="text.secondary">Total Records</Typography>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Typography variant="subtitle1" gutterBottom>
+                            <TechnicianIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+                            Technician Performance
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Compare technician efficiency and completion rates
+                          </Typography>
+                          <Box sx={{ mt: 2 }}>
+                            <Typography variant="h4">{stats.completed}</Typography>
+                            <Typography variant="caption" color="text.secondary">Completed Tasks</Typography>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Typography variant="subtitle1" gutterBottom>
+                            <CostIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+                            Cost Analysis
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Breakdown of maintenance costs by asset type and department
+                          </Typography>
+                          <Box sx={{ mt: 2 }}>
+                            <Typography variant="h4">₹{(stats.totalCost / 100000).toFixed(1)}L</Typography>
+                            <Typography variant="caption" color="text.secondary">Total Cost</Typography>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Typography variant="subtitle1" gutterBottom>
+                            <WarningIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+                            Overdue Tasks
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Track overdue maintenance tasks and their impact
+                          </Typography>
+                          <Box sx={{ mt: 2 }}>
+                            <Typography variant="h4" color="error">{stats.overdue}</Typography>
+                            <Typography variant="caption" color="text.secondary">Overdue Items</Typography>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            )}
           </Grid>
 
           <Grid item xs={12} lg={4}>
@@ -602,6 +757,13 @@ const MaintenancePage = () => {
                       <Skeleton variant="text" width="80%" />
                     </Box>
                   ))
+                ) : upcomingMaintenance.length === 0 ? (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <NotificationIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      No maintenance scheduled for this week
+                    </Typography>
+                  </Box>
                 ) : (
                   <List>
                     {upcomingMaintenance.map((record, index) => (
@@ -648,6 +810,13 @@ const MaintenancePage = () => {
                       <Skeleton variant="rectangular" height={6} />
                     </Box>
                   ))
+                ) : technicians.length === 0 ? (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <TechnicianIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+                    <Typography variant="body2" color="text.secondary">
+                      No technicians available
+                    </Typography>
+                  </Box>
                 ) : (
                   <Box>
                     {technicians.map((tech) => (
@@ -677,18 +846,11 @@ const MaintenancePage = () => {
         </Grid>
 
         {/* Schedule Maintenance Dialog */}
-        <Dialog open={scheduleMaintenanceOpen} onClose={() => setScheduleMaintenanceOpen(false)} maxWidth="md" fullWidth>
-          <DialogTitle>Schedule New Maintenance</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2" color="text.secondary">
-              Maintenance scheduling form would be implemented here with asset selection, technician assignment, and scheduling options.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setScheduleMaintenanceOpen(false)}>Cancel</Button>
-            <Button variant="contained">Schedule</Button>
-          </DialogActions>
-        </Dialog>
+        <MaintenanceModal
+          open={scheduleMaintenanceOpen}
+          onClose={() => setScheduleMaintenanceOpen(false)}
+          onSubmit={handleMaintenanceScheduled}
+        />
 
         {/* View Details Dialog */}
         <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} maxWidth="md" fullWidth>

@@ -84,12 +84,19 @@ exports.signup = async (req, res) => {
     
     const saved = await user.save();
     
-    // Send welcome email
-    await emailService.sendWelcomeEmail(saved.email, saved.name);
+    // Send welcome email (non-blocking - don't wait for it)
+    emailService.sendWelcomeEmail(saved.email, saved.name).catch(err => {
+      logger.error('❌ Error sending welcome email:', err);
+    });
     
     // Generate JWT token
     const token = jwt.sign(
-      { id: saved._id, email: saved.email, role: saved.role }, 
+      { 
+        id: saved._id, 
+        email: saved.email, 
+        role: saved.role,
+        vendor_id: saved.vendor_id || null
+      }, 
       process.env.JWT_SECRET, 
       { expiresIn: '8h' }
     );
@@ -148,7 +155,12 @@ exports.login = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user._id, email: user.email, role: user.role }, 
+      { 
+        id: user._id, 
+        email: user.email, 
+        role: user.role,
+        vendor_id: user.vendor_id || null
+      }, 
       process.env.JWT_SECRET, 
       { expiresIn: '24h' }
     );

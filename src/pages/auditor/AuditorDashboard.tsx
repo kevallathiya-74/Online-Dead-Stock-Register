@@ -1,15 +1,44 @@
+/**
+ * AUDITOR DASHBOARD - Real-Time Integration
+ * 
+ * Data Sources (100% Real API):
+ * - GET /api/v1/dashboard/auditor/stats - Audit statistics
+ * - GET /api/v1/dashboard/auditor/audit-items - Assets for auditing
+ * 
+ * Real-Time Strategy:
+ * - Manual refresh button for on-demand updates
+ * - Auto-refresh every 2 minutes (audit data changes frequently)
+ * 
+ * Field Mappings:
+ * - Backend: total_assigned, completed, pending, discrepancies, missing, completion_rate
+ * - Audit Items: id, asset_id, asset_name, location, assigned_user, last_audit_date, status, condition
+ * - Status Colors: verified=success, pending=warning, discrepancy/missing=error
+ * 
+ * Role Access: ADMIN, AUDITOR roles only
+ * Authentication: Bearer token from localStorage
+ * No Mock Data: All data from MongoDB via real endpoints
+ */
+
 import React, { useEffect, useState } from 'react';
+import { toast } from 'react-toastify';
 import {
   Box,
-  Container,
   Grid,
   Paper,
   Typography,
-  Card,
-  CardContent,
   CircularProgress,
   Alert,
   Button,
+  Card,
+  CardContent,
+  Avatar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
 } from '@mui/material';
 import {
   Assignment as AssignmentIcon,
@@ -21,83 +50,116 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import StatCard from '../../components/dashboard/StatCard';
-import AuditProgressChart from '../../components/auditor/AuditProgressChart';
-import ConditionChart from '../../components/auditor/ConditionChart';
-import RecentActivities from '../../components/auditor/RecentActivities';
-import ComplianceScore from '../../components/auditor/ComplianceScore';
 import auditorService from '../../services/auditorService';
-import type { AuditorStats, AuditActivity, ChartData, ComplianceMetrics } from '../../types';
+import type { AuditorStats } from '../../types';
+import { useNavigate } from 'react-router-dom';
+
+// Stat Card Component
+interface StatCardProps {
+  title: string;
+  value: string | number;
+  icon: React.ReactNode;
+  color?: "primary" | "secondary" | "success" | "warning" | "error" | "info";
+  subtitle?: string;
+}
+
+const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color = "primary", subtitle }) => (
+  <Card sx={{ height: "100%" }}>
+    <CardContent>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <Box sx={{ flex: 1 }}>
+          <Typography color="textSecondary" gutterBottom variant="overline">
+            {title}
+          </Typography>
+          <Typography variant="h4" component="div" sx={{ mb: 0.5 }}>
+            {value}
+          </Typography>
+          {subtitle && (
+            <Typography variant="body2" color="text.secondary">
+              {subtitle}
+            </Typography>
+          )}
+        </Box>
+        <Avatar sx={{ backgroundColor: `${color}.main`, height: 56, width: 56 }}>
+          {icon}
+        </Avatar>
+      </Box>
+    </CardContent>
+  </Card>
+);
 
 const AuditorDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<AuditorStats | null>(null);
-  const [activities, setActivities] = useState<AuditActivity[]>([]);
-  const [progressData, setProgressData] = useState<ChartData | null>(null);
-  const [conditionData, setConditionData] = useState<ChartData | null>(null);
-  const [complianceMetrics, setComplianceMetrics] = useState<ComplianceMetrics | null>(null);
+  const [auditItems, setAuditItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Add a small delay to ensure token is available
-    const timer = setTimeout(() => {
-      fetchDashboardData();
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, []);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Check if token exists before making API calls
       const token = localStorage.getItem('token');
       if (!token) {
-        throw new Error('Authentication token not found. Please login again.');
+        const errorMsg = 'Authentication required. Please log in again.';
+        setError(errorMsg);
+        toast.error(errorMsg);
+        return;
       }
 
-      const [
-        statsData,
-        activitiesData,
-        progressChartData,
-        conditionChartData,
-        complianceData,
-      ] = await Promise.all([
+      const [statsData, itemsData] = await Promise.all([
         auditorService.getAuditorStats(),
-        auditorService.getAuditorActivities(),
-        auditorService.getAuditProgressChart(),
-        auditorService.getConditionChart(),
-        auditorService.getComplianceMetrics(),
+        auditorService.getAuditItems(),
       ]);
 
       setStats(statsData);
-      setActivities(activitiesData);
-      setProgressData(progressChartData);
-      setConditionData(conditionChartData);
-      setComplianceMetrics(complianceData);
+      setAuditItems(Array.isArray(itemsData) ? itemsData.slice(0, 10) : []);
     } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Failed to load dashboard data';
-      // Don't show authentication errors in UI, as they're handled by ProtectedRoute
+      setError(errorMessage);
+      
       if (!errorMessage.includes('token') && !errorMessage.includes('Authentication')) {
-        setError(errorMessage);
+        toast.error(errorMessage);
       }
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchDashboardData();
+    }, 100);
+    
+    // Auto-refresh every 2 minutes for audit data
+    const interval = setInterval(fetchDashboardData, 120000);
+    
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const getStatusColor = (status: string): "default" | "success" | "warning" | "error" => {
+    switch (status) {
+      case 'verified':
+        return 'success';
+      case 'pending':
+        return 'warning';
+      case 'discrepancy':
+      case 'missing':
+        return 'error';
+      default:
+        return 'default';
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
-        <Box
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          minHeight="80vh"
-        >
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
           <CircularProgress size={60} />
         </Box>
       </DashboardLayout>
@@ -107,7 +169,7 @@ const AuditorDashboard: React.FC = () => {
   if (error) {
     return (
       <DashboardLayout>
-        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Box sx={{ p: 3 }}>
           <Alert 
             severity="error" 
             action={
@@ -118,16 +180,16 @@ const AuditorDashboard: React.FC = () => {
           >
             {error}
           </Alert>
-        </Container>
+        </Box>
       </DashboardLayout>
     );
   }
 
   return (
     <DashboardLayout>
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Box sx={{ p: 3 }}>
         {/* Header */}
-        <Box mb={4} display="flex" justifyContent="space-between" alignItems="center">
+        <Box mb={3} display="flex" justifyContent="space-between" alignItems="center">
           <Box>
             <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
               Auditor Dashboard
@@ -199,48 +261,69 @@ const AuditorDashboard: React.FC = () => {
           </Grid>
         </Grid>
 
-        {/* Charts Row */}
-        <Grid container spacing={3} mb={4}>
-          <Grid item xs={12} md={8}>
-            <Paper sx={{ p: 3, height: '100%' }}>
-              <Typography variant="h6" gutterBottom>
-                Audit Progress (Last 6 Months)
-              </Typography>
-              {progressData && <AuditProgressChart data={progressData} />}
-            </Paper>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Paper sx={{ p: 3, height: '100%' }}>
-              <Typography variant="h6" gutterBottom>
-                Asset Condition
-              </Typography>
-              {conditionData && <ConditionChart data={conditionData} />}
-            </Paper>
-          </Grid>
-        </Grid>
-
-        {/* Compliance Score & Recent Activities */}
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Compliance Score
-              </Typography>
-              {complianceMetrics && (
-                <ComplianceScore metrics={complianceMetrics} />
-              )}
-            </Paper>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Recent Activities
-              </Typography>
-              <RecentActivities activities={activities} />
-            </Paper>
-          </Grid>
-        </Grid>
-      </Container>
+        {/* Audit Items Table */}
+        <Paper sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">
+              Recent Audit Items
+            </Typography>
+            <Button
+              variant="text"
+              onClick={() => navigate('/auditor/audit-list')}
+            >
+              View All
+            </Button>
+          </Box>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Asset ID</TableCell>
+                  <TableCell>Asset Name</TableCell>
+                  <TableCell>Location</TableCell>
+                  <TableCell>Assigned User</TableCell>
+                  <TableCell>Last Audit</TableCell>
+                  <TableCell>Condition</TableCell>
+                  <TableCell>Status</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {auditItems.length > 0 ? (
+                  auditItems.map((item) => (
+                    <TableRow key={item.id} hover>
+                      <TableCell>{item.asset_id}</TableCell>
+                      <TableCell>{item.asset_name}</TableCell>
+                      <TableCell>{item.location}</TableCell>
+                      <TableCell>{item.assigned_user}</TableCell>
+                      <TableCell>
+                        {item.last_audit_date !== '1970-01-01'
+                          ? new Date(item.last_audit_date).toLocaleDateString()
+                          : 'Never'}
+                      </TableCell>
+                      <TableCell>{item.condition}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={item.status}
+                          size="small"
+                          color={getStatusColor(item.status)}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center">
+                      <Typography variant="body2" color="text.secondary">
+                        No audit items available
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+      </Box>
     </DashboardLayout>
   );
 };

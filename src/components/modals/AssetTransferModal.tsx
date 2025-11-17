@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -26,6 +26,7 @@ import {
   ListItem,
   ListItemAvatar,
   ListItemText,
+  CircularProgress,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -41,81 +42,99 @@ import api from '../../services/api';
 interface AssetTransferModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (transferData: any) => void;
+  onSubmit: () => void;
+  preselectedAssetId?: string;
 }
 
-const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, onSubmit }) => {
+const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, onSubmit, preselectedAssetId }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState({
-    asset_id: '',
+    asset: '',
     from_location: '',
     to_location: '',
     from_user: '',
     to_user: '',
-    transfer_reason: '',
-    transfer_date: new Date().toISOString().split('T')[0],
-    notes: '',
-    requires_approval: false,
-    condition_before: 'Good',
-    condition_after: 'Good',
+    transfer_reason: 'employee_relocation',
+    description: '',
+    expected_transfer_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
+    priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
   });
 
+  const [assets, setAssets] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [locations, setLocations] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
 
   const steps = ['Select Asset', 'Transfer Details', 'Confirmation'];
 
-  const assets = [
-    { id: 'AST-001', name: 'Dell XPS 15 Laptop', location: 'IT Department - Floor 2', user: 'John Employee' },
-    { id: 'AST-002', name: 'HP LaserJet Printer', location: 'Admin Office', user: 'Unassigned' },
-    { id: 'AST-003', name: 'iPhone 14 Pro', location: 'Sales Department', user: 'Sarah Manager' },
-    { id: 'AST-004', name: 'Ergonomic Office Chair', location: 'Maintenance Room', user: 'Unassigned' },
-    { id: 'AST-005', name: 'Network Switch', location: 'Server Room', user: 'IT Admin' },
-    { id: 'AST-006', name: 'Conference Projector', location: 'Meeting Room A', user: 'Unassigned' },
-  ];
+  // Load real data from APIs
+  useEffect(() => {
+    if (open) {
+      loadFormData();
+    }
+  }, [open]);
 
-  const locations = [
-    'IT Department - Floor 2',
-    'Admin Office',
-    'Sales Department',
-    'HR Department',
-    'Finance Department',
-    'Warehouse',
-    'Meeting Room A',
-    'Meeting Room B',
-    'Reception',
-    'Server Room',
-    'Maintenance Room',
-  ];
+  useEffect(() => {
+    if (preselectedAssetId && assets.length > 0) {
+      const asset = assets.find(a => a._id === preselectedAssetId || a.id === preselectedAssetId);
+      if (asset) {
+        handleInputChange('asset', asset._id || asset.id);
+      }
+    }
+  }, [preselectedAssetId, assets]);
 
-  const users = [
-    'John Employee - IT Specialist',
-    'Sarah Manager - Sales Manager',
-    'Raj Patel - HR Manager',
-    'Priya Singh - Finance Analyst',
-    'Amit Sharma - Admin Officer',
-    'Neha Gupta - Marketing Executive',
-    'Vikram Joshi - Operations Manager',
-    'Unassigned',
-  ];
+  const loadFormData = async () => {
+    try {
+      setLoadingData(true);
+      const [assetsRes, usersRes] = await Promise.all([
+        api.get('/assets'),
+        api.get('/users'),
+      ]);
+
+      const assetsData = assetsRes.data.data || assetsRes.data.assets || assetsRes.data;
+      const usersData = usersRes.data.data || usersRes.data.users || usersRes.data;
+
+      const assetsArray = Array.isArray(assetsData) ? assetsData : [];
+      const usersArray = Array.isArray(usersData) ? usersData : [];
+
+      setAssets(assetsArray);
+      setUsers(usersArray);
+
+      // Extract unique locations from assets
+      if (assetsArray.length > 0) {
+        const uniqueLocations = [...new Set(assetsArray.map((a: any) => a.location).filter(Boolean))];
+        setLocations(uniqueLocations);
+      } else {
+        setLocations([]);
+      }
+    } catch (error) {
+      console.error('Failed to load form data:', error);
+      toast.error('Failed to load assets and users');
+      setAssets([]);
+      setUsers([]);
+      setLocations([]);
+    } finally {
+      setLoadingData(false);
+    }
+  };
 
   const transferReasons = [
-    'Employee Transfer',
-    'Department Relocation',
-    'Equipment Upgrade',
-    'Maintenance Required',
-    'Temporary Assignment',
-    'Project Requirement',
-    'Office Reorganization',
-    'Asset Retirement',
-    'Other',
+    { value: 'employee_relocation', label: 'Employee Relocation' },
+    { value: 'department_change', label: 'Department Change' },
+    { value: 'temporary_assignment', label: 'Temporary Assignment' },
+    { value: 'permanent_assignment', label: 'Permanent Assignment' },
+    { value: 'maintenance_transfer', label: 'Maintenance Transfer' },
+    { value: 'office_relocation', label: 'Office Relocation' },
+    { value: 'project_requirement', label: 'Project Requirement' },
+    { value: 'other', label: 'Other' },
   ];
 
-  const conditions = [
-    'Excellent',
-    'Good',
-    'Fair',
-    'Poor',
-    'Damaged',
+  const priorities = [
+    { value: 'low', label: 'Low' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'high', label: 'High' },
+    { value: 'urgent', label: 'Urgent' },
   ];
 
   const handleInputChange = (field: string, value: any) => {
@@ -124,32 +143,26 @@ const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, 
       [field]: value
     }));
 
-    // Auto-populate from/to data when asset is selected
-    if (field === 'asset_id') {
-      const selectedAsset = assets.find(asset => asset.id === value);
+    // Auto-populate from location and user when asset is selected
+    if (field === 'asset') {
+      const selectedAsset = assets.find(asset => asset._id === value || asset.id === value);
       if (selectedAsset) {
         setFormData(prev => ({
           ...prev,
-          from_location: selectedAsset.location,
-          from_user: selectedAsset.user,
+          from_location: selectedAsset.location || '',
+          from_user: selectedAsset.assigned_user || '',
         }));
       }
     }
   };
 
-  const generateTransferId = () => {
-    const prefix = 'TXN';
-    const timestamp = Date.now().toString().slice(-6);
-    return `${prefix}-${timestamp}`;
-  };
-
-  const handleNext = () => {
-    if (activeStep === 0 && !formData.asset_id) {
+const handleNext = () => {
+    if (activeStep === 0 && !formData.asset) {
       toast.error('Please select an asset to transfer');
       return;
     }
     if (activeStep === 1) {
-      if (!formData.to_location || !formData.transfer_reason) {
+      if (!formData.to_location || !formData.transfer_reason || !formData.description) {
         toast.error('Please fill in all required transfer details');
         return;
       }
@@ -164,49 +177,55 @@ const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, 
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const transferId = generateTransferId();
-      const transferData = {
-        ...formData,
-        transfer_id: transferId,
-        status: formData.requires_approval ? 'pending_approval' : 'completed',
-        transfer_date: formData.transfer_date,
+      const payload = {
+        asset: formData.asset,
+        from_user: formData.from_user || undefined,
+        to_user: formData.to_user || undefined,
+        from_location: formData.from_location,
+        to_location: formData.to_location,
+        transfer_reason: formData.transfer_reason,
+        description: formData.description,
+        expected_transfer_date: formData.expected_transfer_date,
+        priority: formData.priority,
       };
 
-      const response = await api.post('/asset-transfers', transferData);
-      const createdTransfer = response.data.data || response.data;
+      const response = await api.post('/asset-transfers', payload);
+      const createdTransfer = response.data.data || response.data.transfer || response.data;
       
-      onSubmit(createdTransfer);
-      
-      const statusMessage = formData.requires_approval 
-        ? `Asset transfer request submitted for approval! ID: ${transferId}`
-        : `Asset transferred successfully! ID: ${transferId}`;
-      
-      toast.success(statusMessage);
+      toast.success(`Asset transfer request submitted successfully! ID: ${createdTransfer.transfer_id || 'Generated'}`);
       
       // Reset form
       setFormData({
-        asset_id: '',
+        asset: '',
         from_location: '',
         to_location: '',
         from_user: '',
         to_user: '',
-        transfer_reason: '',
-        transfer_date: new Date().toISOString().split('T')[0],
-        notes: '',
-        requires_approval: false,
-        condition_before: 'Good',
-        condition_after: 'Good',
+        transfer_reason: 'employee_relocation',
+        description: '',
+        expected_transfer_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        priority: 'medium',
       });
       setActiveStep(0);
+      onSubmit();
       onClose();
-    } catch (error) {
-      toast.error('Failed to process asset transfer. Please try again.');
+    } catch (error: any) {
+      console.error('Failed to create transfer:', error);
+      toast.error(error.response?.data?.message || 'Failed to process asset transfer. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const renderStepContent = (step: number) => {
+    if (loadingData) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
     switch (step) {
       case 0:
         return (
@@ -219,13 +238,13 @@ const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, 
             </Grid>
             <Grid item xs={12}>
               <Autocomplete
-                options={assets.map(asset => asset.id)}
-                getOptionLabel={(option) => {
-                  const asset = assets.find(a => a.id === option);
-                  return asset ? `${asset.id} - ${asset.name}` : option;
+                options={assets}
+                getOptionLabel={(option: any) => {
+                  const assetName = option.name || `${option.manufacturer} ${option.model}` || 'Unknown Asset';
+                  return `${option.unique_asset_id} - ${assetName}`;
                 }}
-                value={formData.asset_id}
-                onChange={(_, newValue) => handleInputChange('asset_id', newValue || '')}
+                value={assets.find(a => (a._id || a.id) === formData.asset) || null}
+                onChange={(_, newValue) => handleInputChange('asset', newValue ? (newValue._id || newValue.id) : '')}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -234,26 +253,25 @@ const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, 
                     placeholder="Search for an asset to transfer..."
                   />
                 )}
-                renderOption={(props, option) => {
-                  const asset = assets.find(a => a.id === option);
-                  return (
-                    <Box component="li" {...props}>
-                      <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
-                        <AssetIcon />
-                      </Avatar>
-                      <Box>
-                        <Typography variant="subtitle2">{asset?.name}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {option} • {asset?.location} • {asset?.user}
-                        </Typography>
-                      </Box>
+                renderOption={(props, option: any) => (
+                  <Box component="li" {...props}>
+                    <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
+                      <AssetIcon />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="subtitle2">
+                        {option.name || `${option.manufacturer} ${option.model}`}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {option.unique_asset_id} • {option.location} • {option.assigned_user || 'Unassigned'}
+                      </Typography>
                     </Box>
-                  );
-                }}
+                  </Box>
+                )}
               />
             </Grid>
 
-            {formData.asset_id && (
+            {formData.asset && (
               <Grid item xs={12}>
                 <Card>
                   <CardContent>
@@ -267,7 +285,7 @@ const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, 
                         </ListItemAvatar>
                         <ListItemText
                           primary="Current Location"
-                          secondary={formData.from_location}
+                          secondary={formData.from_location || 'Not specified'}
                         />
                       </ListItem>
                       <ListItem>
@@ -278,7 +296,7 @@ const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, 
                         </ListItemAvatar>
                         <ListItemText
                           primary="Current User"
-                          secondary={formData.from_user}
+                          secondary={formData.from_user || 'Unassigned'}
                         />
                       </ListItem>
                     </List>
@@ -300,33 +318,50 @@ const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, 
             </Grid>
             
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth required>
-                <InputLabel>Transfer To Location</InputLabel>
-                <Select
-                  value={formData.to_location}
-                  label="Transfer To Location"
-                  onChange={(e) => handleInputChange('to_location', e.target.value)}
-                >
-                  {locations.filter(loc => loc !== formData.from_location).map((location) => (
-                    <MenuItem key={location} value={location}>
-                      {location}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Autocomplete
+                options={locations}
+                value={formData.to_location}
+                onChange={(_, newValue) => handleInputChange('to_location', newValue || '')}
+                freeSolo
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Transfer To Location"
+                    required
+                    placeholder="Select or type location..."
+                  />
+                )}
+              />
             </Grid>
 
             <Grid item xs={12} md={6}>
               <Autocomplete
                 options={users}
-                value={formData.to_user}
-                onChange={(_, newValue) => handleInputChange('to_user', newValue || '')}
+                getOptionLabel={(option: any) => {
+                  if (typeof option === 'string') return option;
+                  return option.full_name || option.email || 'Unknown';
+                }}
+                value={users.find(u => (u._id || u.id) === formData.to_user) || null}
+                onChange={(_, newValue) => handleInputChange('to_user', newValue ? (newValue._id || newValue.id) : '')}
                 renderInput={(params) => (
                   <TextField
                     {...params}
                     label="Transfer To User"
-                    placeholder="Select user..."
+                    placeholder="Select user or leave empty..."
                   />
+                )}
+                renderOption={(props, option: any) => (
+                  <Box component="li" {...props}>
+                    <Avatar sx={{ mr: 2, bgcolor: 'secondary.main' }}>
+                      <PersonIcon />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="subtitle2">{option.full_name}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {option.email} {option.role && `• ${option.role}`}
+                      </Typography>
+                    </Box>
+                  </Box>
                 )}
               />
             </Grid>
@@ -340,8 +375,8 @@ const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, 
                   onChange={(e) => handleInputChange('transfer_reason', e.target.value)}
                 >
                   {transferReasons.map((reason) => (
-                    <MenuItem key={reason} value={reason}>
-                      {reason}
+                    <MenuItem key={reason.value} value={reason.value}>
+                      {reason.label}
                     </MenuItem>
                   ))}
                 </Select>
@@ -351,42 +386,27 @@ const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, 
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Transfer Date"
+                label="Expected Transfer Date"
                 type="date"
-                value={formData.transfer_date}
-                onChange={(e) => handleInputChange('transfer_date', e.target.value)}
+                required
+                value={formData.expected_transfer_date}
+                onChange={(e) => handleInputChange('expected_transfer_date', e.target.value)}
                 InputLabelProps={{ shrink: true }}
+                inputProps={{ min: new Date().toISOString().split('T')[0] }}
               />
             </Grid>
 
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Condition Before Transfer</InputLabel>
+                <InputLabel>Priority</InputLabel>
                 <Select
-                  value={formData.condition_before}
-                  label="Condition Before Transfer"
-                  onChange={(e) => handleInputChange('condition_before', e.target.value)}
+                  value={formData.priority}
+                  label="Priority"
+                  onChange={(e) => handleInputChange('priority', e.target.value)}
                 >
-                  {conditions.map((condition) => (
-                    <MenuItem key={condition} value={condition}>
-                      {condition}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Expected Condition After</InputLabel>
-                <Select
-                  value={formData.condition_after}
-                  label="Expected Condition After"
-                  onChange={(e) => handleInputChange('condition_after', e.target.value)}
-                >
-                  {conditions.map((condition) => (
-                    <MenuItem key={condition} value={condition}>
-                      {condition}
+                  {priorities.map((priority) => (
+                    <MenuItem key={priority.value} value={priority.value}>
+                      {priority.label}
                     </MenuItem>
                   ))}
                 </Select>
@@ -396,18 +416,26 @@ const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, 
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Transfer Notes"
+                label="Description"
                 multiline
                 rows={3}
-                value={formData.notes}
-                onChange={(e) => handleInputChange('notes', e.target.value)}
-                placeholder="Additional notes about the transfer..."
+                required
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                placeholder="Provide details about the transfer reason, conditions, or special requirements..."
+                inputProps={{ maxLength: 500 }}
+                helperText={`${formData.description.length}/500 characters`}
               />
             </Grid>
           </Grid>
         );
 
       case 2:
+        const selectedAsset = assets.find(a => (a._id || a.id) === formData.asset);
+        const selectedToUser = users.find(u => (u._id || u.id) === formData.to_user);
+        const reasonLabel = transferReasons.find(r => r.value === formData.transfer_reason)?.label || formData.transfer_reason;
+        const priorityLabel = priorities.find(p => p.value === formData.priority)?.label || formData.priority;
+
         return (
           <Box>
             <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -416,7 +444,7 @@ const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, 
             </Typography>
             
             <Alert severity="info" sx={{ mb: 3 }}>
-              Please review the transfer details before confirming.
+              Please review the transfer details before confirming. The transfer request will be created with status "Pending" and require approval.
             </Alert>
 
             <Card>
@@ -427,9 +455,11 @@ const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, 
                       Asset Information
                     </Typography>
                   </Grid>
-                  <Grid item xs={6}>
+                  <Grid item xs={12}>
                     <Typography variant="body2" color="text.secondary">Asset:</Typography>
-                    <Typography variant="body1">{formData.asset_id}</Typography>
+                    <Typography variant="body1">
+                      {selectedAsset?.unique_asset_id} - {selectedAsset?.name || `${selectedAsset?.manufacturer} ${selectedAsset?.model}`}
+                    </Typography>
                   </Grid>
 
                   <Grid item xs={12} sx={{ mt: 2 }}>
@@ -447,29 +477,31 @@ const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, 
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" color="text.secondary">From User:</Typography>
-                    <Typography variant="body1">{formData.from_user}</Typography>
+                    <Typography variant="body1">{formData.from_user || 'Unassigned'}</Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" color="text.secondary">To User:</Typography>
-                    <Typography variant="body1">{formData.to_user || 'Unassigned'}</Typography>
+                    <Typography variant="body1">{selectedToUser?.full_name || 'Unassigned'}</Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" color="text.secondary">Reason:</Typography>
-                    <Typography variant="body1">{formData.transfer_reason}</Typography>
+                    <Typography variant="body1">{reasonLabel}</Typography>
                   </Grid>
                   <Grid item xs={6}>
-                    <Typography variant="body2" color="text.secondary">Transfer Date:</Typography>
-                    <Typography variant="body1">{new Date(formData.transfer_date).toLocaleDateString()}</Typography>
+                    <Typography variant="body2" color="text.secondary">Expected Date:</Typography>
+                    <Typography variant="body1">{new Date(formData.expected_transfer_date).toLocaleDateString()}</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="text.secondary">Priority:</Typography>
+                    <Typography variant="body1">{priorityLabel}</Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="text.secondary">Description:</Typography>
+                    <Typography variant="body1">{formData.description}</Typography>
                   </Grid>
                 </Grid>
               </CardContent>
             </Card>
-
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-              <Typography variant="body2" color="text.secondary">
-                Transfer ID will be: <strong>{generateTransferId()}</strong>
-              </Typography>
-            </Box>
           </Box>
         );
 

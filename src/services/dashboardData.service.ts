@@ -1,3 +1,24 @@
+/**
+ * DASHBOARD DATA SERVICE - Real API Integration
+ * 
+ * Connected Backend Endpoints (Inventory Manager):
+ * - GET /api/v1/dashboard/inventory-stats - Inventory statistics
+ * - GET /api/v1/dashboard/assets-by-location - Assets grouped by location
+ * - GET /api/v1/dashboard/warranty-expiring - Warranties expiring soon
+ * - GET /api/v1/dashboard/maintenance-schedule - Upcoming maintenance
+ * - GET /api/v1/dashboard/top-vendors - Top performing vendors
+ * - GET /api/v1/dashboard/inventory-approvals - Pending approvals
+ * 
+ * Connected Backend Endpoints (Employee):
+ * - GET /api/v1/dashboard/employee/stats - Employee dashboard statistics
+ * - GET /api/v1/assets/my-assets - Assets assigned to logged-in employee
+ * 
+ * Data Flow: Frontend → Service → Backend Controller → MongoDB
+ * Authentication: Bearer token in Authorization header
+ * Caching: Backend implements Redis caching (300-600s TTL)
+ * Role Access: Role-based endpoints (ADMIN, INVENTORY_MANAGER, EMPLOYEE)
+ */
+
 import { Asset, AssetStatus, UserRole } from '../types';
 import api from './api';
 import { API_ENDPOINTS } from '../config/api.config';
@@ -170,10 +191,10 @@ export class DashboardDataService {
     if (cached) return cached;
 
     try {
-      // Use vendors endpoint instead of non-existent vendor-performance endpoint
-      const response = await api.get('/vendors');
-      const vendors = response.data.vendors || response.data || [];
-      return this.setCachedData(cacheKey, vendors.slice(0, 5)); // Top 5 vendors
+      // Use the correct top-vendors endpoint from backend
+      const response = await api.get(API_ENDPOINTS.DASHBOARD.TOP_VENDORS);
+      const vendors = response.data.data || response.data || [];
+      return this.setCachedData(cacheKey, Array.isArray(vendors) ? vendors : []);
     } catch (error) {
       console.error('Error fetching vendor performance:', error);
       return []; // Return empty array instead of throwing to prevent dashboard crash
@@ -203,10 +224,11 @@ export class DashboardDataService {
 
     try {
       const response = await api.get(API_ENDPOINTS.DASHBOARD.AUDIT_ITEMS);
-      return this.setCachedData(cacheKey, response.data);
+      const data = response.data.data || response.data || [];
+      return this.setCachedData(cacheKey, Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching audit items:', error);
-      throw error;
+      return [];
     }
   }
 

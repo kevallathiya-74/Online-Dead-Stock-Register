@@ -24,7 +24,7 @@ import { authService } from '../../services/auth.service';
 import { UserRole, Department } from '../../types';
 
 interface RegisterFormInputs {
-  username: string;
+  fullName: string;
   email: string;
   password: string;
   confirmPassword: string;
@@ -33,7 +33,15 @@ interface RegisterFormInputs {
 }
 
 const schema = yup.object({
-  username: yup.string().required('Username is required'),
+  fullName: yup
+    .string()
+    .required('Full name is required')
+    .min(2, 'Name must be at least 2 characters')
+    .max(100, 'Name must not exceed 100 characters')
+    .matches(
+      /^[a-zA-Z\s'-]+$/,
+      'Name can only contain letters, spaces, hyphens, and apostrophes'
+    ),
   email: yup.string().email('Invalid email').required('Email is required'),
   password: yup
     .string()
@@ -74,7 +82,7 @@ const Register = () => {
   } = useForm<RegisterFormInputs>({
     resolver: yupResolver(schema),
     defaultValues: {
-      username: '',
+      fullName: '',
       email: '',
       password: '',
       confirmPassword: '',
@@ -86,22 +94,33 @@ const Register = () => {
   const onSubmit = async (data: RegisterFormInputs) => {
     try {
       setIsLoading(true);
+      
       const response = await authService.signUp({
         email: data.email,
         password: data.password,
-        full_name: data.username,
+        full_name: data.fullName,
         department: data.department,
         role: data.role,
       });
 
       if (response.error) {
         toast.error(response.error.message);
+        return;
+      }
+      
+      if (response.token && response.user) {
+        toast.success('Registration successful');
+        // Small delay to show success message
+        setTimeout(() => {
+          navigate('/dashboard', { replace: true });
+        }, 1000);
       } else {
         toast.success('Registration successful! Please log in.');
         navigate('/login');
       }
     } catch (error: any) {
-      toast.error('Registration failed');
+      console.error('Registration error:', error);
+      toast.error(error.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -132,12 +151,13 @@ const Register = () => {
           <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
             <TextField
               fullWidth
-              label="Username"
+              label="Full Name"
               variant="outlined"
               margin="normal"
-              {...register('username')}
-              error={!!errors.username}
-              helperText={errors.username?.message}
+              placeholder="e.g., John Doe"
+              {...register('fullName')}
+              error={!!errors.fullName}
+              helperText={errors.fullName?.message}
             />
 
             <TextField

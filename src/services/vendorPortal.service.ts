@@ -1,3 +1,27 @@
+/**
+ * VENDOR PORTAL SERVICE - Real API Integration
+ * 
+ * Connected Backend Endpoints:
+ * - GET /api/v1/vendor/dashboard/stats - Vendor dashboard statistics
+ * - GET /api/v1/vendor/dashboard/recent-orders - Recent 5 orders
+ * - GET /api/v1/vendor/orders - All orders with pagination & filters
+ * - GET /api/v1/vendor/orders/:id - Single order details
+ * - GET /api/v1/vendor/products - Products/assets supplied by vendor
+ * - GET /api/v1/vendor/invoices - Vendor invoices list
+ * - GET /api/v1/vendor/invoices/:id/download - Download invoice PDF
+ * - GET /api/v1/vendor/profile - Vendor profile data
+ * - PUT /api/v1/vendor/profile - Update vendor profile
+ * 
+ * Data Flow: Frontend → Service → Backend Controller → MongoDB
+ * Authentication: Bearer token from localStorage ('token' key)
+ * Role Access: VENDOR role only (enforced by backend requireRole middleware)
+ * 
+ * Field Mappings:
+ * - Backend returns: totalOrders, pendingOrders, completedOrders, totalRevenue, activeProducts, pendingInvoices, performanceScore
+ * - Frontend expects: VendorStats interface with matching fields
+ * - Orders: po_number, status, total_amount, expected_delivery_date, order_date, items_count, priority
+ */
+
 import axios from 'axios';
 import type { 
   VendorStats, 
@@ -12,7 +36,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000
 
 // Get auth token from localStorage
 const getAuthHeader = () => {
-  const token = localStorage.getItem('auth_token');
+  const token = localStorage.getItem('token');
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 

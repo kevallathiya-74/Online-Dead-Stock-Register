@@ -1,3 +1,22 @@
+/**
+ * AUDITOR SERVICE - Real API Integration
+ * 
+ * Connected Backend Endpoints:
+ * - GET /api/v1/dashboard/auditor/stats - Fetch auditor statistics
+ * - GET /api/v1/dashboard/auditor/audit-items - Get list of audit items
+ * - GET /api/v1/dashboard/auditor/progress-chart - Audit progress chart data
+ * - GET /api/v1/dashboard/auditor/condition-chart - Asset condition distribution
+ * - GET /api/v1/dashboard/auditor/recent-activities - Recent audit activities
+ * - GET /api/v1/dashboard/auditor/compliance-metrics - Compliance metrics
+ * - PUT /api/v1/assets/:id - Update asset audit status
+ * - POST /api/v1/export-import/export - Export audit report
+ * - POST /api/v1/export-import/import - Import audit data
+ * 
+ * Data Flow: Frontend → Service → Backend Controller → MongoDB
+ * Authentication: Bearer token in Authorization header
+ * Role Access: ADMIN, AUDITOR roles only (enforced by backend RBAC)
+ */
+
 import axios from 'axios';
 import { API_BASE_URL } from '../config/api.config';
 import type { 
@@ -10,7 +29,7 @@ import type {
 
 const API_URL = `${API_BASE_URL}/dashboard`;
 
-// Get authentication token
+// Get authentication token from localStorage (key: 'token')
 const getAuthToken = () => {
   const token = localStorage.getItem('token');
   return token ? `Bearer ${token}` : '';

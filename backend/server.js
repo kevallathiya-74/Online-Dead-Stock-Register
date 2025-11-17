@@ -142,14 +142,9 @@ app.use(requestLogger);
 // General API rate limiting
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 500, // Increased from 100 to 500 requests per window
+  max: 5000, // Increased to 5000 for development (reduce in production)
   standardHeaders: true,
   legacyHeaders: false,
-  // Skip rate limiting for authenticated users (they have valid tokens)
-  skip: (req) => {
-    // If user is authenticated (has valid token), skip rate limiting
-    return req.user !== undefined;
-  },
   message: { 
     success: false,
     error: 'Too many requests from this IP, please try again later.' 
@@ -169,7 +164,7 @@ const generalLimiter = rateLimit({
 // Strict limiter for authentication routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, 
-  max: 5,
+  max: 50, // Increased from 5 to 50 for development
   skipSuccessfulRequests: true, 
   message: {
     success: false,
@@ -192,7 +187,7 @@ const authLimiter = rateLimit({
 // Progressive delay for failed login attempts
 const loginLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 10,
+  max: 100, // Increased from 10 to 100 for development
   skipSuccessfulRequests: true,
   handler: (req, res) => {
     logger.error('Excessive failed login attempts - account may be under attack', {
