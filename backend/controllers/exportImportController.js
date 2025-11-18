@@ -421,10 +421,10 @@ exports.importData = async (req, res) => {
           const asset = importData[i];
           
           // Basic validation
-          if (!asset.name || !asset.category) {
+          if (!asset.name || !asset.asset_type) {
             errors.push({
               row: i + 1,
-              error: 'Missing required fields: name or category',
+              error: 'Missing required fields: name or asset_type',
               data: asset
             });
             continue;

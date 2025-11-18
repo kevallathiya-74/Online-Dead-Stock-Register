@@ -70,6 +70,7 @@ const ReportsPage = () => {
   const [reportTemplates, setReportTemplates] = useState<ReportTemplate[]>([]);
   const [assetSummary, setAssetSummary] = useState<AssetSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedDateRange, setSelectedDateRange] = useState({
     startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
@@ -77,27 +78,44 @@ const ReportsPage = () => {
   });
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        // Fetch templates and asset summary from real APIs
-        const [templatesRes, summaryRes] = await Promise.all([
-          api.get('/reports/templates'),
-          api.get('/reports/asset-summary')
-        ]);
-        
-        setReportTemplates(templatesRes.data.data || []);
-        setAssetSummary(summaryRes.data.data || summaryRes.data || null);
-      } catch (error) {
-        console.error('Error loading reports:', error);
-        toast.error('Failed to load report data');
-      } finally {
-        setLoading(false);
+  // Load dashboard data function
+  const loadDashboardData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Fetch templates and asset summary from real APIs
+      const [templatesRes, summaryRes] = await Promise.all([
+        api.get('/reports/templates').catch(err => {
+          console.error('Failed to fetch report templates:', err);
+          toast.error('Failed to load report templates');
+          return { data: { data: [] } };
+        }),
+        api.get('/reports/asset-summary').catch(err => {
+          console.error('Failed to fetch asset summary:', err);
+          toast.error('Failed to load asset summary');
+          return { data: { data: null } };
+        })
+      ]);
+      
+      setReportTemplates(Array.isArray(templatesRes.data.data) ? templatesRes.data.data : []);
+      setAssetSummary(summaryRes.data.data || summaryRes.data || null);
+      
+      // Show info message if no templates found
+      if (!templatesRes.data.data || templatesRes.data.data.length === 0) {
+        toast.info('No report templates found. Please run the seed script: npm run seed:reports');
       }
-    };
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to load report data';
+      console.error('Error loading reports:', error);
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    loadData();
+  useEffect(() => {
+    loadDashboardData();
   }, []);
 
   const categories = Array.from(new Set(reportTemplates.map(r => r.category)));
@@ -114,9 +132,15 @@ const ReportsPage = () => {
     return 'default';
   };
 
+  const handleRefresh = async () => {
+    toast.info('Refreshing report data...');
+    await loadDashboardData();
+    toast.success('Report data refreshed successfully');
+  };
+
   const handleGenerateReport = async (template: ReportTemplate) => {
     try {
-      toast.info(`Generating ${template.name}...`);
+      const loadingToast = toast.loading(`Generating ${template.name}...`);
       
       const response = await api.post('/reports/generate', {
         template_id: template._id,
@@ -151,17 +175,26 @@ const ReportsPage = () => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
             
-            // Show single success message for both generation and download
+            // Show success message
+            toast.dismiss(loadingToast);
             toast.success(`Report "${template.name}" generated and downloaded successfully!`);
-          } catch (downloadError) {
+          } catch (downloadError: any) {
             console.error('Download error:', downloadError);
-            toast.error('Failed to download report');
+            toast.dismiss(loadingToast);
+            toast.error(downloadError.response?.data?.message || 'Failed to download report');
           }
+        } else {
+          toast.dismiss(loadingToast);
+          toast.error('Report generated but download link not available');
         }
+      } else {
+        toast.dismiss(loadingToast);
+        toast.error('Report generation failed');
       }
     } catch (error: any) {
       console.error('Failed to generate report:', error);
-      toast.error(error.response?.data?.message || 'Failed to generate report');
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to generate report';
+      toast.error(errorMessage);
     }
   };
 
@@ -195,9 +228,23 @@ const ReportsPage = () => {
               Generate comprehensive asset reports with real-time data
             </Typography>
           </Box>
+          <Button
+            variant="outlined"
+            startIcon={<ViewIcon />}
+            onClick={handleRefresh}
+            disabled={loading}
+          >
+            Refresh Data
+          </Button>
         </Box>
 
         {/* Statistics Cards */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
+        
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={6} md={3}>
             <Card>
@@ -448,15 +495,25 @@ const ReportsPage = () => {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {assetSummary.byCategory?.map((item) => (
-                            <TableRow key={item.category}>
-                              <TableCell>{item.category}</TableCell>
-                              <TableCell align="right">{item.count}</TableCell>
-                              <TableCell align="right">
-                                ₹{(item.value / 100000).toFixed(1)}L
+                          {assetSummary.byCategory && assetSummary.byCategory.length > 0 ? (
+                            assetSummary.byCategory.map((item) => (
+                              <TableRow key={item.category}>
+                                <TableCell>{item.category}</TableCell>
+                                <TableCell align="right">{item.count}</TableCell>
+                                <TableCell align="right">
+                                  ₹{(item.value / 100000).toFixed(1)}L
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={3} align="center">
+                                <Typography variant="body2" color="text.secondary">
+                                  No data available
+                                </Typography>
                               </TableCell>
                             </TableRow>
-                          ))}
+                          )}
                         </TableBody>
                       </Table>
                     </TableContainer>
@@ -481,13 +538,23 @@ const ReportsPage = () => {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {assetSummary.byLocation?.map((item) => (
-                            <TableRow key={item.location}>
-                              <TableCell>{item.location}</TableCell>
-                              <TableCell align="right">{item.count}</TableCell>
-                              <TableCell align="right">{item.percentage}%</TableCell>
+                          {assetSummary.byLocation && assetSummary.byLocation.length > 0 ? (
+                            assetSummary.byLocation.map((item) => (
+                              <TableRow key={item.location}>
+                                <TableCell>{item.location}</TableCell>
+                                <TableCell align="right">{item.count}</TableCell>
+                                <TableCell align="right">{item.percentage}%</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={3} align="center">
+                                <Typography variant="body2" color="text.secondary">
+                                  No data available
+                                </Typography>
+                              </TableCell>
                             </TableRow>
-                          ))}
+                          )}
                         </TableBody>
                       </Table>
                     </TableContainer>

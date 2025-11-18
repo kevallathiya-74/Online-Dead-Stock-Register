@@ -1,12 +1,19 @@
 // User Types
 export interface User {
-  id: string;
-  username: string;
+  _id?: string;
+  id?: string;
   email: string;
+  name: string;
   role: UserRole;
   department: Department;
-  createdAt: string;
-  updatedAt: string;
+  employee_id?: string;
+  vendor_id?: string;
+  phone?: string;
+  is_active: boolean;
+  created_at?: string;
+  last_login?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export enum UserRole {
@@ -27,88 +34,112 @@ export enum Department {
 
 // Asset Types
 export interface Asset {
-  id: string;
+  _id?: string;
+  id?: string;
+  unique_asset_id: string;
   name: string;
-  description: string;
-  category: string;
-  status: AssetStatus;
-  purchaseDate: string;
-  purchasePrice: number;
-  currentValue: number;
+  manufacturer: string;
+  model: string;
+  serial_number: string;
+  asset_type: string;
   location: string;
+  assigned_user?: string | { _id: string; name: string; email: string };
+  status: AssetStatus;
   department: string;
-  assignedTo?: string;
-  vendor: string;
-  warrantyExpiry?: string;
-  qrCode: string;
-  documents: string[];
-  maintenanceHistory: MaintenanceRecord[];
-  createdAt: string;
-  updatedAt: string;
+  purchase_date: string;
+  purchase_cost: number;
+  warranty_expiry?: string;
+  last_audit_date?: string;
+  last_audited_by?: string;
+  condition: string;
+  notes?: string;
+  vendor?: string | { _id: string; vendor_name: string };
+  images?: string[];
+  last_maintenance_date?: string;
+  configuration?: any;
+  expected_lifespan?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export enum AssetStatus {
-  ACTIVE = 'ACTIVE',
-  IN_MAINTENANCE = 'IN_MAINTENANCE',
-  DISPOSED = 'DISPOSED',
-  SCRAPPED = 'SCRAPPED'
+  ACTIVE = 'Active',
+  AVAILABLE = 'Available',
+  UNDER_MAINTENANCE = 'Under Maintenance',
+  DAMAGED = 'Damaged',
+  READY_FOR_SCRAP = 'Ready for Scrap',
+  DISPOSED = 'Disposed'
 }
 
 // Maintenance Types
 export interface MaintenanceRecord {
-  id: string;
-  assetId: string;
-  type: MaintenanceType;
+  _id?: string;
+  id?: string;
+  asset_id: string | { _id: string; unique_asset_id: string };
+  maintenance_type: MaintenanceType;
   description: string;
   cost: number;
-  vendor: string;
-  startDate: string;
-  endDate?: string;
+  vendor_id?: string | { _id: string; vendor_name: string };
+  maintenance_date: string;
+  next_maintenance_date?: string;
+  performed_by?: string;
+  priority: 'Low' | 'Medium' | 'High' | 'Critical';
   status: MaintenanceStatus;
-  notes: string;
-  documents: string[];
-  createdAt: string;
-  updatedAt: string;
+  estimated_duration?: number;
+  actual_duration?: number;
+  downtime_impact?: 'Low' | 'Medium' | 'High';
+  created_by?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export enum MaintenanceType {
-  PREVENTIVE = 'PREVENTIVE',
-  CORRECTIVE = 'CORRECTIVE',
-  UPGRADE = 'UPGRADE'
+  PREVENTIVE = 'Preventive',
+  CORRECTIVE = 'Corrective',
+  PREDICTIVE = 'Predictive',
+  EMERGENCY = 'Emergency',
+  INSPECTION = 'Inspection',
+  CALIBRATION = 'Calibration',
+  CLEANING = 'Cleaning'
 }
 
 export enum MaintenanceStatus {
-  SCHEDULED = 'SCHEDULED',
-  IN_PROGRESS = 'IN_PROGRESS',
-  COMPLETED = 'COMPLETED',
-  CANCELLED = 'CANCELLED'
+  SCHEDULED = 'Scheduled',
+  IN_PROGRESS = 'In Progress',
+  COMPLETED = 'Completed',
+  OVERDUE = 'Overdue',
+  CANCELLED = 'Cancelled'
 }
 
 // Approval Types
 export interface ApprovalRequest {
-  id: string;
-  type: ApprovalType;
-  requestedBy: string;
+  _id?: string;
+  id?: string;
+  request_type: ApprovalType;
+  asset_id?: string | { _id: string; unique_asset_id: string };
+  requested_by: string | { _id: string; name: string; email: string };
+  approver?: string | { _id: string; name: string; email: string };
   status: ApprovalStatus;
-  description: string;
-  documents: string[];
-  comments: ApprovalComment[];
-  createdAt: string;
-  updatedAt: string;
+  request_data?: any;
+  comments?: string;
+  created_at?: string;
+  approved_at?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export enum ApprovalType {
-  PURCHASE = 'PURCHASE',
-  DISPOSAL = 'DISPOSAL',
-  MAINTENANCE = 'MAINTENANCE',
-  TRANSFER = 'TRANSFER'
+  REPAIR = 'Repair',
+  UPGRADE = 'Upgrade',
+  SCRAP = 'Scrap',
+  NEW_ASSET = 'New Asset',
+  OTHER = 'Other'
 }
 
 export enum ApprovalStatus {
-  PENDING = 'PENDING',
-  APPROVED = 'APPROVED',
-  REJECTED = 'REJECTED',
-  CANCELLED = 'CANCELLED'
+  PENDING = 'Pending',
+  ACCEPTED = 'Accepted',
+  REJECTED = 'Rejected'
 }
 
 export interface ApprovalComment {
@@ -142,17 +173,24 @@ export enum DocumentType {
 
 // Vendor Types
 export interface Vendor {
-  id: string;
-  name: string;
-  contactPerson: string;
+  _id?: string;
+  id?: string;
+  vendor_name: string;
+  contact_person: string;
   email: string;
   phone: string;
-  address: string;
-  category: string[];
-  rating: number;
-  activeContracts: number;
-  createdAt: string;
-  updatedAt: string;
+  address: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zip_code?: string;
+    country?: string;
+  };
+  payment_terms?: string;
+  is_active: boolean;
+  created_at?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // API Response Types

@@ -120,7 +120,7 @@ exports.getEligibleAssets = async (req, res) => {
         id: asset._id,
         unique_asset_id: asset.unique_asset_id,
         name: `${asset.manufacturer} ${asset.model}`,
-        category: asset.category || asset.asset_type,
+        category: asset.asset_type,
         status: asset.status,
         condition: asset.condition,
         purchase_date: asset.purchase_date,

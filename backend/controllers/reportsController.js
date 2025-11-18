@@ -257,14 +257,14 @@ exports.generateReport = async (req, res, next) => {
     // Get data based on template category
     switch (template.category) {
       case 'Inventory':
-        const assets = await Asset.find(query).populate('assigned_to', 'name email').lean();
+        const assets = await Asset.find(query).populate('assigned_user', 'name email').lean();
         totalRecords = assets.length;
         reportData = {
           assets,
           summary: {
             total: totalRecords,
             active: assets.filter(a => a.status === 'Active').length,
-            inactive: assets.filter(a => a.status === 'Inactive').length,
+            available: assets.filter(a => a.status === 'Available').length,
             underMaintenance: assets.filter(a => a.status === 'Under Maintenance').length
           }
         };
@@ -284,7 +284,7 @@ exports.generateReport = async (req, res, next) => {
         reportData = {
           utilizationByStatus: utilizationData,
           totalAssets: totalRecords,
-          averageCost: analyticsAssets.reduce((sum, a) => sum + (a.cost || 0), 0) / totalRecords || 0
+          averageCost: analyticsAssets.reduce((sum, a) => sum + (a.purchase_cost || 0), 0) / totalRecords || 0
         };
         break;
 
@@ -293,15 +293,15 @@ exports.generateReport = async (req, res, next) => {
         totalRecords = financialAssets.length;
         
         reportData = {
-          totalValue: financialAssets.reduce((sum, a) => sum + (a.cost || 0), 0),
-          depreciatedValue: financialAssets.reduce((sum, a) => sum + (a.current_value || a.cost || 0), 0),
+          totalValue: financialAssets.reduce((sum, a) => sum + (a.purchase_cost || 0), 0),
+          depreciatedValue: financialAssets.reduce((sum, a) => sum + (a.purchase_cost || 0), 0),
           byCategory: financialAssets.reduce((acc, asset) => {
-            const category = asset.category || 'Uncategorized';
+            const category = asset.asset_type || 'Uncategorized';
             if (!acc[category]) {
               acc[category] = { count: 0, value: 0 };
             }
             acc[category].count++;
-            acc[category].value += asset.cost || 0;
+            acc[category].value += asset.purchase_cost || 0;
             return acc;
           }, {}),
           totalRecords
@@ -309,7 +309,7 @@ exports.generateReport = async (req, res, next) => {
         break;
 
       case 'Compliance':
-        const complianceAssets = await Asset.find(query).populate('assigned_to').lean();
+        const complianceAssets = await Asset.find(query).populate('assigned_user').lean();
         const Maintenance = require('../models/maintenance');
         const maintenanceRecords = await Maintenance.find(query).lean();
         
@@ -504,18 +504,18 @@ REPORT DATA
 
     switch (report.category) {
       case 'Inventory':
-        const assets = await Asset.find(query).populate('assigned_to', 'name email').lean();
+        const assets = await Asset.find(query).populate('assigned_user', 'name email').lean();
         reportContent += `\nINVENTORY SUMMARY\n`;
         reportContent += `Total Assets: ${assets.length}\n`;
         reportContent += `Active: ${assets.filter(a => a.status === 'Active').length}\n`;
-        reportContent += `Inactive: ${assets.filter(a => a.status === 'Inactive').length}\n\n`;
+        reportContent += `Available: ${assets.filter(a => a.status === 'Available').length}\n\n`;
         reportContent += `ASSET LIST:\n`;
         assets.forEach((asset, idx) => {
-          reportContent += `${idx + 1}. ${asset.asset_id} - ${asset.name}\n`;
+          reportContent += `${idx + 1}. ${asset.unique_asset_id} - ${asset.name}\n`;
           reportContent += `   Status: ${asset.status}\n`;
-          reportContent += `   Category: ${asset.category}\n`;
+          reportContent += `   Type: ${asset.asset_type}\n`;
           reportContent += `   Location: ${asset.location}\n`;
-          reportContent += `   Value: ₹${asset.cost || 0}\n\n`;
+          reportContent += `   Value: ₹${asset.purchase_cost || 0}\n\n`;
         });
         break;
 
@@ -535,12 +535,12 @@ REPORT DATA
 
       case 'Financial':
         const financialAssets = await Asset.find(query).lean();
-        const totalValue = financialAssets.reduce((sum, a) => sum + (a.cost || 0), 0);
+        const totalValue = financialAssets.reduce((sum, a) => sum + (a.purchase_cost || 0), 0);
         const byCategory = financialAssets.reduce((acc, a) => {
-          const cat = a.category || 'Uncategorized';
+          const cat = a.asset_type || 'Uncategorized';
           if (!acc[cat]) acc[cat] = { count: 0, value: 0 };
           acc[cat].count++;
-          acc[cat].value += a.cost || 0;
+          acc[cat].value += a.purchase_cost || 0;
           return acc;
         }, {});
         
@@ -556,8 +556,8 @@ REPORT DATA
         const complianceAssets = await Asset.find(query).lean();
         reportContent += `\nCOMPLIANCE AUDIT\n`;
         reportContent += `Total Assets: ${complianceAssets.length}\n`;
-        reportContent += `Assets with Complete Information: ${complianceAssets.filter(a => a.name && a.category && a.location).length}\n`;
-        reportContent += `Compliance Rate: ${((complianceAssets.filter(a => a.name && a.category && a.location).length / complianceAssets.length) * 100).toFixed(2)}%\n`;
+        reportContent += `Assets with Complete Information: ${complianceAssets.filter(a => a.name && a.asset_type && a.location).length}\n`;
+        reportContent += `Compliance Rate: ${((complianceAssets.filter(a => a.name && a.asset_type && a.location).length / complianceAssets.length) * 100).toFixed(2)}%\n`;
         break;
 
       default:
@@ -599,8 +599,8 @@ exports.getAssetSummary = async (req, res, next) => {
           $group: {
             _id: null,
             totalAssets: { $sum: 1 },
-            totalValue: { $sum: '$cost' },
-            depreciatedValue: { $sum: '$current_value' },
+            totalValue: { $sum: '$purchase_cost' },
+            depreciatedValue: { $sum: '$purchase_cost' },
             activeAssets: {
               $sum: { $cond: [{ $eq: ['$status', 'Active'] }, 1, 0] }
             },
@@ -617,7 +617,7 @@ exports.getAssetSummary = async (req, res, next) => {
           $group: {
             _id: '$asset_type',
             count: { $sum: 1 },
-            value: { $sum: '$cost' }
+            value: { $sum: '$purchase_cost' }
           }
         },
         { $sort: { count: -1 } }

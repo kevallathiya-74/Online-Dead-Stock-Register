@@ -66,6 +66,7 @@ interface Asset {
   location: string;
   condition: string;
   category?: { name: string };
+  asset_type?: string;
 }
 
 interface EmployeeStats {
@@ -328,7 +329,7 @@ const EmployeeDashboard: React.FC = () => {
                 >
                   <ListItemAvatar>
                     <Avatar sx={{ bgcolor: "primary.main" }}>
-                      {getCategoryIcon(asset.category?.name || "")}
+                      {getCategoryIcon(asset.asset_type || "")}
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText

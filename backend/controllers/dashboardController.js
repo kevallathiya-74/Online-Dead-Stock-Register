@@ -403,7 +403,7 @@ const getAssetsByCategory = async (req, res) => {
   try {
     const assetsByCategory = await Asset.aggregate([
       { $match: { status: { $ne: 'Scrapped' } } },
-      { $group: { _id: '$category', count: { $sum: 1 } } }
+      { $group: { _id: '$asset_type', count: { $sum: 1 } } }
     ]);
 
     const result = assetsByCategory.reduce((acc, item) => {
@@ -635,7 +635,7 @@ const getWarrantyExpiringAssets = async (req, res) => {
         id: asset._id,
         asset: asset.unique_asset_id,
         assetId: asset._id,
-        category: asset.category,
+        category: asset.asset_type,
         expiryDate: asset.warranty_expiry.toISOString().split('T')[0],
         daysLeft,
         priority: daysLeft <= 30 ? 'high' : daysLeft <= 60 ? 'medium' : 'low',
@@ -668,7 +668,7 @@ const getMaintenanceScheduleDetailed = async (req, res) => {
         $lte: nextMonth
       }
     })
-    .populate('asset_id', 'unique_asset_id category')
+    .populate('asset_id', 'unique_asset_id asset_type')
     .populate('vendor_id', 'name contact_person')
     .sort({ maintenance_date: 1 })
     .limit(15);
@@ -933,7 +933,7 @@ const getWarrantyExpiringData = async () => {
       id: asset._id,
       asset: asset.unique_asset_id,
       assetId: asset._id,
-      category: asset.category,
+      category: asset.asset_type,
       expiryDate: asset.warranty_expiry.toISOString().split('T')[0],
       daysLeft,
       priority: daysLeft <= 30 ? 'high' : daysLeft <= 60 ? 'medium' : 'low',

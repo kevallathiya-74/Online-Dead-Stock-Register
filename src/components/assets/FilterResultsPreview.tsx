@@ -9,6 +9,7 @@ interface Asset {
   status: string;
   condition: string;
   category: string;
+  asset_type: string;
   location: string;
   purchase_cost?: number;
   purchase_date?: string;
@@ -141,7 +142,7 @@ const FilterResultsPreview: React.FC<FilterResultsPreviewProps> = ({
       asset.name,
       asset.status,
       asset.condition,
-      asset.category,
+      asset.asset_type,
       asset.location,
       asset.purchase_cost || '',
       asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString() : '',
@@ -310,7 +311,7 @@ const FilterResultsPreview: React.FC<FilterResultsPreviewProps> = ({
                         {asset.condition}
                       </span>
                     </td>
-                    <td>{asset.category}</td>
+                    <td>{asset.asset_type}</td>
                     <td>{asset.location}</td>
                     <td className="cost">
                       {asset.purchase_cost ? formatCurrency(asset.purchase_cost) : '-'}

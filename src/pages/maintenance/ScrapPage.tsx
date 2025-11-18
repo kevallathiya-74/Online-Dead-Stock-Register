@@ -82,17 +82,22 @@ const ScrapPage = () => {
 
   useEffect(() => {
     loadScrapData();
+    // Set up polling for real-time updates every 30 seconds
+    const interval = setInterval(loadScrapData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadScrapData = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/assets/scrap');
+      const response = await api.get('/inventory/scrap');
       const data = response.data.data || response.data;
       setScrapItems(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading scrap data:', error);
-      toast.error('Failed to load scrap data');
+      if (error.response?.status !== 401) {
+        toast.error(error.response?.data?.message || 'Failed to load scrap data');
+      }
     } finally {
       setLoading(false);
     }
@@ -173,18 +178,30 @@ const ScrapPage = () => {
     setIsDetailModalOpen(false);
   };
 
-  const handleApproveScrap = (item: ScrapItem) => {
-    toast.success(`Scrap request approved for ${item.assetName}`);
-    setScrapItems(prev => prev.map(i => 
-      i.id === item.id 
-        ? { 
-            ...i, 
-            status: 'Approved for Scrap' as const, 
-            approvalDate: new Date().toISOString().split('T')[0],
-            approvedBy: 'Current User'
-          }
-        : i
-    ));
+  const handleApproveScrap = async (item: ScrapItem) => {
+    try {
+      await api.post(`/inventory/scrap/${item.id}/approve`);
+      
+      toast.success(`Scrap request approved for ${item.assetName}`);
+      
+      // Update local state
+      setScrapItems(prev => prev.map(i => 
+        i.id === item.id 
+          ? { 
+              ...i, 
+              status: 'Approved for Scrap' as const, 
+              approvalDate: new Date().toISOString(),
+              approvedBy: 'Current User'
+            }
+          : i
+      ));
+      
+      // Reload data to get updated information from backend
+      setTimeout(() => loadScrapData(), 1000);
+    } catch (error: any) {
+      console.error('Error approving scrap:', error);
+      toast.error(error.response?.data?.message || 'Failed to approve scrap request');
+    }
   };
 
   const pendingCount = scrapItems.filter(i => i.status === 'Pending Approval').length;

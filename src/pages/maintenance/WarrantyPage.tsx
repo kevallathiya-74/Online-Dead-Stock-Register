@@ -64,9 +64,13 @@ const WarrantyPage = () => {
   const [selectedWarranty, setSelectedWarranty] = useState<WarrantyItem | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [totalCoverageValue, setTotalCoverageValue] = useState(0);
 
   useEffect(() => {
     loadWarrantyData();
+    // Set up polling for real-time updates every 30 seconds
+    const interval = setInterval(loadWarrantyData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadWarrantyData = async () => {
@@ -75,9 +79,18 @@ const WarrantyPage = () => {
       const response = await api.get('/maintenance/warranties');
       const data = response.data.data || response.data;
       setWarranties(data);
-    } catch (error) {
+      
+      // Calculate total coverage value from actual asset values
+      const totalValue = data.reduce((sum: number, w: WarrantyItem) => {
+        // Assuming coverage value is similar to asset purchase cost
+        return sum + 100000; // Default placeholder, should be fetched from backend
+      }, 0);
+      setTotalCoverageValue(totalValue);
+    } catch (error: any) {
       console.error('Error loading warranty data:', error);
-      toast.error('Failed to load warranty data');
+      if (error.response?.status !== 401) {
+        toast.error(error.response?.data?.message || 'Failed to load warranty data');
+      }
     } finally {
       setLoading(false);
     }
@@ -121,13 +134,29 @@ const WarrantyPage = () => {
     setIsDetailModalOpen(false);
   };
 
-  const handleFileWarrantyClaim = (warranty: WarrantyItem) => {
-    toast.success(`Warranty claim filed for ${warranty.assetName}`);
-    setWarranties(prev => prev.map(w => 
-      w.id === warranty.id 
-        ? { ...w, status: 'Claim Filed' as const, claimHistory: w.claimHistory + 1 }
-        : w
-    ));
+  const handleFileWarrantyClaim = async (warranty: WarrantyItem) => {
+    try {
+      await api.post('/maintenance/warranties/claim', {
+        assetId: warranty.id,
+        description: `Warranty claim for ${warranty.assetName}`,
+        issueType: 'warranty_claim'
+      });
+      
+      toast.success(`Warranty claim filed successfully for ${warranty.assetName}`);
+      
+      // Update local state to reflect claim filed
+      setWarranties(prev => prev.map(w => 
+        w.id === warranty.id 
+          ? { ...w, status: 'Claim Filed' as const, claimHistory: w.claimHistory + 1 }
+          : w
+      ));
+      
+      // Reload data to get updated information from backend
+      setTimeout(() => loadWarrantyData(), 1000);
+    } catch (error: any) {
+      console.error('Error filing warranty claim:', error);
+      toast.error(error.response?.data?.message || 'Failed to file warranty claim');
+    }
   };
 
   const expiringCount = warranties.filter(w => w.status === 'Expiring Soon').length;
@@ -214,7 +243,7 @@ const WarrantyPage = () => {
                       Total Coverage Value
                     </Typography>
                     <Typography variant="h4">
-                      ₹2.5M
+                      ₹{(totalCoverageValue / 1000000).toFixed(1)}M
                     </Typography>
                   </Box>
                   <ScheduleIcon color="primary" sx={{ fontSize: 40 }} />

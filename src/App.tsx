@@ -51,6 +51,8 @@ const BulkImportPage = lazy(() => import('./pages/assets/BulkImportPage'));
 const CategoriesPage = lazy(() => import('./pages/assets/CategoriesPage'));
 const VendorsPage = lazy(() => import('./pages/vendors/VendorsPage'));
 const MaintenancePage = lazy(() => import('./pages/maintenance/MaintenancePage'));
+const WarrantyPage = lazy(() => import('./pages/maintenance/WarrantyPage'));
+const ScrapPage = lazy(() => import('./pages/maintenance/ScrapPage'));
 const ReportsPage = lazy(() => import('./pages/reports/ReportsPage'));
 const PurchaseOrdersPage = lazy(() => import('./pages/purchase-orders/PurchaseOrdersPage'));
 const InvoicesPage = lazy(() => import('./pages/purchase-orders/InvoicesPage'));
@@ -142,7 +144,8 @@ const App = () => {
               <Route path="/vendors" element={<VendorsPage />} />
               <Route path="/vendors/*" element={<VendorsPage />} />
               <Route path="/maintenance" element={<MaintenancePage />} />
-              <Route path="/maintenance/*" element={<MaintenancePage />} />
+              <Route path="/maintenance/warranty" element={<WarrantyPage />} />
+              <Route path="/maintenance/scrap" element={<ScrapPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/reports/*" element={<ReportsPage />} />
               <Route path="/purchase-orders" element={<PurchaseOrdersPage />} />

@@ -35,6 +35,7 @@ import {
   Schedule as ScheduleIcon,
   Warning as WarningIcon,
   TrendingUp as TrendingIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { toast } from 'react-toastify';
@@ -42,7 +43,7 @@ import api from '../../services/api';
 
 interface Approval {
   _id: string;
-  request_type: 'ASSET_TRANSFER' | 'MAINTENANCE' | 'PURCHASE' | 'DISPOSAL' | 'Repair' | 'Upgrade' | 'Scrap' | 'New Asset' | 'Other';
+  request_type: 'Repair' | 'Upgrade' | 'Scrap' | 'New Asset' | 'Other';
   requested_by: {
     _id: string;
     name: string;
@@ -54,7 +55,7 @@ interface Approval {
     name?: string;
     unique_asset_id: string;
   };
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'Pending' | 'Accepted' | 'Rejected';
   priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   request_data: {
     reason: string;
@@ -73,48 +74,49 @@ interface Approval {
 const ApprovalsPage: React.FC = () => {
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState(0);
   const [viewDialog, setViewDialog] = useState(false);
   const [selectedApproval, setSelectedApproval] = useState<Approval | null>(null);
   const [approvalComments, setApprovalComments] = useState('');
 
-  useEffect(() => {
-    const fetchApprovals = async () => {
-      setLoading(true);
-      try {
-        const response = await api.get('/approvals');
-        const approvalData = response.data.data || response.data;
-        setApprovals(approvalData);
-      } catch (error) {
-        console.error('Failed to load approvals:', error);
-        toast.error('Failed to load approvals');
-      } finally {
-        setLoading(false);
+  const fetchApprovals = async () => {
+    try {
+      setError(null);
+      const response = await api.get('/approvals');
+      const approvalData = response.data.data || response.data;
+      setApprovals(Array.isArray(approvalData) ? approvalData : []);
+    } catch (error: any) {
+      console.error('Failed to load approvals:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to load approvals';
+      setError(errorMessage);
+      if (error.response?.status !== 401) {
+        toast.error(errorMessage);
       }
-    };
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
+    setLoading(true);
     fetchApprovals();
+
+    // Set up polling for real-time updates every 30 seconds
+    const interval = setInterval(fetchApprovals, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  const handleApproval = async (approvalId: string, action: 'APPROVED' | 'REJECTED') => {
+  const handleApproval = async (approvalId: string, action: 'Accepted' | 'Rejected') => {
     try {
       // Call the backend API
-      const endpoint = action === 'APPROVED' ? 'approve' : 'reject';
+      const endpoint = action === 'Accepted' ? 'approve' : 'reject';
       await api.put(`/approvals/${approvalId}/${endpoint}`, {
         comments: approvalComments || `Request ${action.toLowerCase()} by inventory manager`
       });
 
-      // Update local state
-      setApprovals(prev => prev.map(approval => 
-        approval._id === approvalId 
-          ? { 
-              ...approval, 
-              status: action, 
-              approved_at: new Date().toISOString(),
-              comments: approvalComments || `Request ${action.toLowerCase()} by inventory manager`
-            }
-          : approval
-      ));
+      // Refresh approvals list to get updated data
+      await fetchApprovals();
       
       setViewDialog(false);
       setApprovalComments('');
@@ -125,17 +127,30 @@ const ApprovalsPage: React.FC = () => {
     }
   };
 
-  const pendingApprovals = approvals.filter(a => a.status === 'PENDING');
-  const processedApprovals = approvals.filter(a => a.status !== 'PENDING');
+  const pendingApprovals = approvals.filter(a => a.status === 'Pending');
+  const processedApprovals = approvals.filter(a => a.status !== 'Pending');
   
   const currentApprovals = selectedTab === 0 ? pendingApprovals : 
                           selectedTab === 1 ? processedApprovals : approvals;
 
   const totalPending = pendingApprovals.length;
-  const highPriorityPending = pendingApprovals.filter(a => a.priority === 'HIGH' || a.priority === 'CRITICAL').length;
-  const avgProcessingTime = 2.3; // days
+  const highPriorityPending = pendingApprovals.filter(a => 
+    (a.request_data?.priority?.toUpperCase() === 'HIGH' || 
+     a.request_data?.priority?.toUpperCase() === 'CRITICAL')
+  ).length;
+  
+  // Calculate average processing time from processed approvals
+  const avgProcessingTime = processedApprovals.length > 0 ? 
+    processedApprovals.reduce((sum, approval) => {
+      if (approval.approved_at) {
+        const processingTime = (new Date(approval.approved_at).getTime() - new Date(approval.created_at).getTime()) / (1000 * 60 * 60 * 24);
+        return sum + processingTime;
+      }
+      return sum;
+    }, 0) / processedApprovals.length : 0;
+  
   const approvalRate = processedApprovals.length > 0 ? 
-    (processedApprovals.filter(a => a.status === 'APPROVED').length / processedApprovals.length * 100) : 0;
+    (processedApprovals.filter(a => a.status === 'Accepted').length / processedApprovals.length * 100) : 0;
 
   return (
     <DashboardLayout>
@@ -150,10 +165,30 @@ const ApprovalsPage: React.FC = () => {
               Review and manage pending approval requests from your team
             </Typography>
           </Box>
-          <Badge badgeContent={totalPending} color="error">
-            <AssignmentIcon sx={{ fontSize: 40 }} />
-          </Badge>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={() => {
+                setLoading(true);
+                fetchApprovals();
+              }}
+              disabled={loading}
+            >
+              Refresh
+            </Button>
+            <Badge badgeContent={totalPending} color="error">
+              <AssignmentIcon sx={{ fontSize: 40 }} />
+            </Badge>
+          </Box>
         </Box>
+
+        {/* Error Alert */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
 
         {/* Statistics Cards */}
         <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -261,6 +296,17 @@ const ApprovalsPage: React.FC = () => {
                   <Skeleton key={index} height={60} sx={{ mb: 1 }} />
                 ))}
               </Box>
+            ) : currentApprovals.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 8 }}>
+                <AssignmentIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                <Typography variant="h6" color="text.secondary" gutterBottom>
+                  No {selectedTab === 0 ? 'pending' : selectedTab === 1 ? 'processed' : ''} approvals found
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {selectedTab === 0 ? 'All caught up! No pending approval requests at the moment.' : 
+                   'No approval requests have been processed yet.'}
+                </Typography>
+              </Box>
             ) : (
               <TableContainer component={Paper} elevation={0}>
                 <Table>
@@ -282,11 +328,11 @@ const ApprovalsPage: React.FC = () => {
                         <TableCell>
                           <Box>
                             <Typography variant="subtitle2">
-                              {approval.request_data.reason}
+                              {approval.request_data?.reason || 'No reason provided'}
                             </Typography>
-                            {approval.request_data.estimated_cost && (
+                            {approval.request_data?.estimated_cost && (
                               <Typography variant="caption" color="text.secondary">
-                                Est. Cost: ₹{approval.request_data.estimated_cost.toLocaleString()}
+                                Est. Cost: ₹{approval.request_data.estimated_cost.toLocaleString('en-IN')}
                               </Typography>
                             )}
                           </Box>
@@ -294,40 +340,49 @@ const ApprovalsPage: React.FC = () => {
                         <TableCell>
                           <Box>
                             <Typography variant="body2">
-                              {approval.requested_by.name}
+                              {approval.requested_by?.name || 'Unknown'}
                             </Typography>
                             <Typography variant="caption" color="textSecondary">
-                              {approval.requested_by.employee_id}
+                              {approval.requested_by?.employee_id || approval.requested_by?.email}
                             </Typography>
                           </Box>
                         </TableCell>
                         <TableCell>
                           <Chip 
-                            label={approval.request_type.replace('_', ' ')} 
+                            label={approval.request_type} 
                             size="small"
                             color={
-                              approval.request_type === 'ASSET_TRANSFER' ? 'info' :
-                              approval.request_type === 'MAINTENANCE' ? 'warning' :
-                              approval.request_type === 'PURCHASE' ? 'success' : 'error'
+                              approval.request_type === 'New Asset' ? 'success' :
+                              approval.request_type === 'Repair' ? 'warning' :
+                              approval.request_type === 'Upgrade' ? 'info' : 
+                              approval.request_type === 'Scrap' ? 'error' : 'default'
                             }
                           />
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2">
-                            {approval.asset_id?.name}
-                          </Typography>
-                          <Typography variant="caption" color="textSecondary">
-                            {approval.asset_id?.unique_asset_id}
-                          </Typography>
+                          {approval.asset_id ? (
+                            <>
+                              <Typography variant="body2">
+                                {approval.asset_id.name || 'Unnamed Asset'}
+                              </Typography>
+                              <Typography variant="caption" color="textSecondary">
+                                {approval.asset_id.unique_asset_id}
+                              </Typography>
+                            </>
+                          ) : (
+                            <Typography variant="caption" color="textSecondary">
+                              N/A
+                            </Typography>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Chip 
-                            label={approval.priority} 
+                            label={approval.request_data?.priority?.toUpperCase() || 'MEDIUM'} 
                             size="small"
                             color={
-                              approval.priority === 'CRITICAL' ? 'error' :
-                              approval.priority === 'HIGH' ? 'warning' :
-                              approval.priority === 'MEDIUM' ? 'info' : 'default'
+                              approval.request_data?.priority?.toUpperCase() === 'CRITICAL' ? 'error' :
+                              approval.request_data?.priority?.toUpperCase() === 'HIGH' ? 'warning' :
+                              approval.request_data?.priority?.toUpperCase() === 'MEDIUM' ? 'info' : 'default'
                             }
                           />
                         </TableCell>
@@ -336,8 +391,8 @@ const ApprovalsPage: React.FC = () => {
                             label={approval.status} 
                             size="small"
                             color={
-                              approval.status === 'APPROVED' ? 'success' :
-                              approval.status === 'REJECTED' ? 'error' : 'warning'
+                              approval.status === 'Accepted' ? 'success' :
+                              approval.status === 'Rejected' ? 'error' : 'warning'
                             }
                           />
                         </TableCell>
@@ -357,19 +412,19 @@ const ApprovalsPage: React.FC = () => {
                           >
                             <ViewIcon />
                           </IconButton>
-                          {approval.status === 'PENDING' && (
+                          {approval.status === 'Pending' && (
                             <>
                               <IconButton 
                                 size="small" 
                                 color="success"
-                                onClick={() => handleApproval(approval._id, 'APPROVED')}
+                                onClick={() => handleApproval(approval._id, 'Accepted')}
                               >
                                 <ApproveIcon />
                               </IconButton>
                               <IconButton 
                                 size="small" 
                                 color="error"
-                                onClick={() => handleApproval(approval._id, 'REJECTED')}
+                                onClick={() => handleApproval(approval._id, 'Rejected')}
                               >
                                 <RejectIcon />
                               </IconButton>
@@ -441,18 +496,18 @@ const ApprovalsPage: React.FC = () => {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setViewDialog(false)}>Close</Button>
-            {selectedApproval?.status === 'PENDING' && (
+            {selectedApproval?.status === 'Pending' && (
               <>
                 <Button 
                   color="error"
-                  onClick={() => handleApproval(selectedApproval._id, 'REJECTED')}
+                  onClick={() => handleApproval(selectedApproval._id, 'Rejected')}
                 >
                   Reject
                 </Button>
                 <Button 
                   variant="contained" 
                   color="success"
-                  onClick={() => handleApproval(selectedApproval._id, 'APPROVED')}
+                  onClick={() => handleApproval(selectedApproval._id, 'Accepted')}
                 >
                   Approve
                 </Button>

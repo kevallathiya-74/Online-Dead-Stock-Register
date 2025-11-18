@@ -75,7 +75,7 @@ const AssetLabelsPage: React.FC = () => {
       manufacturer: asset.manufacturer,
       model: asset.model,
       serial: asset.serial_number,
-      category: asset.category || asset.asset_type,
+      category: asset.asset_type,
       location: asset.location,
       status: asset.status,
       condition: asset.condition,

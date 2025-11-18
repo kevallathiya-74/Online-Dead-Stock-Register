@@ -75,6 +75,22 @@ router.delete('/disposal-records/:id',
 );
 
 // ========================================
+// SCRAP MANAGEMENT ROUTES
+// ========================================
+
+// GET /api/v1/inventory/scrap - Get all scrap items
+router.get('/scrap', 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER']),
+  inventoryController.getScrapItems
+);
+
+// POST /api/v1/inventory/scrap/:id/approve - Approve scrap item
+router.post('/scrap/:id/approve', 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER']),
+  inventoryController.approveScrapItem
+);
+
+// ========================================
 // ASSET CATEGORIES ROUTES
 // ========================================
 

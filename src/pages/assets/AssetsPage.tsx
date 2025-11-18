@@ -61,17 +61,17 @@ import assetUpdateService from '../../services/assetUpdateService';
 
 interface Asset {
   _id?: string;
-  id: string;
+  id?: string;
   unique_asset_id: string;
   name?: string;
-  category?: string;
+  asset_type: string;
   manufacturer: string;
   model: string;
   serial_number: string;
   status: 'Active' | 'Available' | 'Under Maintenance' | 'Damaged' | 'Ready for Scrap' | 'Disposed';
   condition: 'Excellent' | 'Good' | 'Fair' | 'Poor' | 'Obsolete' | 'Beyond Repair';
   location: string;
-  assigned_user?: string;
+  assigned_user?: string | { _id: string; name: string; email: string };
   purchase_date: string;
   purchase_cost: number;
   warranty_expiry?: string;
@@ -81,6 +81,8 @@ interface Asset {
     name: string;
     email: string;
   } | string;
+  department?: string;
+  vendor?: string | { _id: string; vendor_name: string };
 }
 
 const AssetsPage = () => {
@@ -218,7 +220,7 @@ const AssetsPage = () => {
           id: asset._id || asset.id,
           unique_asset_id: asset.unique_asset_id,
           name: asset.name || `${asset.manufacturer} ${asset.model}`,
-          category: asset.category || asset.asset_type,
+          asset_type: asset.asset_type,
           manufacturer: asset.manufacturer,
           model: asset.model,
           serial_number: asset.serial_number,
@@ -227,10 +229,12 @@ const AssetsPage = () => {
           location: asset.location,
           assigned_user: assignedUserName,
           purchase_date: asset.purchase_date,
-          purchase_cost: asset.purchase_cost || asset.purchase_value || asset.value || 0,
+          purchase_cost: asset.purchase_cost,
           warranty_expiry: asset.warranty_expiry,
           last_audit_date: asset.last_audit_date,
           last_audited_by: asset.last_audited_by, // Include audit user info
+          department: asset.department,
+          vendor: asset.vendor,
         };
       }) : [];
       
@@ -344,6 +348,7 @@ const AssetsPage = () => {
         unique_asset_id: createdAsset.unique_asset_id,
         name: `${createdAsset.manufacturer} ${createdAsset.model}`,
         category: createdAsset.asset_type,
+        asset_type: createdAsset.asset_type,
         manufacturer: createdAsset.manufacturer,
         model: createdAsset.model,
         serial_number: createdAsset.serial_number,
@@ -364,7 +369,7 @@ const AssetsPage = () => {
         manufacturer: fullAssetData.manufacturer,
         model: fullAssetData.model,
         serial: fullAssetData.serial_number,
-        category: fullAssetData.category,
+        asset_type: fullAssetData.asset_type,
         location: fullAssetData.location,
         status: fullAssetData.status,
         condition: fullAssetData.condition,
@@ -391,7 +396,7 @@ const AssetsPage = () => {
     setFormData({
       unique_asset_id: asset.unique_asset_id,
       name: asset.name || '',
-      asset_type: asset.category || '',
+      asset_type: asset.asset_type || '',
       manufacturer: asset.manufacturer,
       model: asset.model,
       serial_number: asset.serial_number,
@@ -781,7 +786,7 @@ const AssetsPage = () => {
                   <div class="label-details">
                     <div class="detail-row">
                       <span class="detail-label">Category:</span>
-                      <span class="detail-value">${asset.category || 'N/A'}</span>
+                      <span class="detail-value">${asset.asset_type || 'N/A'}</span>
                       <span class="status-badge">${asset.status}</span>
                     </div>
                     <div class="detail-row">
@@ -868,15 +873,15 @@ const AssetsPage = () => {
   const filteredAssets = assets.filter((asset) => {
     const matchesSearch = 
       (asset.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-      (asset.category?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (asset.asset_type?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (asset.unique_asset_id?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (asset.manufacturer?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (asset.model?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (asset.serial_number?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     
     const matchesCategory = selectedCategory === 'all' || 
-      asset.category === selectedCategory || 
-      (asset.category && selectedCategory && asset.category.toLowerCase().includes(selectedCategory.toLowerCase()));
+      asset.asset_type === selectedCategory || 
+      (asset.asset_type && selectedCategory && asset.asset_type.toLowerCase().includes(selectedCategory.toLowerCase()));
     const matchesStatus = selectedStatus === 'all' || asset.status === selectedStatus;
     
     return matchesSearch && matchesCategory && matchesStatus;
@@ -884,7 +889,7 @@ const AssetsPage = () => {
 
   const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.checked) {
-      const allAssetIds = filteredAssets.map(asset => asset.id);
+      const allAssetIds = filteredAssets.map(asset => asset.id || asset._id).filter((id): id is string => !!id);
       setSelectedAssets(allAssetIds);
     } else {
       setSelectedAssets([]);
@@ -1220,19 +1225,19 @@ const AssetsPage = () => {
                   {filteredAssets.map((asset) => (
                     <TableRow 
                       key={asset.id}
-                      selected={selectedAssets.includes(asset.id)}
+                      selected={selectedAssets.includes(asset.id || asset._id || '')}
                       hover
                     >
                       <TableCell padding="checkbox">
                         <Checkbox
-                          checked={selectedAssets.includes(asset.id)}
-                          onChange={() => handleSelectAsset(asset.id)}
+                          checked={selectedAssets.includes(asset.id || asset._id || '')}
+                          onChange={() => handleSelectAsset(asset.id || asset._id || '')}
                         />
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                           <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
-                            {getCategoryIcon(asset.category || 'Other')}
+                            {getCategoryIcon(asset.asset_type || 'Other')}
                           </Avatar>
                           <Box>
                             <Typography variant="subtitle2" sx={{ fontWeight: 'medium' }}>
@@ -1247,7 +1252,7 @@ const AssetsPage = () => {
                           </Box>
                         </Box>
                       </TableCell>
-                      <TableCell>{asset.category}</TableCell>
+                      <TableCell>{asset.asset_type}</TableCell>
                       <TableCell>
                         <Chip
                           label={asset.status}
@@ -1264,7 +1269,7 @@ const AssetsPage = () => {
                         />
                       </TableCell>
                       <TableCell>{asset.location}</TableCell>
-                      <TableCell>{asset.assigned_user || 'Unassigned'}</TableCell>
+                      <TableCell>{typeof asset.assigned_user === 'object' ? asset.assigned_user?.name : asset.assigned_user || 'Unassigned'}</TableCell>
                       <TableCell>₹{asset.purchase_cost?.toLocaleString() || '0'}</TableCell>
                       <TableCell>
                         <IconButton 
@@ -1745,7 +1750,7 @@ const AssetsPage = () => {
                         </Grid>
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body2" color="text.secondary">Category</Typography>
-                          <Typography variant="body1">{selectedAsset.category || (selectedAsset as any).asset_type || 'N/A'}</Typography>
+                          <Typography variant="body1">{selectedAsset.asset_type || 'N/A'}</Typography>
                         </Grid>
                       </Grid>
                     </CardContent>
@@ -1796,7 +1801,7 @@ const AssetsPage = () => {
                         </Grid>
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body2" color="text.secondary">Assigned To</Typography>
-                          <Typography variant="body1">{selectedAsset.assigned_user || 'Unassigned'}</Typography>
+                          <Typography variant="body1">{typeof selectedAsset.assigned_user === 'object' ? selectedAsset.assigned_user?.name : selectedAsset.assigned_user || 'Unassigned'}</Typography>
                         </Grid>
                       </Grid>
                     </CardContent>
@@ -1958,7 +1963,7 @@ const AssetsPage = () => {
                       <Typography variant="body2"><strong>Manufacturer:</strong> {newlyCreatedAsset.manufacturer}</Typography>
                       <Typography variant="body2"><strong>Model:</strong> {newlyCreatedAsset.model}</Typography>
                       <Typography variant="body2"><strong>Serial:</strong> {newlyCreatedAsset.serial_number}</Typography>
-                      <Typography variant="body2"><strong>Category:</strong> {newlyCreatedAsset.category}</Typography>
+                      <Typography variant="body2"><strong>Category:</strong> {newlyCreatedAsset.asset_type}</Typography>
                       <Typography variant="body2"><strong>Location:</strong> {newlyCreatedAsset.location}</Typography>
                       <Typography variant="body2"><strong>Status:</strong> {newlyCreatedAsset.status}</Typography>
                     </Box>

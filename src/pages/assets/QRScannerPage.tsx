@@ -909,7 +909,7 @@ const QRScannerPage: React.FC = () => {
                       >
                         Category
                       </TableCell>
-                      <TableCell>{scannedAsset.category || "N/A"}</TableCell>
+                      <TableCell>{scannedAsset.asset_type || "N/A"}</TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell

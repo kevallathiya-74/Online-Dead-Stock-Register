@@ -37,6 +37,7 @@ interface DeadStockAsset {
   id: string;
   unique_asset_id: string;
   category: string;
+  asset_type: string;
   model: string;
   manufacturer: string;
   purchase_date: string;
@@ -181,7 +182,7 @@ const DeadStockItemsPage: React.FC = () => {
       const disposalPayload = {
         asset_id: asset.unique_asset_id, // Use unique_asset_id (string) as required by schema
         asset_name: `${asset.manufacturer} ${asset.model}`,
-        category: asset.category,
+        category: asset.asset_type,
         disposal_method: 'Scrap', // Changed from disposal_type to disposal_method
         disposal_value: Math.round(asset.purchase_cost * 0.1), // 10% of purchase cost  // ✅ Fixed
         disposal_date: new Date().toISOString(),
@@ -375,7 +376,7 @@ const DeadStockItemsPage: React.FC = () => {
               assets.map((asset) => (
                   <TableRow key={asset.id} hover>
                     <TableCell>{asset.unique_asset_id}</TableCell>
-                    <TableCell>{asset.category}</TableCell>
+                    <TableCell>{asset.asset_type}</TableCell>
                     <TableCell>{asset.model}</TableCell>
                     <TableCell>{asset.manufacturer}</TableCell>
                     <TableCell>{asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString() : '—'}</TableCell>

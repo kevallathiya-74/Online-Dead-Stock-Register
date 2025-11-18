@@ -333,7 +333,7 @@ const getProducts = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('assigned_to', 'name email department')
+      .populate('assigned_user', 'name email department')
       .populate('location', 'name building floor')
       .select('-images -documents'); // Exclude large binary data
 
@@ -342,17 +342,17 @@ const getProducts = async (req, res) => {
       asset_id: product.asset_id,
       name: product.name,
       description: product.description,
-      category: product.category,
+      category: product.asset_type,
       status: product.status,
       condition: product.condition,
       purchase_price: product.purchase_price,
       current_value: product.current_value,
       purchase_date: product.purchase_date,
       warranty_expiry: product.warranty_expiry,
-      assigned_to: product.assigned_to ? {
-        name: product.assigned_to.name,
-        email: product.assigned_to.email,
-        department: product.assigned_to.department
+      assigned_to: product.assigned_user ? {
+        name: product.assigned_user.name,
+        email: product.assigned_user.email,
+        department: product.assigned_user.department
       } : null,
       location: product.location,
       quantity: product.quantity || 1,

@@ -184,7 +184,7 @@ const AssetTransferForm: React.FC<AssetTransferFormProps> = ({
                       </ListItemAvatar>
                       <ListItemText
                         primary={selectedAsset.name}
-                        secondary={`${selectedAsset.unique_asset_id} • ${selectedAsset.category}`}
+                        secondary={`${selectedAsset.unique_asset_id} • ${selectedAsset.asset_type}`}
                       />
                     </ListItem>
                   </List>

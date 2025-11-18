@@ -229,7 +229,7 @@ const MyAssetsPage = () => {
                   <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
                       <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
-                        {getAssetIcon(asset.category)}
+                        {getAssetIcon(asset.asset_type)}
                       </Avatar>
                       <Box sx={{ flexGrow: 1 }}>
                         <Typography variant="h6" gutterBottom>
@@ -303,7 +303,7 @@ const MyAssetsPage = () => {
                   <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
                       <Avatar sx={{ mr: 2, bgcolor: 'success.main' }}>
-                        {getAssetIcon(asset.category)}
+                        {getAssetIcon(asset.asset_type)}
                       </Avatar>
                       <Box sx={{ flexGrow: 1 }}>
                         <Typography variant="h6" gutterBottom>
@@ -455,7 +455,7 @@ const MyAssetsPage = () => {
                           </TableRow>
                           <TableRow>
                             <TableCell><strong>Category</strong></TableCell>
-                            <TableCell>{selectedAsset.category}</TableCell>
+                            <TableCell>{selectedAsset.asset_type}</TableCell>
                           </TableRow>
                           <TableRow>
                             <TableCell><strong>Status</strong></TableCell>
