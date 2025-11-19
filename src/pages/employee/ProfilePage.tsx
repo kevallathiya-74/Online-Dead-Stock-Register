@@ -33,7 +33,7 @@ import {
   Visibility,
   VisibilityOff,
 } from '@mui/icons-material';
-import DashboardLayout from '../../components/layout/Layout';
+import DashboardLayout from '../../components/layout/DashboardLayout';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config/api.config';
@@ -94,7 +94,7 @@ const ProfilePage = () => {
         setLoading(true);
         setError(null);
         
-        const token = localStorage.getItem('auth_token');
+        const token = localStorage.getItem('token');
         if (!token) {
           setError('Not authenticated');
           return;
@@ -117,6 +117,9 @@ const ProfilePage = () => {
           };
           setProfile(userData);
           setOriginalProfile(userData);
+        } else {
+          setError('Invalid response from server');
+          console.error('Invalid response:', response.data);
         }
       } catch (err: any) {
         console.error('Error fetching profile:', err);
@@ -132,7 +135,7 @@ const ProfilePage = () => {
 
   const handleSaveProfile = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       if (!token) {
         toast.error('Not authenticated');
         return;
@@ -186,7 +189,7 @@ const ProfilePage = () => {
     }
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       if (!token) {
         toast.error('Not authenticated');
         return;
@@ -224,7 +227,7 @@ const ProfilePage = () => {
 
   if (loading) {
     return (
-      <DashboardLayout title="My Profile">
+      <DashboardLayout>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
           <CircularProgress />
         </Box>
@@ -234,7 +237,7 @@ const ProfilePage = () => {
 
   if (error) {
     return (
-      <DashboardLayout title="My Profile">
+      <DashboardLayout>
         <Box sx={{ p: 3 }}>
           <Alert severity="error">{error}</Alert>
         </Box>
@@ -243,7 +246,7 @@ const ProfilePage = () => {
   }
 
   return (
-    <DashboardLayout title="My Profile">
+    <DashboardLayout>
       <Box sx={{ p: 3 }}>
         {/* Header */}
         <Box sx={{ mb: 3 }}>

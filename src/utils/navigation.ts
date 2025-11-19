@@ -274,3 +274,55 @@ export const getNavigationForRole = (role: UserRole): NavigationItem[] => {
       return employeeNavigation;
   }
 };
+
+// Profile navigation - shows full navigation for managers, only dashboard for others
+export const getProfileNavigationForRole = (role: UserRole): NavigationItem[] => {
+  switch (role) {
+    case UserRole.ADMIN:
+      // Admin sees full navigation on profile page
+      return adminNavigation;
+    case UserRole.INVENTORY_MANAGER:
+    case UserRole.IT_MANAGER:
+      // IT Manager and Inventory Manager see full navigation on profile page
+      return inventoryManagerNavigation;
+    case UserRole.EMPLOYEE:
+      // Employee sees only Dashboard on profile page
+      return [
+        {
+          id: 'dashboard',
+          title: 'Dashboard',
+          path: '/dashboard',
+          icon: DashboardIcon,
+        }
+      ];
+    case UserRole.AUDITOR:
+      // Auditor sees only Dashboard on profile page
+      return [
+        {
+          id: 'dashboard',
+          title: 'Dashboard',
+          path: '/auditor/dashboard',
+          icon: DashboardIcon,
+        }
+      ];
+    case UserRole.VENDOR:
+      // Vendor sees only Dashboard on profile page
+      return [
+        {
+          id: 'dashboard',
+          title: 'Dashboard',
+          path: '/vendor/dashboard',
+          icon: DashboardIcon,
+        }
+      ];
+    default:
+      return [
+        {
+          id: 'dashboard',
+          title: 'Dashboard',
+          path: '/dashboard',
+          icon: DashboardIcon,
+        }
+      ];
+  }
+};

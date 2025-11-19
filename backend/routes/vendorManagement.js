@@ -6,9 +6,9 @@ const vendorManagementController = require('../controllers/vendorManagementContr
 // Apply auth middleware to all routes
 router.use(authMiddleware);
 
-// Middleware to check inventory manager or admin role
+// Middleware to check inventory manager, IT manager or admin role
 const requireInventoryAccess = (req, res, next) => {
-  if (!['ADMIN', 'INVENTORY_MANAGER'].includes(req.user.role)) {
+  if (!['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER'].includes(req.user.role)) {
     return res.status(403).json({ message: 'Inventory management access required' });
   }
   next();

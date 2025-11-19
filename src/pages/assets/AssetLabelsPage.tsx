@@ -53,13 +53,22 @@ const AssetLabelsPage: React.FC = () => {
   const loadAssets = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/assets');
+      const response = await api.get('/assets', {
+        params: {
+          status: 'Active,Available,Under Maintenance' // Only show assets that might need labels
+        }
+      });
       // Backend returns { data: { assets: [] } } or { data: [] } or { assets: [] }
       const assetsData = response.data.data || response.data.assets || response.data;
-      setAssets(Array.isArray(assetsData) ? assetsData : []);
+      const assetsList = Array.isArray(assetsData) ? assetsData : [];
+      setAssets(assetsList);
+      
+      if (assetsList.length === 0) {
+        toast.info('No assets found. Add assets first to generate labels.');
+      }
     } catch (error: any) {
       console.error('Failed to load assets:', error);
-      toast.error('Failed to load assets');
+      toast.error(error.response?.data?.message || 'Failed to load assets');
       setAssets([]);
     } finally {
       setLoading(false);
@@ -218,21 +227,28 @@ const AssetLabelsPage: React.FC = () => {
   };
 
   const handleBulkGenerate = async () => {
-    const activeAssets = assets.filter(a => a.status === 'Active' || a.status === 'Available');
+    const activeAssets = assets.filter(a => 
+      a.status === 'Active' || 
+      a.status === 'Available' || 
+      a.status === 'Under Maintenance'
+    );
     
     if (activeAssets.length === 0) {
-      toast.error('No active assets found');
+      toast.error('No active assets found for label generation');
       return;
     }
 
     try {
       setGenerating(true);
-      toast.info(`Generating labels for ${activeAssets.length} active assets...`);
+      toast.info(`Generating labels for ${activeAssets.length} assets. This may take a moment...`, {
+        autoClose: 5000
+      });
 
       // Create a print window with all QR codes
       const printWindow = window.open('', '_blank');
       if (!printWindow) {
         toast.error('Please allow popups to generate bulk labels');
+        setGenerating(false);
         return;
       }
 
@@ -307,10 +323,12 @@ const AssetLabelsPage: React.FC = () => {
       printWindow.document.write(htmlContent);
       printWindow.document.close();
 
-      toast.success(`Generated labels for ${activeAssets.length} active assets`);
+      toast.success(`Successfully generated labels for ${activeAssets.length} assets. Print dialog will open automatically.`, {
+        autoClose: 4000
+      });
     } catch (error) {
       console.error('Failed to generate bulk labels:', error);
-      toast.error('Failed to generate bulk labels');
+      toast.error('Failed to generate bulk labels. Please try again.');
     } finally {
       setGenerating(false);
     }
@@ -523,7 +541,10 @@ const AssetLabelsPage: React.FC = () => {
                   Generate labels for multiple assets at once. Perfect for new asset batches.
                 </Alert>
 
-                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mr: 2 }}>
+                    {assets.length} total assets • {assets.filter(a => a.status === 'Active' || a.status === 'Available').length} eligible for labels
+                  </Typography>
                   <Button
                     variant="outlined"
                     startIcon={<QrCodeIcon />}
@@ -545,7 +566,7 @@ const AssetLabelsPage: React.FC = () => {
                     onClick={loadAssets}
                     disabled={loading}
                   >
-                    Refresh Assets
+                    {loading ? 'Loading...' : 'Refresh Assets'}
                   </Button>
                 </Box>
               </CardContent>

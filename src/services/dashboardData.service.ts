@@ -144,7 +144,7 @@ export class DashboardDataService {
 
     try {
       const response = await api.get(API_ENDPOINTS.DASHBOARD.ASSETS_LOCATION);
-      const data = response.data || [];
+      const data = response.data.data || response.data || [];
       return this.setCachedData(cacheKey, Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching assets by location:', error);
@@ -160,7 +160,7 @@ export class DashboardDataService {
 
     try {
       const response = await api.get(API_ENDPOINTS.DASHBOARD.WARRANTY_EXPIRING);
-      const data = response.data || [];
+      const data = response.data.data || response.data || [];
       return this.setCachedData(cacheKey, Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching warranty expiring assets:', error);
@@ -176,7 +176,7 @@ export class DashboardDataService {
 
     try {
       const response = await api.get(API_ENDPOINTS.DASHBOARD.MAINTENANCE_SCHEDULE);
-      const data = response.data || [];
+      const data = response.data.data || response.data || [];
       return this.setCachedData(cacheKey, Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching maintenance schedule:', error);

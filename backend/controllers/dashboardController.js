@@ -47,7 +47,7 @@ const getDashboardStats = async (req, res) => {
         $or: [
           { status: 'Disposed' },
           { condition: 'Poor' },
-          { warranty_end_date: { $lt: currentDate } }
+          { warranty_expiry: { $lt: currentDate } }
         ]
       }),
       
@@ -216,16 +216,18 @@ const getPendingApprovals = async (req, res) => {
 
     const formattedApprovals = approvals.map(approval => {
       const requestData = approval.request_data || {};
+      const priority = requestData.priority || 'Medium';
+      
       return {
         id: approval._id,
         type: approval.request_type,
         requestor: approval.requested_by?.name || 'Unknown User',
         requestorId: approval.requested_by?._id,
-        amount: requestData.estimated_cost || approval.asset_id?.purchase_cost || 0,
+        amount: requestData.estimated_cost || requestData.cost_estimate || approval.asset_id?.purchase_cost || 0,
         status: approval.status.toLowerCase(),
-        priority: (requestData.priority || 'medium').toLowerCase(),
+        priority: priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase(),
         createdAt: approval.created_at,
-        description: approval.comments || '',
+        description: approval.comments || requestData.description || '',
         photo: requestData.photo || requestData.image || null,
         asset_id: approval.asset_id?._id
       };
@@ -356,16 +358,18 @@ const getPendingApprovalsData = async (limit = 10) => {
 
   return approvals.map(approval => {
     const requestData = approval.request_data || {};
+    const priority = requestData.priority || 'Medium';
+    
     return {
       id: approval._id,
       type: approval.request_type,
       requestor: approval.requested_by?.name || 'Unknown User',
       requestorId: approval.requested_by?._id,
-      amount: requestData.estimated_cost || approval.asset_id?.purchase_cost || 0,
+      amount: requestData.estimated_cost || requestData.cost_estimate || approval.asset_id?.purchase_cost || 0,
       status: approval.status.toLowerCase(),
-      priority: (requestData.priority || 'medium').toLowerCase(),
+      priority: priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase(),
       createdAt: approval.created_at,
-      description: approval.comments || '',
+      description: approval.comments || requestData.description || '',
       photo: requestData.photo || requestData.image || null,
       asset_id: approval.asset_id?._id
     };
@@ -516,8 +520,11 @@ const getInventoryStats = async (req, res) => {
         }
       }),
       Maintenance.countDocuments({
-        status: 'Pending',
-        maintenance_date: { $lte: new Date(currentDate.getTime() + (7 * 24 * 60 * 60 * 1000)) } // Next 7 days
+        status: { $in: ['Scheduled', 'In Progress'] },
+        maintenance_date: { 
+          $gte: currentDate,
+          $lte: new Date(currentDate.getTime() + (7 * 24 * 60 * 60 * 1000)) 
+        }
       }),
       Asset.countDocuments({
         purchase_date: { $gte: currentMonth }
@@ -666,10 +673,11 @@ const getMaintenanceScheduleDetailed = async (req, res) => {
       maintenance_date: {
         $gte: currentDate,
         $lte: nextMonth
-      }
+      },
+      status: { $in: ['Scheduled', 'In Progress'] }
     })
     .populate('asset_id', 'unique_asset_id asset_type')
-    .populate('vendor_id', 'name contact_person')
+    .populate('vendor_id', 'vendor_name contact_person')
     .sort({ maintenance_date: 1 })
     .limit(15);
 
@@ -680,7 +688,7 @@ const getMaintenanceScheduleDetailed = async (req, res) => {
       type: item.maintenance_type,
       scheduledDate: item.maintenance_date.toISOString().split('T')[0],
       technician: item.performed_by || item.vendor_id?.contact_person || 'TBD',
-      status: item.status.toLowerCase(),
+      status: item.status === 'Scheduled' ? 'scheduled' : item.status.toLowerCase().replace(' ', '_'),
       cost: item.cost,
       description: item.description
     }));
@@ -709,11 +717,17 @@ const getTopVendorsDetailed = async (req, res) => {
       const assetsCount = await Asset.countDocuments({ vendor: vendor._id });
       const maintenanceCount = await Maintenance.countDocuments({ vendor_id: vendor._id });
       
+      // Calculate actual total value from assets
+      const assetValue = await Asset.aggregate([
+        { $match: { vendor: vendor._id, status: { $ne: 'Scrapped' } } },
+        { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
+      ]);
+      
       return {
         id: vendor._id,
-        name: vendor.name,
+        name: vendor.vendor_name || vendor.name,
         orders: assetsCount + maintenanceCount,
-        value: assetsCount * 50000, // Estimated value
+        value: assetValue[0]?.total || 0,
         rating: vendor.performance_rating || 3,
         categories: vendor.categories || [],
         activeContracts: maintenanceCount
@@ -747,15 +761,18 @@ const getInventoryApprovals = async (req, res) => {
 
     const result = approvals.map(approval => {
       const daysAgo = Math.floor((new Date() - new Date(approval.created_at)) / (1000 * 60 * 60 * 24));
+      const requestData = approval.request_data || {};
+      const priority = requestData.priority || 'Medium';
+      
       return {
         id: approval._id,
         type: approval.request_type,
-        requestor: approval.requested_by?.name || 'Unknown User',
+        requester: approval.requested_by?.name || 'Unknown User',
         requestorId: approval.requested_by?._id,
-        priority: approval.request_data?.priority || 'Medium',
+        priority: priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase(),
         daysAgo,
-        amount: approval.request_data?.cost_estimate,
-        description: approval.comments,
+        amount: requestData.cost_estimate || requestData.estimated_cost,
+        description: approval.comments || requestData.description,
         assetId: approval.asset_id?._id
       };
     });
@@ -841,8 +858,11 @@ const getInventoryStatsData = async () => {
       }
     }),
     Maintenance.countDocuments({
-      status: 'Pending',
-      maintenance_date: { $lte: new Date(currentDate.getTime() + (7 * 24 * 60 * 60 * 1000)) }
+      status: { $in: ['Scheduled', 'In Progress'] },
+      maintenance_date: { 
+        $gte: currentDate,
+        $lte: new Date(currentDate.getTime() + (7 * 24 * 60 * 60 * 1000)) 
+      }
     }),
     Asset.countDocuments({
       purchase_date: { $gte: currentMonth }
@@ -950,7 +970,8 @@ const getMaintenanceScheduleData = async () => {
     maintenance_date: {
       $gte: currentDate,
       $lte: nextMonth
-    }
+    },
+    status: { $in: ['Scheduled', 'In Progress'] }
   })
   .populate('asset_id', 'unique_asset_id')
   .sort({ maintenance_date: 1 })
@@ -963,7 +984,7 @@ const getMaintenanceScheduleData = async () => {
     type: item.maintenance_type,
     scheduledDate: item.maintenance_date.toISOString().split('T')[0],
     technician: item.performed_by || 'TBD',
-    status: item.status.toLowerCase()
+    status: item.status === 'Scheduled' ? 'scheduled' : item.status.toLowerCase().replace(' ', '_')
   }));
 };
 
@@ -975,11 +996,18 @@ const getTopVendorsData = async () => {
   return Promise.all(vendors.map(async (vendor) => {
     const assetsCount = await Asset.countDocuments({ vendor: vendor._id });
     const maintenanceCount = await Maintenance.countDocuments({ vendor_id: vendor._id });
+    
+    // Get actual total value from assets purchased from this vendor
+    const assetValue = await Asset.aggregate([
+      { $match: { vendor: vendor._id, status: { $ne: 'Scrapped' } } },
+      { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
+    ]);
+    
     return {
       id: vendor._id,
-      name: vendor.name,
+      name: vendor.vendor_name || vendor.name,
       orders: assetsCount,
-      value: assetsCount * 45000,
+      value: assetValue[0]?.total || 0,
       rating: vendor.performance_rating || 3,
       categories: vendor.categories || [],
       activeContracts: maintenanceCount
@@ -998,12 +1026,15 @@ const getInventoryApprovalsData = async () => {
 
   return approvals.map(approval => {
     const daysAgo = Math.floor((new Date() - new Date(approval.created_at)) / (1000 * 60 * 60 * 24));
+    const requestData = approval.request_data || {};
+    const priority = requestData.priority || 'Medium';
+    
     return {
       id: approval._id,
       type: approval.request_type,
-      requestor: approval.requested_by?.name || 'Unknown',
+      requester: approval.requested_by?.name || 'Unknown',
       requestorId: approval.requested_by?._id,
-      priority: approval.request_data?.priority || 'Medium',
+      priority: priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase(),
       daysAgo
     };
   });
@@ -1329,9 +1360,9 @@ const getEmployeeStats = async (req, res) => {
     threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
     
     const warrantiesExpiring = userAssets.filter(asset => {
-      return asset.warranty_end_date && 
-             new Date(asset.warranty_end_date) <= threeMonthsFromNow &&
-             new Date(asset.warranty_end_date) > new Date();
+      return asset.warranty_expiry && 
+             new Date(asset.warranty_expiry) <= threeMonthsFromNow &&
+             new Date(asset.warranty_expiry) > new Date();
     }).length;
     
     res.json({

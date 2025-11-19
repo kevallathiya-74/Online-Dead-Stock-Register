@@ -20,39 +20,39 @@ const {
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
 
 // Purchase Order Routes
-// GET /api/purchase-management/orders - Get all purchase orders (Admin, Inventory Manager)
+// GET /api/purchase-management/orders - Get all purchase orders (Admin, Inventory Manager, IT Manager)
 router.get('/orders', 
   authenticateToken, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
   getAllPurchaseOrders
 );
 
-// GET /api/purchase-management/orders/:id - Get purchase order by ID (Admin, Inventory Manager)
+// GET /api/purchase-management/orders/:id - Get purchase order by ID (Admin, Inventory Manager, IT Manager)
 router.get('/orders/:id', 
   authenticateToken, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
   getPurchaseOrderById
 );
 
-// POST /api/purchase-management/orders - Create purchase order (Admin, Inventory Manager)
+// POST /api/purchase-management/orders - Create purchase order (Admin, Inventory Manager, IT Manager)
 router.post('/orders', 
   authenticateToken, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
   createPurchaseOrder
 );
 
-// PATCH /api/purchase-management/orders/:id/status - Update purchase order status (Admin, Inventory Manager)
+// PATCH /api/purchase-management/orders/:id/status - Update purchase order status (Admin, Inventory Manager, IT Manager)
 router.patch('/orders/:id/status', 
   authenticateToken, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
   updatePurchaseOrderStatus
 );
 
 // Purchase Request Routes
-// GET /api/purchase-management/requests - Get all purchase requests (Admin, Inventory Manager)
+// GET /api/purchase-management/requests - Get all purchase requests (Admin, Inventory Manager, IT Manager)
 router.get('/requests', 
   authenticateToken, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
   getAllPurchaseRequests
 );
 
@@ -63,53 +63,53 @@ router.post('/requests',
 );
 
 // Statistics Route
-// GET /api/purchase-management/stats - Get purchase statistics (Admin, Inventory Manager)
+// GET /api/purchase-management/stats - Get purchase statistics (Admin, Inventory Manager, IT Manager)
 router.get('/stats', 
   authenticateToken, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
   getPurchaseStats
 );
 
 // Invoice Routes
-// GET /api/purchase-management/invoices - Get all invoices (Admin, Inventory Manager)
+// GET /api/purchase-management/invoices - Get all invoices (Admin, Inventory Manager, IT Manager)
 router.get('/invoices', 
   authenticateToken, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
   getAllInvoices
 );
 
-// GET /api/purchase-management/invoices/stats - Get invoice statistics (Admin, Inventory Manager)
+// GET /api/purchase-management/invoices/stats - Get invoice statistics (Admin, Inventory Manager, IT Manager)
 router.get('/invoices/stats', 
   authenticateToken, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
   getInvoiceStats
 );
 
-// GET /api/purchase-management/invoices/:id - Get invoice by ID (Admin, Inventory Manager)
+// GET /api/purchase-management/invoices/:id - Get invoice by ID (Admin, Inventory Manager, IT Manager)
 router.get('/invoices/:id', 
   authenticateToken, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
   getInvoiceById
 );
 
-// POST /api/purchase-management/invoices - Create invoice (Admin, Inventory Manager)
+// POST /api/purchase-management/invoices - Create invoice (Admin, Inventory Manager, IT Manager)
 router.post('/invoices', 
   authenticateToken, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
   createInvoice
 );
 
-// PATCH /api/purchase-management/invoices/:id/status - Update invoice status (Admin, Inventory Manager)
+// PATCH /api/purchase-management/invoices/:id/status - Update invoice status (Admin, Inventory Manager, IT Manager)
 router.patch('/invoices/:id/status', 
   authenticateToken, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
   updateInvoiceStatus
 );
 
-// DELETE /api/purchase-management/invoices/:id - Delete invoice (Admin, Inventory Manager)
+// DELETE /api/purchase-management/invoices/:id - Delete invoice (Admin, Inventory Manager, IT Manager)
 router.delete('/invoices/:id', 
   authenticateToken, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
   deleteInvoice
 );
 

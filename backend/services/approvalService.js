@@ -25,7 +25,7 @@ exports.getApprovals = async (filters = {}, pagination = {}, userRole, userId) =
         { requested_by: userId }
       ];
     }
-    // Admin sees all
+    // Admin, INVENTORY_MANAGER, and IT_MANAGER see all approvals
     
     // Status filter
     if (filters.status) {
@@ -93,7 +93,9 @@ exports.getApprovalById = async (approvalId, userRole, userId) => {
     
     // Check access rights
     const hasAccess = 
-      userRole === 'Admin' ||
+      userRole === 'ADMIN' ||
+      userRole === 'INVENTORY_MANAGER' ||
+      userRole === 'IT_MANAGER' ||
       approval.requested_by._id.toString() === userId.toString() ||
       approval.approver?._id.toString() === userId.toString();
     

@@ -109,7 +109,7 @@ exports.createVendor = async (req, res) => {
       performed_by: req.user.id,
       details: {
         vendor_id: vendor._id,
-        vendor_name: vendor.name,
+        vendor_name: vendor.vendor_name || vendor.name,
         vendor_code: vendor.vendor_code
       },
       timestamp: new Date()
@@ -168,7 +168,7 @@ exports.updateVendor = async (req, res) => {
       performed_by: req.user.id,
       details: {
         vendor_id: id,
-        vendor_name: updatedVendor.name,
+        vendor_name: updatedVendor.vendor_name || updatedVendor.name,
         updated_fields: Object.keys(updateData)
       },
       timestamp: new Date()
@@ -218,7 +218,7 @@ exports.deleteVendor = async (req, res) => {
       performed_by: req.user.id,
       details: {
         vendor_id: id,
-        vendor_name: vendor.name,
+        vendor_name: vendor.vendor_name || vendor.name,
         vendor_code: vendor.vendor_code
       },
       timestamp: new Date()
@@ -246,7 +246,7 @@ exports.getVendorPerformance = async (req, res) => {
 
     res.json({
       vendor_id: id,
-      vendor_name: vendor.name,
+      vendor_name: vendor.vendor_name || vendor.name,
       performance
     });
   } catch (error) {

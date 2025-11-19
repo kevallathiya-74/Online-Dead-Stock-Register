@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getNavigationForRole, NavigationItem } from '../../utils/navigation';
+import { getNavigationForRole, getProfileNavigationForRole, NavigationItem } from '../../utils/navigation';
 
 const drawerWidth = 280;
 
@@ -43,7 +43,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const [openItems, setOpenItems] = useState<{ [key: string]: boolean }>({});
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
-  const navigation = user ? getNavigationForRole(user.role) : [];
+  // Detect if we're on a profile page
+  const isProfilePage = location.pathname === '/employee/profile' || 
+                        location.pathname === '/vendor/profile' ||
+                        location.pathname === '/auditor/profile' ||
+                        location.pathname === '/admin/profile';
+
+  // Use profile navigation if on profile page, otherwise use regular navigation
+  const navigation = user 
+    ? (isProfilePage ? getProfileNavigationForRole(user.role) : getNavigationForRole(user.role))
+    : [];
 
   // Auto-expand parent menu when on a child route
   useEffect(() => {

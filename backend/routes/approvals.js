@@ -12,8 +12,8 @@ router.get('/:id', authMiddleware, approvalCtrl.getApprovalById);
 // Protected: POST create approval
 router.post('/', authMiddleware, approvalCtrl.createApproval);
 
-// Approver role only: PUT approve/reject
-router.put('/:id/approve', authMiddleware, requireRole(['ADMIN', 'INVENTORY_MANAGER']), approvalCtrl.approveRequest);
-router.put('/:id/reject', authMiddleware, requireRole(['ADMIN', 'INVENTORY_MANAGER']), approvalCtrl.rejectRequest);
+// Approver role only: PUT approve/reject (Admin, Inventory Manager, IT Manager)
+router.put('/:id/approve', authMiddleware, requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), approvalCtrl.approveRequest);
+router.put('/:id/reject', authMiddleware, requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), approvalCtrl.rejectRequest);
 
 module.exports = router;
