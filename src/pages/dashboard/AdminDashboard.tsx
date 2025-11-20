@@ -104,7 +104,8 @@ const formatCurrency = (amount: number | string): string => {
 
 // Approval interface
 interface Approval {
-  id: string;
+  _id: string;
+  id?: string; // Deprecated: use _id
   type: string;
   requestor: string;
   requestorId: string;
@@ -282,7 +283,7 @@ const AdminDashboard = () => {
   ) => {
     try {
       // Optimistic UI update
-      const updatedApprovals = (pendingApprovals || []).filter((a: Approval) => a.id !== approvalId);
+      const updatedApprovals = (pendingApprovals || []).filter((a: Approval) => a._id !== approvalId);
       
       // Call API
       await api.post(`/approvals/${approvalId}/${action}`);
@@ -590,7 +591,7 @@ const AdminDashboard = () => {
                       </TableRow>
                     ) : (
                       (pendingApprovals || []).map((approval) => (
-                        <TableRow key={approval.id}>
+                        <TableRow key={approval._id}>
                           <TableCell>
                             <Typography
                               variant="body2"

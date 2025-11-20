@@ -46,7 +46,8 @@ import { toast } from 'react-toastify';
 import api from '../../services/api';
 
 interface AMCContract {
-  id: string;
+  _id: string;
+  id?: string; // Deprecated: use _id
   contractNumber: string;
   assetId: string;
   assetName: string;
@@ -153,7 +154,7 @@ const AMCPage = () => {
   const handleRenewContract = (contract: AMCContract) => {
     toast.success(`Contract renewal initiated for ${contract.contractNumber}`);
     setContracts(prev => prev.map(c => 
-      c.id === contract.id 
+      c._id === contract._id 
         ? { ...c, status: 'Under Review' as const }
         : c
     ));
@@ -361,7 +362,7 @@ const AMCPage = () => {
                     filteredContracts.map((contract) => {
                       const daysUntilRenewal = getDaysUntilRenewal(contract.renewalDate);
                       return (
-                        <TableRow key={contract.id}>
+                        <TableRow key={contract._id}>
                           <TableCell>
                             <Box>
                               <Typography variant="subtitle2">

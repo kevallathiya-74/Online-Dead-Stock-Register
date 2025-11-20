@@ -51,9 +51,9 @@ exports.getApprovals = async (filters = {}, pagination = {}, userRole, userId) =
     // Execute query
     const [approvals, total] = await Promise.all([
       Approval.find(query)
-        .populate('requested_by', 'name email role')
+        .populate('requested_by', 'name email role employee_id')
         .populate('approver', 'name email role')
-        .populate('asset_id', 'asset_name unique_asset_id')
+        .populate('asset_id', 'name unique_asset_id asset_type')
         .sort({ created_at: -1 })
         .skip(skip)
         .limit(limit)
@@ -82,9 +82,9 @@ exports.getApprovals = async (filters = {}, pagination = {}, userRole, userId) =
 exports.getApprovalById = async (approvalId, userRole, userId) => {
   try {
     const approval = await Approval.findById(approvalId)
-      .populate('requested_by', 'name email role department')
+      .populate('requested_by', 'name email role department employee_id')
       .populate('approver', 'name email role')
-      .populate('asset_id', 'asset_name unique_asset_id category status')
+      .populate('asset_id', 'name unique_asset_id asset_type status')
       .lean();
     
     if (!approval) {
@@ -118,38 +118,36 @@ exports.createApproval = async (approvalData, userId) => {
   session.startTransaction();
   
   try {
-    // Build approval chain based on request type and amount
-    const approvalChain = await buildApprovalChain(
-      approvalData.request_type,
-      approvalData.estimated_value || 0,
-      userId
-    );
-    
-    if (approvalChain.length === 0) {
-      throw new Error('No approval chain could be constructed');
-    }
-    
     // Create approval
     const approval = new Approval({
       ...approvalData,
       requested_by: userId,
-      current_approver_id: approvalChain[0].approver_id,
-      approval_chain: approvalChain,
       status: 'Pending'
     });
     
     await approval.save({ session });
     
-    // Create notification for first approver
-    await Notification.create([{
-      user_id: approvalChain[0].approver_id,
+    // Create notification for managers/admins who can approve
+    const User = require('../models/user');
+    const approvers = await User.find({
+      role: { $in: ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER'] },
+      is_active: true
+    }).select('_id');
+    
+    // Create notifications for all approvers
+    const notifications = approvers.map(approver => ({
+      user_id: approver._id,
       type: 'approval_required',
       title: 'New Approval Request',
       message: `New ${approvalData.request_type} approval request requires your attention`,
       related_entity_type: 'Approval',
       related_entity_id: approval._id,
       priority: 'medium'
-    }], { session });
+    }));
+    
+    if (notifications.length > 0) {
+      await Notification.create(notifications, { session });
+    }
     
     // Create audit log
     await AuditLog.create([{
@@ -194,90 +192,40 @@ exports.processApproval = async (approvalId, decision, comments, userId) => {
     
     if (!approval) {
       await session.abortTransaction();
+      session.endSession();
       return null;
-    }
-    
-    // Verify user is current approver
-    if (approval.current_approver_id.toString() !== userId.toString()) {
-      throw new Error('You are not authorized to approve this request');
     }
     
     // Verify request is still pending
     if (approval.status !== 'Pending') {
+      await session.abortTransaction();
+      session.endSession();
       throw new Error('This approval request has already been processed');
     }
     
-    // Find current level in approval chain
-    const currentLevelIndex = approval.approval_chain.findIndex(
-      chain => chain.approver_id.toString() === userId.toString() && !chain.approved_at
-    );
-    
-    if (currentLevelIndex === -1) {
-      throw new Error('Approval level not found');
-    }
-    
-    // Update approval chain
-    approval.approval_chain[currentLevelIndex].status = decision;
-    approval.approval_chain[currentLevelIndex].comments = comments;
-    approval.approval_chain[currentLevelIndex].approved_at = new Date();
-    
-    if (decision === 'Rejected') {
-      // Rejection - stop the chain
-      approval.status = 'Rejected';
-      approval.final_decision = 'Rejected';
-      approval.final_decision_date = new Date();
-      
-      // Notify requester
-      await Notification.create([{
-        user_id: approval.requested_by,
-        type: 'approval_rejected',
-        title: 'Approval Request Rejected',
-        message: `Your ${approval.request_type} request has been rejected`,
-        related_entity_type: 'Approval',
-        related_entity_id: approval._id,
-        priority: 'high'
-      }], { session });
-      
-    } else if (decision === 'Approved') {
-      // Check if there are more levels
-      const nextLevel = approval.approval_chain[currentLevelIndex + 1];
-      
-      if (nextLevel) {
-        // Move to next approver
-        approval.current_approver_id = nextLevel.approver_id;
-        
-        // Notify next approver
-        await Notification.create([{
-          user_id: nextLevel.approver_id,
-          type: 'approval_required',
-          title: 'Approval Request',
-          message: `${approval.request_type} approval request requires your attention`,
-          related_entity_type: 'Approval',
-          related_entity_id: approval._id,
-          priority: 'medium'
-        }], { session });
-        
-      } else {
-        // Final approval - all levels approved
-        approval.status = 'Approved';
-        approval.final_decision = 'Approved';
-        approval.final_decision_date = new Date();
-        
-        // Notify requester
-        await Notification.create([{
-          user_id: approval.requested_by,
-          type: 'approval_approved',
-          title: 'Approval Request Approved',
-          message: `Your ${approval.request_type} request has been fully approved`,
-          related_entity_type: 'Approval',
-          related_entity_id: approval._id,
-          priority: 'high'
-        }], { session });
-      }
-    }
-    
+    // Update approval status
+    approval.status = decision === 'Approved' ? 'Accepted' : 'Rejected';
+    approval.approver = userId;
+    approval.comments = comments || '';
+    approval.approved_at = new Date();
     approval.updated_at = new Date();
+    
     await approval.save({ session });
+    
+    // Create notification for requester
+    const notificationType = decision === 'Approved' ? 'approval_approved' : 'approval_rejected';
+    const notificationTitle = decision === 'Approved' ? 'Request Approved' : 'Request Rejected';
+    const notificationMessage = `Your ${approval.request_type} request has been ${decision.toLowerCase()}`;
+    
+    await Notification.create([{
+      user_id: approval.requested_by,
+      type: notificationType,
+      title: notificationTitle,
+      message: notificationMessage,
+      related_entity_type: 'Approval',
+      related_entity_id: approval._id,
+      priority: 'high'
+    }], { session });
     
     // Create audit log
     await AuditLog.create([{
@@ -286,9 +234,8 @@ exports.processApproval = async (approvalId, decision, comments, userId) => {
       entity_type: 'Approval',
       entity_id: approval._id,
       changes: {
-        decision,
-        comments,
-        level: currentLevelIndex + 1
+        status: decision === 'Approved' ? 'Accepted' : 'Rejected',
+        comments
       },
       ip_address: 'system',
       user_agent: 'backend-service'
@@ -302,7 +249,14 @@ exports.processApproval = async (approvalId, decision, comments, userId) => {
       userId
     });
     
-    return approval.toObject();
+    // Populate and return
+    const populatedApproval = await Approval.findById(approvalId)
+      .populate('requested_by', 'name email employee_id')
+      .populate('approver', 'name email')
+      .populate('asset_id', 'name unique_asset_id asset_type')
+      .lean();
+    
+    return populatedApproval;
   } catch (error) {
     await session.abortTransaction();
     logger.error('Error in processApproval service:', error);
@@ -313,16 +267,25 @@ exports.processApproval = async (approvalId, decision, comments, userId) => {
 };
 
 /**
- * Get pending approvals for a user
+ * Get pending approvals for a user (role-based)
  */
-exports.getPendingApprovalsForUser = async (userId) => {
+exports.getPendingApprovalsForUser = async (userId, userRole) => {
   try {
-    const pendingApprovals = await Approval.find({
-      current_approver_id: userId,
+    // If user is an approver (Admin, Inventory Manager, IT Manager), show all pending
+    const isApprover = ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER'].includes(userRole);
+    
+    const query = {
       status: 'Pending'
-    })
-      .populate('requested_by', 'name email')
-      .populate('asset_id', 'asset_name unique_asset_id')
+    };
+    
+    // If not an approver, only show their own requests
+    if (!isApprover) {
+      query.requested_by = userId;
+    }
+    
+    const pendingApprovals = await Approval.find(query)
+      .populate('requested_by', 'name email employee_id')
+      .populate('asset_id', 'name unique_asset_id asset_type')
       .sort({ created_at: -1 })
       .lean();
     
@@ -409,67 +372,3 @@ exports.getApprovalStats = async (userId, userRole) => {
     throw error;
   }
 };
-
-/**
- * Build approval chain based on request type and value
- */
-async function buildApprovalChain(requestType, estimatedValue, requesterId) {
-  const User = require('../models/user');
-  const chain = [];
-  
-  // Get requester's department and manager
-  const requester = await User.findById(requesterId).select('department manager_id');
-  
-  if (!requester) {
-    throw new Error('Requester not found');
-  }
-  
-  // Level 1: Direct Manager (if exists)
-  if (requester.manager_id) {
-    chain.push({
-      level: 1,
-      approver_id: requester.manager_id,
-      required: true,
-      status: 'Pending'
-    });
-  }
-  
-  // Level 2: Department Head
-  const deptHead = await User.findOne({
-    department: requester.department,
-    role: 'Department Head',
-    is_active: true
-  });
-  
-  if (deptHead && deptHead._id.toString() !== requesterId.toString()) {
-    chain.push({
-      level: chain.length + 1,
-      approver_id: deptHead._id,
-      required: true,
-      status: 'Pending'
-    });
-  }
-  
-  // Level 3: Admin approval for high-value requests or specific types
-  const requiresAdminApproval = 
-    estimatedValue > 100000 ||
-    ['Asset Purchase', 'Asset Disposal'].includes(requestType);
-  
-  if (requiresAdminApproval) {
-    const admin = await User.findOne({
-      role: 'Admin',
-      is_active: true
-    }).sort({ created_at: 1 }); // Get first admin
-    
-    if (admin) {
-      chain.push({
-        level: chain.length + 1,
-        approver_id: admin._id,
-        required: true,
-        status: 'Pending'
-      });
-    }
-  }
-  
-  return chain;
-}

@@ -72,12 +72,12 @@ interface PurchaseOrder {
   };
   requested_by: {
     _id: string;
-    full_name: string;
+    name: string;
     email: string;
   };
   approved_by?: {
     _id: string;
-    full_name: string;
+    name: string;
     email: string;
   };
   department: string;
@@ -145,7 +145,7 @@ const PurchaseOrdersPage = () => {
     const matchesSearch = 
       order.po_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.vendor?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.requested_by?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.requested_by?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.department.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = selectedStatus === 'all' || order.status === selectedStatus;
@@ -514,7 +514,7 @@ const PurchaseOrdersPage = () => {
                                     {order.po_number}
                                   </Typography>
                                   <Typography variant="caption" color="text.secondary">
-                                    by {order.requested_by?.full_name || 'Unknown'}
+                                    by {order.requested_by?.name || 'Unknown'}
                                   </Typography>
                                 </Box>
                               </Box>
@@ -769,11 +769,11 @@ const PurchaseOrdersPage = () => {
                 <Grid item xs={12}>
                   <Typography variant="h6" gutterBottom>Requested By</Typography>
                   <Typography variant="body2">
-                    {selectedPO.requested_by?.full_name || 'Unknown'} ({selectedPO.requested_by?.email || 'N/A'})
+                    {selectedPO.requested_by?.name || 'Unknown'} ({selectedPO.requested_by?.email || 'N/A'})
                   </Typography>
                   {selectedPO.approved_by && (
                     <Typography variant="body2" sx={{ mt: 1 }}>
-                      <strong>Approved By:</strong> {selectedPO.approved_by.full_name} ({selectedPO.approved_by.email})
+                      <strong>Approved By:</strong> {selectedPO.approved_by.name} ({selectedPO.approved_by.email})
                     </Typography>
                   )}
                 </Grid>

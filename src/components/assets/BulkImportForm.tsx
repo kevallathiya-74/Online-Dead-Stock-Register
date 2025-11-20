@@ -104,8 +104,8 @@ const BulkImportForm: React.FC<BulkImportFormProps> = ({ open, onClose, onSubmit
       example: '2023-06-15'
     },
     {
-      field: 'purchase_value',
-      description: 'Purchase Value',
+      field: 'purchase_cost',
+      description: 'Purchase Cost',
       required: false,
       example: '85000'
     },

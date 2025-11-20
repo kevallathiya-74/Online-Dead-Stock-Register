@@ -89,6 +89,11 @@
             "date": 1763535922905,
             "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\rejections-2025-11-19.log",
             "hash": "7d6b04e416929028095b2c7ec3c62743eb3d0c0ae81873075c359f55c652ea60"
+        },
+        {
+            "date": 1763624979199,
+            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\rejections-2025-11-20.log",
+            "hash": "897839b9bbc92447879e4b815242e0b9f387ab388935f51cda48b45846a3ac0b"
         }
     ],
     "hashType": "sha256"

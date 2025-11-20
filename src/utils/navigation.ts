@@ -213,7 +213,7 @@ export const auditorNavigation: NavigationItem[] = [
   {
     id: 'help',
     title: 'Help & Support',
-    path: '/employee/help',
+    path: '/auditor/help',
     icon: HelpIcon,
   },
 ];
@@ -252,7 +252,7 @@ export const vendorNavigation: NavigationItem[] = [
   {
     id: 'help',
     title: 'Help & Support',
-    path: '/employee/help',
+    path: '/vendor/help',
     icon: HelpIcon,
   },
 ];

@@ -66,7 +66,8 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../services/api';
 
 interface AdminTransaction {
-  id: string;
+  _id: string;
+  id?: string; // Deprecated: use _id
   asset_name: string;
   asset_id: string;
   type: 'Assignment' | 'Transfer' | 'Return' | 'Maintenance' | 'Disposal' | 'Purchase';
@@ -216,7 +217,7 @@ const AdminTransactionPage: React.FC = () => {
   const handleCompleteTransaction = (transactionId: string) => {
     setTransactions(prev => 
       prev.map(txn => 
-        txn.id === transactionId 
+        txn._id === transactionId 
           ? { ...txn, status: 'Completed' }
           : txn
       )
@@ -227,7 +228,7 @@ const AdminTransactionPage: React.FC = () => {
   const handleCancelTransaction = (transactionId: string) => {
     setTransactions(prev => 
       prev.map(txn => 
-        txn.id === transactionId 
+        txn._id === transactionId 
           ? { ...txn, status: 'Cancelled' }
           : txn
       )
@@ -633,7 +634,7 @@ const AdminTransactionPage: React.FC = () => {
                           checked={filteredTransactions.length > 0 && bulkSelected.length === filteredTransactions.length}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setBulkSelected(filteredTransactions.map(t => t.id));
+                              setBulkSelected(filteredTransactions.map(t => t._id));
                             } else {
                               setBulkSelected([]);
                             }
@@ -651,18 +652,18 @@ const AdminTransactionPage: React.FC = () => {
                   <TableBody>
                     {paginatedTransactions.map((transaction) => (
                       <TableRow 
-                        key={transaction.id}
-                        selected={bulkSelected.includes(transaction.id)}
+                        key={transaction._id}
+                        selected={bulkSelected.includes(transaction._id)}
                         hover
                       >
                         <TableCell padding="checkbox">
                           <Checkbox
-                            checked={bulkSelected.includes(transaction.id)}
+                            checked={bulkSelected.includes(transaction._id)}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setBulkSelected(prev => [...prev, transaction.id]);
+                                setBulkSelected(prev => [...prev, transaction._id]);
                               } else {
-                                setBulkSelected(prev => prev.filter(id => id !== transaction.id));
+                                setBulkSelected(prev => prev.filter(id => id !== transaction._id));
                               }
                             }}
                           />
@@ -677,7 +678,7 @@ const AdminTransactionPage: React.FC = () => {
                                 {transaction.transaction_type}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
-                                ID: {transaction.id}
+                                ID: {transaction._id}
                               </Typography>
                               <Typography variant="body2" color="text.secondary">
                                 Qty: {transaction.quantity}
@@ -776,7 +777,7 @@ const AdminTransactionPage: React.FC = () => {
                                   <IconButton 
                                     size="small" 
                                     color="success"
-                                    onClick={() => handleCompleteTransaction(transaction.id)}
+                                    onClick={() => handleCompleteTransaction(transaction._id)}
                                   >
                                     <ApproveIcon />
                                   </IconButton>
@@ -785,7 +786,7 @@ const AdminTransactionPage: React.FC = () => {
                                   <IconButton 
                                     size="small" 
                                     color="error"
-                                    onClick={() => handleCancelTransaction(transaction.id)}
+                                    onClick={() => handleCancelTransaction(transaction._id)}
                                   >
                                     <RejectIcon />
                                   </IconButton>
@@ -796,7 +797,7 @@ const AdminTransactionPage: React.FC = () => {
                               <IconButton 
                                 size="small" 
                                 color="primary"
-                                onClick={() => toast.info(`Edit functionality for transaction ${transaction.id} coming soon`)}
+                                onClick={() => toast.info(`Edit functionality for transaction ${transaction._id} coming soon`)}
                               >
                                 <EditIcon />
                               </IconButton>
@@ -970,7 +971,7 @@ const AdminTransactionPage: React.FC = () => {
                   color="error"
                   onClick={() => {
                     if (selectedTransaction) {
-                      handleCancelTransaction(selectedTransaction.id);
+                      handleCancelTransaction(selectedTransaction._id);
                       setViewTransactionDialogOpen(false);
                     }
                   }}
@@ -982,7 +983,7 @@ const AdminTransactionPage: React.FC = () => {
                   color="success"
                   onClick={() => {
                     if (selectedTransaction) {
-                      handleCompleteTransaction(selectedTransaction.id);
+                      handleCompleteTransaction(selectedTransaction._id);
                       setViewTransactionDialogOpen(false);
                     }
                   }}

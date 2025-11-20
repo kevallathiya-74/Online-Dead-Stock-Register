@@ -68,7 +68,8 @@ import AssetQRCodeDialog from '../../components/AssetQRCodeDialog';
 import { useNavigate } from 'react-router-dom';
 
 interface AdminAsset {
-  id: string;
+  _id: string;
+  id?: string; // Deprecated: use _id
   unique_asset_id: string;
   manufacturer: string;
   model: string;
@@ -140,7 +141,11 @@ const AdminAssetPage: React.FC = () => {
     try {
       const response = await api.get('/assets');
       const assetData = response.data.data || response.data;
-      setAssets(assetData);
+      const mappedAssets = assetData.map((asset: any) => ({
+        ...asset,
+        _id: asset._id
+      }));
+      setAssets(mappedAssets);
     } catch (error) {
       console.error('Failed to load assets:', error);
       toast.error('Failed to load assets');
@@ -223,7 +228,7 @@ const AdminAssetPage: React.FC = () => {
   };
 
   const handleDeleteAsset = (assetId: string) => {
-    const asset = assets.find(a => a.id === assetId);
+    const asset = assets.find(a => a._id === assetId);
     if (asset) {
       setSelectedAsset(asset);
       setDeleteConfirmOpen(true);
@@ -234,10 +239,10 @@ const AdminAssetPage: React.FC = () => {
     if (!selectedAsset) return;
     
     try {
-      console.log('Deleting asset via API:', selectedAsset.id);
+      console.log('Deleting asset via API:', selectedAsset._id);
       
       // Call API to delete asset
-      await api.delete(`/assets/${selectedAsset.id}`);
+      await api.delete(`/assets/${selectedAsset._id}`);
       
       // Reload assets from server
       await loadAssets();
@@ -659,7 +664,7 @@ const AdminAssetPage: React.FC = () => {
                         checked={filteredAssets.length > 0 && bulkSelected.length === filteredAssets.length}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setBulkSelected(filteredAssets.map(a => a.id));
+                            setBulkSelected(filteredAssets.map(a => a._id));
                           } else {
                             setBulkSelected([]);
                           }
@@ -678,18 +683,18 @@ const AdminAssetPage: React.FC = () => {
                 <TableBody>
                   {paginatedAssets.map((asset) => (
                     <TableRow 
-                      key={asset.id}
-                      selected={bulkSelected.includes(asset.id)}
+                      key={asset._id}
+                      selected={bulkSelected.includes(asset._id)}
                       hover
                     >
                       <TableCell padding="checkbox">
                         <Checkbox
-                          checked={bulkSelected.includes(asset.id)}
+                          checked={bulkSelected.includes(asset._id)}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setBulkSelected(prev => [...prev, asset.id]);
+                              setBulkSelected(prev => [...prev, asset._id]);
                             } else {
-                              setBulkSelected(prev => prev.filter(id => id !== asset.id));
+                              setBulkSelected(prev => prev.filter(id => id !== asset._id));
                             }
                           }}
                         />
@@ -821,7 +826,7 @@ const AdminAssetPage: React.FC = () => {
                             <IconButton 
                               size="small" 
                               color="error"
-                              onClick={() => handleDeleteAsset(asset.id)}
+                              onClick={() => handleDeleteAsset(asset._id)}
                             >
                               <DeleteIcon />
                             </IconButton>

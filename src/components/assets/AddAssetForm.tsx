@@ -40,7 +40,7 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ open, onClose, onSubmit }) 
     location: '',
     assigned_user: '',
     purchase_date: '',
-    purchase_value: '',
+    purchase_cost: '',
     warranty_expiry: '',
     condition: 'Good',
     status: 'Active',
@@ -92,7 +92,7 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ open, onClose, onSubmit }) 
       id: Date.now().toString(),
       unique_asset_id: assetId,
       ...formData,
-      purchase_value: parseFloat(formData.purchase_value) || 0,
+      purchase_value: parseFloat(formData.purchase_cost) || 0,
       last_audit_date: new Date().toISOString().split('T')[0],
     };
 
@@ -109,7 +109,7 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ open, onClose, onSubmit }) 
       location: '',
       assigned_user: '',
       purchase_date: '',
-      purchase_value: '',
+      purchase_cost: '',
       warranty_expiry: '',
       condition: 'Good',
       status: 'Active',
@@ -285,8 +285,8 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ open, onClose, onSubmit }) 
               fullWidth
               type="number"
               label="Purchase Value (₹)"
-              value={formData.purchase_value}
-              onChange={(e) => handleInputChange('purchase_value', e.target.value)}
+              value={formData.purchase_cost}
+              onChange={(e) => handleInputChange('purchase_cost', e.target.value)}
               placeholder="0"
             />
           </Grid>

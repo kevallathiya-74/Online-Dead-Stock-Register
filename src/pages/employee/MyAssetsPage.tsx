@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { API_BASE_URL } from '../../config/api.config';
+import api from '../../services/api';
 import {
   Box,
   Grid,
@@ -26,6 +26,8 @@ import {
   Divider,
   Tabs,
   Tab,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -41,7 +43,7 @@ import {
   Visibility as ViewIcon,
   History as HistoryIcon,
 } from '@mui/icons-material';
-import DashboardLayout from '../../components/layout/Layout';
+import DashboardLayout from '../../components/layout/DashboardLayout';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -86,23 +88,12 @@ const MyAssetsPage = () => {
   const loadMyAssets = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/assets/my-assets`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setMyAssets(data.data || []);
-      } else {
-        toast.error('Failed to load your assets');
-      }
-    } catch (error) {
+      const response = await api.get('/assets/my-assets');
+      setMyAssets(response.data.data || []);
+    } catch (error: any) {
       console.error('Error loading assets:', error);
-      toast.error('Error loading assets');
+      const errorMsg = error.response?.data?.message || 'Failed to load your assets';
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -143,7 +134,7 @@ const MyAssetsPage = () => {
 
   const handleViewHistory = (asset: any) => {
     toast.info(`Viewing history for ${asset.model}...`);
-    navigate('/employee/history', { state: { assetId: asset.id } });
+    navigate('/employee/history', { state: { assetId: asset._id } });
   };
 
   const filteredAssets = myAssets.filter(asset =>
@@ -158,7 +149,7 @@ const MyAssetsPage = () => {
   );
 
   return (
-    <DashboardLayout title="My Assets">
+    <DashboardLayout>
       <Box sx={{ p: 3 }}>
         {/* Header */}
         <Box sx={{ mb: 3 }}>
@@ -222,9 +213,16 @@ const MyAssetsPage = () => {
 
         {/* Tab Panels */}
         <TabPanel value={tabValue} index={0}>
-          <Grid container spacing={3}>
-            {filteredAssets.map((asset) => (
-              <Grid item xs={12} md={6} lg={4} key={asset.id}>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : filteredAssets.length === 0 ? (
+            <Alert severity="info">No assets found</Alert>
+          ) : (
+            <Grid container spacing={3}>
+              {filteredAssets.map((asset) => (
+                <Grid item xs={12} md={6} lg={4} key={asset._id}>
                 <Card sx={{ height: '100%' }}>
                   <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
@@ -293,12 +291,20 @@ const MyAssetsPage = () => {
               </Grid>
             ))}
           </Grid>
+          )}
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
-          <Grid container spacing={3}>
-            {activeAssets.map((asset) => (
-              <Grid item xs={12} md={6} lg={4} key={asset.id}>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : activeAssets.length === 0 ? (
+            <Alert severity="info">No active assets found</Alert>
+          ) : (
+            <Grid container spacing={3}>
+              {activeAssets.map((asset) => (
+                <Grid item xs={12} md={6} lg={4} key={asset._id}>
                 <Card sx={{ height: '100%' }}>
                   <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
@@ -353,12 +359,20 @@ const MyAssetsPage = () => {
               </Grid>
             ))}
           </Grid>
+          )}
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>
-          <Grid container spacing={3}>
-            {warrantyExpiring.map((asset) => (
-              <Grid item xs={12} md={6} lg={4} key={asset.id}>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : warrantyExpiring.length === 0 ? (
+            <Alert severity="info">No warranties expiring soon</Alert>
+          ) : (
+            <Grid container spacing={3}>
+              {warrantyExpiring.map((asset) => (
+                <Grid item xs={12} md={6} lg={4} key={asset._id}>
                 <Card sx={{ height: '100%', border: '2px solid', borderColor: 'warning.main' }}>
                   <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
@@ -414,6 +428,7 @@ const MyAssetsPage = () => {
               </Grid>
             ))}
           </Grid>
+          )}
         </TabPanel>
 
         {/* Asset Detail Dialog */}

@@ -1,5 +1,11 @@
 import React from 'react';
-import { Box, Card, CardContent, Typography, LinearProgress } from '@mui/material';
+import { Box, Card, CardContent, Typography, LinearProgress, Chip } from '@mui/material';
+import { TrendingUp, TrendingDown } from '@mui/icons-material';
+
+interface Trend {
+  value: number;
+  isPositive: boolean;
+}
 
 interface StatCardProps {
   title: string;
@@ -9,6 +15,7 @@ interface StatCardProps {
   progressColor?: 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
   color?: 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
   icon?: React.ReactNode;
+  trend?: Trend;
 }
 
 const StatCard = ({
@@ -19,6 +26,7 @@ const StatCard = ({
   progressColor = 'primary',
   color,
   icon,
+  trend,
 }: StatCardProps) => {
   // Use color prop if provided, otherwise fallback to progressColor
   const themeColor = color || progressColor;
@@ -61,9 +69,20 @@ const StatCard = ({
           )}
         </Box>
 
-        <Typography variant="h4" component="div" sx={{ mb: subtitle ? 1 : 2 }}>
-          {value}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: subtitle ? 1 : 2 }}>
+          <Typography variant="h4" component="div">
+            {value}
+          </Typography>
+          {trend && trend.value > 0 && (
+            <Chip
+              icon={trend.isPositive ? <TrendingUp /> : <TrendingDown />}
+              label={`${trend.value}%`}
+              size="small"
+              color={trend.isPositive ? 'success' : 'error'}
+              sx={{ height: 24 }}
+            />
+          )}
+        </Box>
 
         {subtitle && (
           <Typography

@@ -34,7 +34,8 @@ import api from '../../services/api';
 import assetUpdateService from '../../services/assetUpdateService';
 
 interface DeadStockAsset {
-  id: string;
+  _id: string;
+  id?: string; // Deprecated: use _id
   unique_asset_id: string;
   category: string;
   asset_type: string;
@@ -167,7 +168,7 @@ const DeadStockItemsPage: React.FC = () => {
 
   const handleViewDetails = (asset: DeadStockAsset) => {
     // Navigate to asset details page with state to enable proper back navigation
-    navigate(`/assets/${asset.id}`, {
+    navigate(`/assets/${asset._id}`, {
       state: { from: '/inventory/dead-stock' }
     });
   };
@@ -209,7 +210,7 @@ const DeadStockItemsPage: React.FC = () => {
         // Update asset status to "Disposed" to remove it from dead stock list
         // Using "Disposed" status instead of "Ready for Scrap" so it won't appear in dead stock items anymore
         try {
-          await api.put(`/assets/${asset.id}`, {
+          await api.put(`/assets/${asset._id}`, {
             status: 'Disposed', // Changed to "Disposed" to exclude from dead stock query
             notes: `Marked for disposal on ${new Date().toLocaleDateString()}. Disposal Record: ${disposalResponse.data.data.document_reference || 'N/A'}. ${asset.reason_for_dead_stock || ''}`
           });
@@ -220,7 +221,7 @@ const DeadStockItemsPage: React.FC = () => {
 
         // Notify the update service for real-time synchronization
         assetUpdateService.notifyStatusChange(
-          asset.id,
+          asset.id || '',
           asset.status,
           'Disposed'
         );
@@ -374,7 +375,7 @@ const DeadStockItemsPage: React.FC = () => {
               </TableRow>
             ) : (
               assets.map((asset) => (
-                  <TableRow key={asset.id} hover>
+                  <TableRow key={asset._id} hover>
                     <TableCell>{asset.unique_asset_id}</TableCell>
                     <TableCell>{asset.asset_type}</TableCell>
                     <TableCell>{asset.model}</TableCell>

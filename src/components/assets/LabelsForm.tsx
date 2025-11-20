@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -27,6 +27,7 @@ import {
   Chip,
   Switch,
   FormGroup,
+  CircularProgress,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -38,6 +39,7 @@ import {
   Label as LabelIcon,
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface LabelsFormProps {
   open: boolean;
@@ -61,14 +63,37 @@ const LabelsForm: React.FC<LabelsFormProps> = ({ open, onClose, onSubmit }) => {
 
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
   const [previewMode, setPreviewMode] = useState(false);
+  const [availableAssets, setAvailableAssets] = useState<any[]>([]);
+  const [loadingAssets, setLoadingAssets] = useState(false);
 
-  // Mock asset data
-  const availableAssets = [
-    { id: '1', unique_asset_id: 'AST-001', name: 'Dell XPS 15 Laptop', location: 'IT Department' },
-    { id: '2', unique_asset_id: 'AST-002', name: 'HP LaserJet Printer', location: 'Admin Office' },
-    { id: '3', unique_asset_id: 'AST-003', name: 'iPhone 14 Pro', location: 'Sales Department' },
-    { id: '4', unique_asset_id: 'AST-004', name: 'Ergonomic Office Chair', location: 'Maintenance Room' },
-  ];
+  // Load real assets from API
+  useEffect(() => {
+    if (open) {
+      loadAssets();
+    }
+  }, [open]);
+
+  const loadAssets = async () => {
+    try {
+      setLoadingAssets(true);
+      const response = await api.get('/assets', { params: { limit: 100 } });
+      const assets = response.data.data?.data || response.data.data || [];
+      setAvailableAssets(assets.map((asset: any) => ({
+        id: asset._id || asset.id,
+        unique_asset_id: asset.unique_asset_id,
+        name: asset.name || `${asset.manufacturer} ${asset.model}`,
+        location: asset.location,
+        manufacturer: asset.manufacturer,
+        model: asset.model,
+      })));
+    } catch (error) {
+      console.error('Failed to load assets:', error);
+      toast.error('Failed to load assets');
+      setAvailableAssets([]);
+    } finally {
+      setLoadingAssets(false);
+    }
+  };
 
   const labelTypes = [
     { value: 'qr_code', label: 'QR Code Labels' },

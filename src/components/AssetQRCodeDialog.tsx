@@ -46,7 +46,7 @@ const AssetQRCodeDialog: React.FC<Props> = ({ open, onClose, asset }) => {
     status: asset.status,
     condition: asset.condition,
     purchase_date: asset.purchase_date,
-    purchase_value:
+    purchase_cost:
       asset.purchase_cost,
     department: asset.department,
   };

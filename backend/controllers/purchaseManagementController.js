@@ -46,8 +46,8 @@ exports.getAllPurchaseOrders = async (req, res) => {
 
     const purchaseOrders = await PurchaseOrder.find(filter)
       .populate('vendor', 'name vendor_code contact_person')
-      .populate('requested_by', 'full_name email')
-      .populate('approved_by', 'full_name email')
+      .populate('requested_by', 'name email')
+      .populate('approved_by', 'name email')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -77,10 +77,10 @@ exports.getPurchaseOrderById = async (req, res) => {
 
     const purchaseOrder = await PurchaseOrder.findById(id)
       .populate('vendor', 'name vendor_code contact_person contact_email contact_phone address')
-      .populate('requested_by', 'full_name email employee_id')
-      .populate('approved_by', 'full_name email')
-      .populate('approval_history.performed_by', 'full_name')
-      .populate('received_items.received_by', 'full_name');
+      .populate('requested_by', 'name email employee_id')
+      .populate('approved_by', 'name email')
+      .populate('approval_history.performed_by', 'name')
+      .populate('received_items.received_by', 'name');
 
     if (!purchaseOrder) {
       return res.status(404).json({ message: 'Purchase order not found' });
@@ -124,7 +124,7 @@ exports.createPurchaseOrder = async (req, res) => {
     // Populate for response
     await purchaseOrder.populate([
       { path: 'vendor', select: 'name vendor_code' },
-      { path: 'requested_by', select: 'full_name email' }
+      { path: 'requested_by', select: 'name email' }
     ]);
 
     // Create audit log
@@ -280,8 +280,8 @@ exports.getAllPurchaseRequests = async (req, res) => {
     }
 
     const purchaseRequests = await PurchaseRequest.find(filter)
-      .populate('requester', 'full_name email employee_id')
-      .populate('reviewed_by', 'full_name email')
+      .populate('requester', 'name email employee_id')
+      .populate('reviewed_by', 'name email')
       .populate('converted_po', 'po_number')
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -323,7 +323,7 @@ exports.createPurchaseRequest = async (req, res) => {
     await purchaseRequest.save();
 
     // Populate for response
-    await purchaseRequest.populate('requester', 'full_name email');
+    await purchaseRequest.populate('requester', 'name email');
 
     // Create audit log
     const auditLog = new AuditLog({

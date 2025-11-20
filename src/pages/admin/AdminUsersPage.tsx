@@ -50,7 +50,8 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../services/api';
 
 interface AdminUser {
-  id: string;
+  _id: string;
+  id?: string; // Deprecated: use _id
   name: string;
   email: string;
   role: 'ADMIN' | 'INVENTORY_MANAGER' | 'AUDITOR' | 'EMPLOYEE';
@@ -121,7 +122,11 @@ const AdminUsersPage: React.FC = () => {
     try {
       const response = await api.get('/users');
       const userData = response.data.data || response.data;
-      setUsers(userData);
+      const mappedUsers = userData.map((user: any) => ({
+        ...user,
+        _id: user._id
+      }));
+      setUsers(mappedUsers);
     } catch (error) {
       console.error('Failed to load users:', error);
       toast.error('Failed to load users');
@@ -236,10 +241,10 @@ const AdminUsersPage: React.FC = () => {
         manager: newUser.manager
       };
 
-      console.log('Updating user via API:', selectedUser.id, userData);
+      console.log('Updating user via API:', selectedUser._id, userData);
       
       // Call API to update user
-      await api.put(`/users/${selectedUser.id}`, userData);
+      await api.put(`/users/${selectedUser._id}`, userData);
       
       // Reload users from server
       await loadUsers();
@@ -276,7 +281,7 @@ const AdminUsersPage: React.FC = () => {
 
   const toggleUserStatus = async (userId: string) => {
     try {
-      const user = users.find(u => u.id === userId);
+      const user = users.find(u => u._id === userId);
       if (!user) return;
 
       console.log('Toggling user status via API:', userId);
@@ -379,7 +384,7 @@ const AdminUsersPage: React.FC = () => {
                 </TableRow>
               ) : (
                 paginatedUsers.map((user) => (
-                  <TableRow key={user.id}>
+                  <TableRow key={user._id}>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                         <Avatar sx={{ bgcolor: 'primary.main' }}>
@@ -428,14 +433,14 @@ const AdminUsersPage: React.FC = () => {
                         </IconButton>
                         <IconButton 
                           size="small" 
-                          onClick={() => toggleUserStatus(user.id)}
+                          onClick={() => toggleUserStatus(user._id)}
                           color={user.is_active ? 'warning' : 'success'}
                         >
                           {user.is_active ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />}
                         </IconButton>
                         <IconButton 
                           size="small" 
-                          onClick={() => handleDeleteUser(user.id)}
+                          onClick={() => handleDeleteUser(user._id)}
                           color="error"
                         >
                           <DeleteIcon fontSize="small" />

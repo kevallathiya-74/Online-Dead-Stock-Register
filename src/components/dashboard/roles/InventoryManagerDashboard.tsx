@@ -42,6 +42,7 @@ import StatCard from '../StatCard';
 import ChartComponent from '../ChartComponent';
 import api from '../../../services/api';
 import { toast } from 'react-toastify';
+import DatabaseStatus from '../../common/DatabaseStatus';
 
 // TypeScript interfaces for API responses
 interface InventoryStats {
@@ -129,9 +130,9 @@ const InventoryManagerDashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [dashboardData, setDashboardData] = useState<InventoryOverview | null>(null);
 
-  // RBAC: Verify user has INVENTORY_MANAGER role
+  // RBAC: Verify user has access to inventory dashboard (INVENTORY_MANAGER, IT_MANAGER, or ADMIN)
   useEffect(() => {
-    if (user && user.role !== 'INVENTORY_MANAGER' && user.role !== 'ADMIN') {
+    if (user && user.role !== 'INVENTORY_MANAGER' && user.role !== 'IT_MANAGER' && user.role !== 'ADMIN') {
       toast.error('Access denied. You do not have permission to view this dashboard.');
       navigate('/dashboard');
     }
@@ -241,6 +242,9 @@ const InventoryManagerDashboard = () => {
 
   return (
     <Layout title="Inventory Manager Dashboard">
+      {/* Database Status Indicator */}
+      <DatabaseStatus onDataSeeded={() => window.location.reload()} />
+
       <Grid container spacing={3}>
         {/* KPI Cards Row */}
         <Grid item xs={12} sm={6} md={3}>

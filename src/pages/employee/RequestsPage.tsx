@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { API_BASE_URL } from '../../config/api.config';
+import api from '../../services/api';
 import {
   Box,
   Grid,
@@ -20,6 +20,8 @@ import {
   Tab,
   Avatar,
   LinearProgress,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -32,7 +34,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import DashboardLayout from '../../components/layout/Layout';
+import DashboardLayout from '../../components/layout/DashboardLayout';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -92,39 +94,39 @@ const RequestsPage = () => {
     loadRequests();
   }, []);
 
+  // Auto-open new request dialog if on /new route
+  React.useEffect(() => {
+    if (location.pathname === '/employee/requests/new') {
+      setNewRequestDialogOpen(true);
+    }
+  }, [location.pathname]);
+
   const loadRequests = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
       
       // Fetch asset requests
-      const assetResponse = await fetch(`${API_BASE_URL}/asset-requests/my-requests`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const assetResponse = await api.get('/asset-requests/my-requests');
+      setAssetRequests(assetResponse.data.data || []);
       
-      if (assetResponse.ok) {
-        const assetData = await assetResponse.json();
-        setAssetRequests(assetData.data || []);
-      }
+      // Fetch maintenance requests (filter by user's assets on frontend)
+      const maintResponse = await api.get('/maintenance');
+      const allMaintenanceRecords = maintResponse.data.data || [];
       
-      // Fetch maintenance requests
-      const maintResponse = await fetch(`${API_BASE_URL}/maintenance`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      // Get user's assets to filter maintenance requests
+      const assetsResponse = await api.get('/assets/my-assets');
+      const userAssetIds = (assetsResponse.data.data || []).map((asset: any) => asset._id);
       
-      if (maintResponse.ok) {
-        const maintData = await maintResponse.json();
-        setMaintenanceRequests(maintData || []);
-      }
-    } catch (error) {
+      // Filter maintenance requests for user's assets
+      const userMaintenanceRequests = allMaintenanceRecords.filter((req: any) => 
+        userAssetIds.includes(req.asset_id)
+      );
+      
+      setMaintenanceRequests(userMaintenanceRequests);
+    } catch (error: any) {
       console.error('Error loading requests:', error);
-      toast.error('Error loading requests');
+      const errorMsg = error.response?.data?.message || 'Failed to load requests';
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -165,38 +167,72 @@ const RequestsPage = () => {
     }
   };
 
-  const handleSubmitNewAssetRequest = () => {
+  const handleSubmitNewAssetRequest = async () => {
     if (!newAssetRequest.category || !newAssetRequest.description) {
       toast.error('Please fill in all required fields');
       return;
     }
 
-    toast.success('Asset request submitted successfully!');
-    setNewRequestDialogOpen(false);
-    setNewAssetRequest({
-      category: '',
-      description: '',
-      justification: '',
-      priority: 'medium',
-      urgency: 'normal',
-    });
+    try {
+      const requestData = {
+        asset_type: newAssetRequest.category,
+        description: newAssetRequest.description,
+        justification: newAssetRequest.justification,
+        priority: newAssetRequest.priority,
+        urgency: newAssetRequest.urgency,
+      };
+
+      await api.post('/asset-requests', requestData);
+      toast.success('Asset request submitted successfully!');
+      setNewRequestDialogOpen(false);
+      setNewAssetRequest({
+        category: '',
+        description: '',
+        justification: '',
+        priority: 'medium',
+        urgency: 'normal',
+      });
+      // Reload requests
+      loadRequests();
+    } catch (error: any) {
+      console.error('Error submitting request:', error);
+      const errorMsg = error.response?.data?.message || 'Failed to submit asset request';
+      toast.error(errorMsg);
+    }
   };
 
-  const handleSubmitMaintenanceRequest = () => {
+  const handleSubmitMaintenanceRequest = async () => {
     if (!maintenanceRequest.asset_id || !maintenanceRequest.issue_description) {
       toast.error('Please fill in all required fields');
       return;
     }
 
-    toast.success('Maintenance request submitted successfully!');
-    setMaintenanceRequestDialogOpen(false);
-    setMaintenanceRequest({
-      asset_id: '',
-      issue_description: '',
-      priority: 'medium',
-      urgency: 'normal',
-      category: 'hardware',
-    });
+    try {
+      const requestData = {
+        asset_id: maintenanceRequest.asset_id,
+        issue_description: maintenanceRequest.issue_description,
+        priority: maintenanceRequest.priority,
+        urgency: maintenanceRequest.urgency,
+        maintenance_type: maintenanceRequest.category,
+      };
+
+      await api.post('/maintenance', requestData);
+      toast.success('Maintenance request submitted successfully!');
+      setMaintenanceRequestDialogOpen(false);
+      setMaintenanceRequest({
+        asset_id: '',
+        issue_description: '',
+        priority: 'medium',
+        urgency: 'normal',
+        category: 'hardware',
+      });
+      // Reload requests
+      loadRequests();
+    } catch (error: any) {
+      console.error('Error submitting maintenance request:', error);
+      const errorMsg = error.response?.data?.message || 'Failed to submit maintenance request';
+      toast.error(errorMsg);
+    }
   };
 
   // Check if we were passed an asset from another page
@@ -211,7 +247,7 @@ const RequestsPage = () => {
   }, [location.state]);
 
   return (
-    <DashboardLayout title="My Requests">
+    <DashboardLayout>
       <Box sx={{ p: 3 }}>
         {/* Header */}
         <Box sx={{ mb: 3 }}>
@@ -271,9 +307,16 @@ const RequestsPage = () => {
 
         {/* Asset Requests Tab */}
         <TabPanel value={tabValue} index={0}>
-          <Grid container spacing={3}>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : assetRequests.length === 0 ? (
+            <Alert severity="info">No asset requests found. Click "Request New Asset" to submit your first request.</Alert>
+          ) : (
+            <Grid container spacing={3}>
             {assetRequests.map((request) => (
-              <Grid item xs={12} key={request.id}>
+              <Grid item xs={12} key={request._id || request.id}>
                 <Card>
                   <CardContent>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -359,13 +402,21 @@ const RequestsPage = () => {
               </Grid>
             ))}
           </Grid>
+          )}
         </TabPanel>
 
         {/* Maintenance Requests Tab */}
         <TabPanel value={tabValue} index={1}>
-          <Grid container spacing={3}>
-            {maintenanceRequests.map((request) => (
-              <Grid item xs={12} key={request.id}>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : maintenanceRequests.length === 0 ? (
+            <Alert severity="info">No maintenance requests found. Click "Report Maintenance Issue" to submit your first request.</Alert>
+          ) : (
+            <Grid container spacing={3}>
+              {maintenanceRequests.map((request) => (
+                <Grid item xs={12} key={request._id || request.id}>
                 <Card>
                   <CardContent>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
@@ -457,6 +508,7 @@ const RequestsPage = () => {
               </Grid>
             ))}
           </Grid>
+          )}
         </TabPanel>
 
         {/* New Asset Request Dialog */}

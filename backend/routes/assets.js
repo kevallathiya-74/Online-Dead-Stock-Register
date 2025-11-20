@@ -36,10 +36,11 @@ router.post('/',
   assetCtrl.createAsset
 );
 
-// Admin and Inventory Manager: PUT update asset
+// Admin, Inventory Manager, and Auditor: PUT update asset
+// Auditors can update for audit purposes (condition, status, last_audit_date)
 router.put('/:id', 
   authMiddleware, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']),
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'AUDITOR']),
   validateObjectId,
   assetCtrl.updateAsset
 );

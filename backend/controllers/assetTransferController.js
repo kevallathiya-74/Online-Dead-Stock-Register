@@ -70,10 +70,10 @@ exports.getAllAssetTransfers = async (req, res) => {
 
     const transfers = await AssetTransfer.find(filter)
       .populate('asset', 'unique_asset_id name category')
-      .populate('from_user', 'full_name email employee_id')
-      .populate('to_user', 'full_name email employee_id')
-      .populate('initiated_by', 'full_name email')
-      .populate('approved_by', 'full_name email')
+      .populate('from_user', 'name email employee_id')
+      .populate('to_user', 'name email employee_id')
+      .populate('initiated_by', 'name email')
+      .populate('approved_by', 'name email')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -103,13 +103,13 @@ exports.getAssetTransferById = async (req, res) => {
 
     const transfer = await AssetTransfer.findById(id)
       .populate('asset', 'unique_asset_id name category current_location current_status')
-      .populate('from_user', 'full_name email employee_id department')
-      .populate('to_user', 'full_name email employee_id department')
-      .populate('initiated_by', 'full_name email employee_id')
-      .populate('approved_by', 'full_name email')
-      .populate('transferred_by', 'full_name email')
-      .populate('approval_history.performed_by', 'full_name')
-      .populate('tracking_notes.added_by', 'full_name');
+      .populate('from_user', 'name email employee_id department')
+      .populate('to_user', 'name email employee_id department')
+      .populate('initiated_by', 'name email employee_id')
+      .populate('approved_by', 'name email')
+      .populate('transferred_by', 'name email')
+      .populate('approval_history.performed_by', 'name')
+      .populate('tracking_notes.added_by', 'name');
 
     if (!transfer) {
       return res.status(404).json({ message: 'Asset transfer not found' });
@@ -190,9 +190,9 @@ exports.createAssetTransfer = async (req, res) => {
     // Populate for response
     await transfer.populate([
       { path: 'asset', select: 'unique_asset_id name category' },
-      { path: 'from_user', select: 'full_name email employee_id' },
-      { path: 'to_user', select: 'full_name email employee_id' },
-      { path: 'initiated_by', select: 'full_name email' }
+      { path: 'from_user', select: 'name email employee_id' },
+      { path: 'to_user', select: 'name email employee_id' },
+      { path: 'initiated_by', select: 'name email' }
     ]);
 
     // Create audit log
@@ -202,8 +202,8 @@ exports.createAssetTransfer = async (req, res) => {
       details: {
         transfer_id: transfer.transfer_id,
         asset_id: asset.unique_asset_id,
-        from_user: fromUser.full_name,
-        to_user: toUser.full_name,
+        from_user: fromUser.name,
+        to_user: toUser.name,
         reason: transfer.transfer_reason
       },
       timestamp: new Date()
@@ -226,8 +226,8 @@ exports.createAssetTransfer = async (req, res) => {
         transfer_id: transfer._id,
         transfer_number: transfer.transfer_id,
         asset_name: asset.name,
-        from_user: fromUser.full_name,
-        to_user: toUser.full_name
+        from_user: fromUser.name,
+        to_user: toUser.name
       },
       action_url: `/employee/asset-transfers/${transfer._id}`
     }));

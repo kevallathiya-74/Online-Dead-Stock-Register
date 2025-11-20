@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Grid,
@@ -10,13 +10,14 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  IconButton,
   Button,
   Chip,
   Avatar,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
-
+  Inventory as InventoryIcon,
   People as UsersIcon,
   Settings as SettingsIcon,
   Security as SecurityIcon,
@@ -25,118 +26,155 @@ import {
   Warning as WarningIcon,
   CheckCircle as CheckIcon,
   Error as ErrorIcon,
-  MoreVert as MoreVertIcon,
+  CurrencyRupee as MoneyIcon,
+  Assignment as ApprovalIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../context/AuthContext';
+import { toast } from 'react-toastify';
 import Layout from '../../layout/Layout';
 import StatCard from '../StatCard';
 import ChartComponent from '../ChartComponent';
+import api from '../../../services/api';
+
+// TypeScript interfaces
+interface DashboardStats {
+  totalAssets: number;
+  totalValue: number;
+  activeUsers: number;
+  pendingApprovals: number;
+  scrapAssets: number;
+  monthlyPurchase: number;
+  trends: {
+    assets: { value: number; isPositive: boolean };
+    value: { value: number; isPositive: boolean };
+    users: { value: number; isPositive: boolean };
+    purchase: { value: number; isPositive: boolean };
+  };
+  systemHealth: {
+    serverHealth: number;
+    databasePerformance: number;
+    storageUsage: number;
+    lastBackup: string;
+  };
+}
+
+interface RecentActivity {
+  _id: string;
+  action: string;
+  user: { name: string; email: string };
+  entity_type: string;
+  description: string;
+  severity: string;
+  timestamp: string;
+}
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const [dashboardData, setDashboardData] = useState({
-    totalAssets: 1450,
-    totalValue: 2500000,
-    activeAssets: 1250,
-    scrapReadyAssets: 15,
-    openApprovals: 8,
-    totalUsers: 124,
-    activeUsers: 118,
-    systemAlerts: 3,
-  });
+  const { user } = useAuth();
 
-  const [recentAuditLogs, setRecentAuditLogs] = useState([
-    {
-      id: 1,
-      action: 'Asset Created',
-      user: 'John Smith',
-      entity: 'Laptop Dell XPS 15',
-      timestamp: new Date().toISOString(),
-      status: 'success'
-    },
-    {
-      id: 2,
-      action: 'User Role Changed',
-      user: 'Admin',
-      entity: 'Jane Doe -> Inventory Manager',
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
-      status: 'warning'
-    },
-    {
-      id: 3,
-      action: 'Asset Transfer',
-      user: 'Mike Johnson',
-      entity: 'Monitor Samsung 24" -> IT Dept',
-      timestamp: new Date(Date.now() - 7200000).toISOString(),
-      status: 'info'
-    },
-  ]);
+  // State management
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
 
-  const [notificationFailures, setNotificationFailures] = useState([
-    {
-      id: 1,
-      type: 'Email Failed',
-      recipient: 'user@company.com',
-      reason: 'SMTP Connection Failed',
-      timestamp: new Date(Date.now() - 1800000).toISOString(),
-    },
-    {
-      id: 2,
-      type: 'SMS Failed', 
-      recipient: '+1234567890',
-      reason: 'Invalid Phone Number',
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
-    },
-  ]);
+  // RBAC: Verify user has ADMIN role
+  useEffect(() => {
+    if (user && user.role !== 'ADMIN') {
+      toast.error('Access denied. Admin privileges required.');
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
-  // Sample chart data for admin overview
-  const assetTrendData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      {
-        label: 'Total Assets',
-        data: [1200, 1250, 1300, 1350, 1400, 1450],
-        borderColor: '#2196f3',
-        backgroundColor: '#2196f320',
-      },
-      {
-        label: 'Asset Value (₹)',
-        data: [2200000, 2250000, 2300000, 2400000, 2450000, 2500000],
-        borderColor: '#4caf50',
-        backgroundColor: '#4caf5020',
-        yAxisID: 'y1',
-      },
-    ],
-  };
+  // Fetch all dashboard data from API
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-  const userActivityData = {
-    labels: ['Active', 'Inactive', 'Pending', 'Suspended'],
-    datasets: [
-      {
-        label: 'User Status Distribution',
-        data: [118, 6, 3, 2],
-        backgroundColor: ['#4caf50', '#ff9800', '#2196f3', '#f44336'],
-      },
-    ],
-  };
+        // Fetch stats and activities in parallel
+        const [statsResponse, activitiesResponse] = await Promise.all([
+          api.get('/dashboard/stats'),
+          api.get('/dashboard/activities').catch(() => ({ data: { success: false, data: [] } }))
+        ]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'success': return '#4caf50';
-      case 'warning': return '#ff9800';
-      case 'error': return '#f44336';
-      default: return '#2196f3';
+        if (statsResponse.data.success) {
+          setStats(statsResponse.data.data);
+        } else {
+          throw new Error('Failed to fetch dashboard statistics');
+        }
+
+        if (activitiesResponse.data.success) {
+          setRecentActivities(activitiesResponse.data.data.slice(0, 5));
+        }
+
+      } catch (err: any) {
+        console.error('Error fetching admin dashboard:', err);
+        setError(err.response?.data?.error || 'Failed to load dashboard data');
+        toast.error('Failed to load dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchDashboardData();
+    }
+  }, [user]);
+
+  // Helper functions for UI
+  const getSeverityColor = (severity: string): 'error' | 'warning' | 'info' | 'success' => {
+    switch (severity?.toLowerCase()) {
+      case 'critical':
+      case 'error':
+        return 'error';
+      case 'warning':
+        return 'warning';
+      case 'info':
+        return 'info';
+      default:
+        return 'success';
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'success': return <CheckIcon sx={{ fontSize: 16 }} />;
-      case 'warning': return <WarningIcon sx={{ fontSize: 16 }} />;
-      case 'error': return <ErrorIcon sx={{ fontSize: 16 }} />;
-      default: return <NotificationsIcon sx={{ fontSize: 16 }} />;
+  const getSeverityIcon = (severity: string) => {
+    switch (severity?.toLowerCase()) {
+      case 'critical':
+      case 'error':
+        return <ErrorIcon sx={{ fontSize: 16 }} />;
+      case 'warning':
+        return <WarningIcon sx={{ fontSize: 16 }} />;
+      default:
+        return <CheckIcon sx={{ fontSize: 16 }} />;
     }
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <Layout title="Admin Dashboard">
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+          <CircularProgress size={60} />
+        </Box>
+      </Layout>
+    );
+  }
+
+  // Error state
+  if (error || !stats) {
+    return (
+      <Layout title="Admin Dashboard">
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error || 'Failed to load dashboard data'}
+        </Alert>
+        <Button variant="contained" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="Admin Dashboard">
@@ -145,44 +183,47 @@ const AdminDashboard = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Total Assets"
-            value={dashboardData.totalAssets.toLocaleString()}
-            subtitle={`${dashboardData.activeAssets} active, ${dashboardData.scrapReadyAssets} ready for scrap`}
-            progress={Math.round((dashboardData.activeAssets / dashboardData.totalAssets) * 100)}
+            value={stats.totalAssets.toLocaleString('en-IN')}
+            subtitle={`${stats.scrapAssets} ready for disposal`}
+            progress={stats.totalAssets > 0 ? Math.min(100, (stats.totalAssets / 2000) * 100) : 0}
             progressColor="primary"
-            icon={<TrendingUpIcon />}
-          />
-        </Grid>
-        
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Total Asset Value"
-            value={`₹${(dashboardData.totalValue / 1000000).toFixed(1)}M`}
-            subtitle="15% increase from last month"
-            progress={85}
-            progressColor="success"
-            icon={<TrendingUpIcon />}
+            icon={<InventoryIcon />}
+            trend={stats.trends.assets}
           />
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="System Users"
-            value={dashboardData.totalUsers}
-            subtitle={`${dashboardData.activeUsers} active users`}
-            progress={Math.round((dashboardData.activeUsers / dashboardData.totalUsers) * 100)}
+            title="Total Asset Value"
+            value={`₹${(stats.totalValue / 10000000).toFixed(2)}Cr`}
+            subtitle={`₹${(stats.monthlyPurchase / 100000).toFixed(2)}L this month`}
+            progress={stats.totalValue > 0 ? Math.min(100, (stats.totalValue / 100000000) * 100) : 0}
+            progressColor="success"
+            icon={<MoneyIcon />}
+            trend={stats.trends.value}
+          />
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            title="Active Users"
+            value={stats.activeUsers.toLocaleString('en-IN')}
+            subtitle="Registered in system"
+            progress={stats.activeUsers > 0 ? Math.min(100, (stats.activeUsers / 200) * 100) : 0}
             progressColor="info"
             icon={<UsersIcon />}
+            trend={stats.trends.users}
           />
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Pending Approvals"
-            value={dashboardData.openApprovals}
-            subtitle="3 urgent, 5 normal priority"
-            progress={dashboardData.openApprovals > 10 ? 90 : (dashboardData.openApprovals * 10)}
-            progressColor={dashboardData.openApprovals > 10 ? "error" : "warning"}
-            icon={<WarningIcon />}
+            value={stats.pendingApprovals}
+            subtitle="Awaiting action"
+            progress={stats.pendingApprovals > 0 ? Math.min(100, stats.pendingApprovals * 10) : 0}
+            progressColor={stats.pendingApprovals > 10 ? "error" : "warning"}
+            icon={<ApprovalIcon />}
           />
         </Grid>
 
@@ -198,7 +239,7 @@ const AdminDashboard = () => {
                   fullWidth
                   variant="outlined"
                   startIcon={<UsersIcon />}
-                  onClick={() => navigate('/users')}
+                  onClick={() => navigate('/admin/users')}
                   sx={{ py: 1.5 }}
                 >
                   User Management
@@ -208,11 +249,11 @@ const AdminDashboard = () => {
                 <Button
                   fullWidth
                   variant="outlined"
-                  startIcon={<SettingsIcon />}
-                  onClick={() => navigate('/settings')}
+                  startIcon={<InventoryIcon />}
+                  onClick={() => navigate('/assets')}
                   sx={{ py: 1.5 }}
                 >
-                  System Settings
+                  Asset Overview
                 </Button>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
@@ -220,174 +261,169 @@ const AdminDashboard = () => {
                   fullWidth
                   variant="outlined"
                   startIcon={<SecurityIcon />}
-                  onClick={() => navigate('/audit')}
+                  onClick={() => navigate('/admin/audit-logs')}
                   sx={{ py: 1.5 }}
                 >
-                  Security Audit
+                  Audit Logs
                 </Button>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
                 <Button
                   fullWidth
                   variant="outlined"
-                  startIcon={<NotificationsIcon />}
-                  onClick={() => navigate('/notifications')}
+                  startIcon={<SettingsIcon />}
+                  onClick={() => navigate('/admin/settings')}
                   sx={{ py: 1.5 }}
                 >
-                  Notifications
+                  System Settings
                 </Button>
               </Grid>
             </Grid>
           </Paper>
         </Grid>
 
-        {/* Charts Row */}
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2 }}>
-            <ChartComponent
-              title="Asset & Value Trends"
-              type="line"
-              data={assetTrendData}
-              height={350}
-            />
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2 }}>
-            <ChartComponent
-              title="User Status Distribution"
-              type="bar"
-              data={userActivityData}
-              height={350}
-            />
-          </Paper>
-        </Grid>
-
-        {/* Audit Logs Section */}
+        {/* Recent Activities Section */}
         <Grid item xs={12} md={8}>
           <Card>
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="h6">Recent Audit Logs</Typography>
-                <Button size="small" onClick={() => navigate('/audit')}>
+                <Typography variant="h6">Recent System Activities</Typography>
+                <Button size="small" onClick={() => navigate('/admin/audit-logs')}>
                   View All
                 </Button>
               </Box>
-              <List>
-                {recentAuditLogs.map((log) => (
-                  <ListItem key={log.id} divider>
-                    <ListItemIcon>
-                      <Avatar
-                        sx={{
-                          bgcolor: getStatusColor(log.status) + '20',
-                          color: getStatusColor(log.status),
-                          width: 32,
-                          height: 32,
-                        }}
-                      >
-                        {getStatusIcon(log.status)}
-                      </Avatar>
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={log.action}
-                      secondary={
-                        <Box>
-                          <Typography variant="body2" color="text.secondary">
-                            {log.entity}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            by {log.user} • {new Date(log.timestamp).toLocaleString()}
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Notification Failures Section */}
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="h6">Notification Failures</Typography>
-                <Chip 
-                  label={notificationFailures.length} 
-                  color="error" 
-                  size="small"
-                />
-              </Box>
-              <List>
-                {notificationFailures.map((failure) => (
-                  <ListItem key={failure.id} divider>
-                    <ListItemText
-                      primary={failure.type}
-                      secondary={
-                        <Box>
-                          <Typography variant="body2" color="text.secondary">
-                            {failure.recipient}
-                          </Typography>
-                          <Typography variant="caption" color="error">
-                            {failure.reason}
-                          </Typography>
-                          <Typography variant="caption" display="block" color="text.secondary">
-                            {new Date(failure.timestamp).toLocaleString()}
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                    <IconButton size="small">
-                      <MoreVertIcon />
-                    </IconButton>
-                  </ListItem>
-                ))}
-              </List>
-              {notificationFailures.length === 0 && (
-                <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>
-                  No recent notification failures
+              {recentActivities.length > 0 ? (
+                <List>
+                  {recentActivities.map((activity) => (
+                    <ListItem key={activity._id} divider>
+                      <ListItemIcon>
+                        <Avatar
+                          sx={{
+                            bgcolor: `${getSeverityColor(activity.severity)}.light`,
+                            color: `${getSeverityColor(activity.severity)}.main`,
+                            width: 32,
+                            height: 32,
+                          }}
+                        >
+                          {getSeverityIcon(activity.severity)}
+                        </Avatar>
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={activity.action}
+                        secondary={
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              {activity.description}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              by {activity.user?.name || 'System'} • {new Date(activity.timestamp).toLocaleString('en-IN')}
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                      <Chip
+                        label={activity.severity}
+                        color={getSeverityColor(activity.severity)}
+                        size="small"
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              ) : (
+                <Typography variant="body2" color="text.secondary" textAlign="center" py={3}>
+                  No recent activities
                 </Typography>
               )}
             </CardContent>
           </Card>
         </Grid>
 
-        {/* System Health Row */}
+        {/* System Health Section */}
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                System Health
+              </Typography>
+              <Box sx={{ mt: 2 }}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                  <Typography variant="body2">Server Status</Typography>
+                  <Chip
+                    label={stats.systemHealth.serverHealth === 100 ? 'Healthy' : 'Degraded'}
+                    color={stats.systemHealth.serverHealth === 100 ? 'success' : 'warning'}
+                    size="small"
+                  />
+                </Box>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                  <Typography variant="body2">Database</Typography>
+                  <Chip
+                    label={stats.systemHealth.databasePerformance === 100 ? 'Connected' : 'Disconnected'}
+                    color={stats.systemHealth.databasePerformance === 100 ? 'success' : 'error'}
+                    size="small"
+                  />
+                </Box>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                  <Typography variant="body2">Storage Usage</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {stats.systemHealth.storageUsage}%
+                  </Typography>
+                </Box>
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  <Typography variant="body2">Last Backup</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {stats.systemHealth.lastBackup}
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Performance Metrics */}
         <Grid item xs={12}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
-              System Health Status
+              Monthly Performance Trends
             </Typography>
-            <Grid container spacing={2}>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
               <Grid item xs={12} sm={6} md={3}>
-                <Box textAlign="center">
-                  <CheckIcon sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
-                  <Typography variant="h6">Database</Typography>
-                  <Typography variant="body2" color="success.main">Operational</Typography>
+                <Box textAlign="center" p={2}>
+                  <Typography variant="h4" color="primary.main">
+                    {stats.trends.assets.isPositive ? '+' : '-'}{stats.trends.assets.value}%
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Asset Growth
+                  </Typography>
                 </Box>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
-                <Box textAlign="center">
-                  <CheckIcon sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
-                  <Typography variant="h6">API Services</Typography>
-                  <Typography variant="body2" color="success.main">Healthy</Typography>
+                <Box textAlign="center" p={2}>
+                  <Typography variant="h4" color="success.main">
+                    {stats.trends.value.isPositive ? '+' : '-'}{stats.trends.value.value}%
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Value Growth
+                  </Typography>
                 </Box>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
-                <Box textAlign="center">
-                  <WarningIcon sx={{ fontSize: 48, color: 'warning.main', mb: 1 }} />
-                  <Typography variant="h6">Email Service</Typography>
-                  <Typography variant="body2" color="warning.main">Degraded</Typography>
+                <Box textAlign="center" p={2}>
+                  <Typography variant="h4" color="info.main">
+                    {stats.trends.users.isPositive ? '+' : '-'}{stats.trends.users.value}%
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    User Growth
+                  </Typography>
                 </Box>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
-                <Box textAlign="center">
-                  <CheckIcon sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
-                  <Typography variant="h6">File Storage</Typography>
-                  <Typography variant="body2" color="success.main">Available</Typography>
+                <Box textAlign="center" p={2}>
+                  <Typography variant="h4" color="warning.main">
+                    ₹{(stats.monthlyPurchase / 100000).toFixed(2)}L
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Monthly Purchases
+                  </Typography>
                 </Box>
               </Grid>
             </Grid>

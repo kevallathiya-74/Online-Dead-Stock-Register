@@ -53,7 +53,7 @@ const AddAssetModal: React.FC<AddAssetModalProps> = ({
     location: "",
     assigned_user: "",
     purchase_date: "",
-    purchase_value: "",
+    purchase_cost: "",
     warranty_expiry: "",
     description: "",
     tags: [] as string[],
@@ -239,7 +239,7 @@ const AddAssetModal: React.FC<AddAssetModalProps> = ({
         condition: "Excellent",
         purchase_date:
           formData.purchase_date || new Date().toISOString().split("T")[0],
-        purchase_cost: parseFloat(formData.purchase_value) || 0,
+        purchase_cost: parseFloat(formData.purchase_cost) || 0,
         warranty_expiry: formData.warranty_expiry,
         notes: formData.description,
       };
@@ -267,7 +267,7 @@ const AddAssetModal: React.FC<AddAssetModalProps> = ({
         location: "",
         assigned_user: "",
         purchase_date: "",
-        purchase_value: "",
+        purchase_cost: "",
         warranty_expiry: "",
         description: "",
         tags: [],
@@ -403,9 +403,9 @@ const AddAssetModal: React.FC<AddAssetModalProps> = ({
                 fullWidth
                 label="Purchase Value"
                 type="number"
-                value={formData.purchase_value}
+                value={formData.purchase_cost}
                 onChange={(e) =>
-                  handleInputChange("purchase_value", e.target.value)
+                  handleInputChange("purchase_cost", e.target.value)
                 }
                 InputProps={{
                   startAdornment: (
@@ -519,8 +519,8 @@ const AddAssetModal: React.FC<AddAssetModalProps> = ({
                   Purchase Value:
                 </Typography>
                 <Typography variant="body1" sx={{ mb: 1 }}>
-                  {formData.purchase_value
-                    ? `₹${parseFloat(formData.purchase_value).toLocaleString()}`
+                  {formData.purchase_cost
+                    ? `₹${parseFloat(formData.purchase_cost).toLocaleString('en-IN')}`
                     : "N/A"}
                 </Typography>
               </Grid>

@@ -53,7 +53,8 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../services/api';
 
 interface AdminUser {
-  id: string;
+  _id: string;
+  id?: string; // Deprecated: use _id
   name: string;
   email: string;
   role: 'ADMIN' | 'INVENTORY_MANAGER' | 'IT_MANAGER' | 'AUDITOR' | 'EMPLOYEE';
@@ -115,7 +116,7 @@ const UsersPage = () => {
       
       const mappedUsers = userData.map((user: any) => ({
         ...user,
-        id: user._id || user.id,
+        _id: user._id,
         status: user.is_active ? 'Active' : 'Inactive'
       }));
       
@@ -182,7 +183,7 @@ const UsersPage = () => {
 
   const handleToggleUserStatus = async (userId: string) => {
     try {
-      const user = users.find(u => u.id === userId);
+      const user = users.find(u => u._id === userId);
       if (!user) return;
       
       // Update user status via API
@@ -193,7 +194,7 @@ const UsersPage = () => {
       // Update local state
       setUsers(prev => 
         prev.map(user => 
-          user.id === userId 
+          user._id === userId 
             ? { ...user, is_active: !user.is_active, status: !user.is_active ? 'Active' : 'Inactive' }
             : user
         )
@@ -212,7 +213,7 @@ const UsersPage = () => {
         await api.delete(`/users/${userId}`);
         
         // Update local state
-        setUsers(prev => prev.filter(user => user.id !== userId));
+        setUsers(prev => prev.filter(user => user._id !== userId));
         toast.success('User deleted successfully');
       } catch (error) {
         console.error('Failed to delete user:', error);
@@ -565,7 +566,7 @@ const UsersPage = () => {
                         checked={filteredUsers.length > 0 && bulkSelected.length === filteredUsers.length}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setBulkSelected(filteredUsers.map(u => u.id));
+                            setBulkSelected(filteredUsers.map(u => u._id));
                           } else {
                             setBulkSelected([]);
                           }
@@ -582,20 +583,20 @@ const UsersPage = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {paginatedUsers.filter(user => user.id).map((user, index) => (
+                  {paginatedUsers.filter(user => user._id).map((user, index) => (
                     <TableRow 
-                      key={user.id || `user-${index}`}
-                      selected={bulkSelected.includes(user.id)}
+                      key={user._id || `user-${index}`}
+                      selected={bulkSelected.includes(user._id)}
                       hover
                     >
                       <TableCell padding="checkbox">
                         <Checkbox
-                          checked={bulkSelected.includes(user.id)}
+                          checked={bulkSelected.includes(user._id)}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setBulkSelected(prev => [...prev, user.id]);
+                              setBulkSelected(prev => [...prev, user._id]);
                             } else {
-                              setBulkSelected(prev => prev.filter(id => id !== user.id));
+                              setBulkSelected(prev => prev.filter(id => id !== user._id));
                             }
                           }}
                         />
@@ -669,7 +670,7 @@ const UsersPage = () => {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Switch
                             checked={user.is_active}
-                            onChange={() => handleToggleUserStatus(user.id)}
+                            onChange={() => handleToggleUserStatus(user._id)}
                             size="small"
                           />
                           <Chip
@@ -716,7 +717,7 @@ const UsersPage = () => {
                             <IconButton 
                               size="small" 
                               color="error"
-                              onClick={() => handleDeleteUser(user.id)}
+                              onClick={() => handleDeleteUser(user._id)}
                             >
                               <DeleteIcon />
                             </IconButton>

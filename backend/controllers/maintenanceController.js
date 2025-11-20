@@ -86,24 +86,24 @@ exports.getTechnicians = async (req, res) => {
         { role: 'INVENTORY_MANAGER' },
         { 'permissions': { $in: ['schedule_maintenance', 'approve_maintenance'] } }
       ]
-    }).select('full_name email role');
+    }).select('name email role');
 
     // Get current workload for each technician
     const techniciansWithWorkload = await Promise.all(
       users.map(async (user) => {
         const currentWorkload = await Maintenance.countDocuments({
-          performed_by: user.full_name,
+          performed_by: user.name,
           status: { $in: ['Scheduled', 'In Progress'] }
         });
         
         const totalCompleted = await Maintenance.countDocuments({
-          performed_by: user.full_name,
+          performed_by: user.name,
           status: 'Completed'
         });
 
         return {
           id: user._id.toString(),
-          name: user.full_name || user.email.split('@')[0], // Use full_name or extract from email
+          name: user.name || user.email.split('@')[0], // Use name or extract from email
           email: user.email,
           specialization: ['General Maintenance', 'Equipment Repair'], // Default specializations
           current_workload: currentWorkload,

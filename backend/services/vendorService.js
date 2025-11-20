@@ -12,7 +12,7 @@ exports.getVendors = async (filters = {}, pagination = {}) => {
     const skip = (page - 1) * limit;
     
     // Build query
-    const query = { is_deleted: false };
+    const query = {};
     
     // Search filter
     if (filters.search) {
@@ -66,8 +66,7 @@ exports.getVendors = async (filters = {}, pagination = {}) => {
 exports.getVendorById = async (vendorId) => {
   try {
     const vendor = await Vendor.findOne({ 
-      _id: vendorId, 
-      is_deleted: false 
+      _id: vendorId
     })
       .select('-__v')
       .lean();
@@ -79,8 +78,7 @@ exports.getVendorById = async (vendorId) => {
     // Get asset count for this vendor
     const Asset = require('../models/asset');
     const assetCount = await Asset.countDocuments({ 
-      vendor_id: vendorId,
-      is_deleted: false 
+      vendor_id: vendorId
     });
     
     return {
@@ -103,8 +101,7 @@ exports.createVendor = async (vendorData, userId) => {
   try {
     // Check for duplicate vendor name
     const existing = await Vendor.findOne({
-      vendor_name: { $regex: new RegExp(`^${vendorData.vendor_name}$`, 'i') },
-      is_deleted: false
+      vendor_name: { $regex: new RegExp(`^${vendorData.vendor_name}$`, 'i') }
     });
     
     if (existing) {
@@ -160,8 +157,7 @@ exports.updateVendor = async (vendorId, updateData, userId) => {
   
   try {
     const vendor = await Vendor.findOne({ 
-      _id: vendorId, 
-      is_deleted: false 
+      _id: vendorId
     }).session(session);
     
     if (!vendor) {
@@ -219,8 +215,7 @@ exports.deleteVendor = async (vendorId, userId) => {
   
   try {
     const vendor = await Vendor.findOne({ 
-      _id: vendorId, 
-      is_deleted: false 
+      _id: vendorId
     }).session(session);
     
     if (!vendor) {
@@ -232,18 +227,17 @@ exports.deleteVendor = async (vendorId, userId) => {
     const Asset = require('../models/asset');
     const activeAssets = await Asset.countDocuments({
       vendor_id: vendorId,
-      is_deleted: false,
-      status: { $in: ['Active', 'In Use', 'Available'] }
+      current_status: { $in: ['active', 'assigned', 'available'] }
     });
     
     if (activeAssets > 0) {
       throw new Error(`Cannot delete vendor with ${activeAssets} active assets`);
     }
     
-    // Soft delete
-    vendor.is_deleted = true;
-    vendor.deleted_at = new Date();
-    vendor.deleted_by = userId;
+    // Deactivate vendor
+    vendor.is_active = false;
+    vendor.updated_at = new Date();
+    vendor.updated_by = userId;
     
     await vendor.save({ session });
     
@@ -283,7 +277,7 @@ exports.deleteVendor = async (vendorId, userId) => {
 exports.getVendorStats = async () => {
   try {
     const stats = await Vendor.aggregate([
-      { $match: { is_deleted: false } },
+      { $match: {} },
       {
         $facet: {
           byStatus: [
@@ -341,8 +335,7 @@ exports.getVendorStats = async () => {
 exports.getVendorPerformance = async (vendorId) => {
   try {
     const vendor = await Vendor.findOne({ 
-      _id: vendorId, 
-      is_deleted: false 
+      _id: vendorId
     });
     
     if (!vendor) {
@@ -352,9 +345,8 @@ exports.getVendorPerformance = async (vendorId) => {
     // Get assets from this vendor
     const Asset = require('../models/asset');
     const assets = await Asset.find({ 
-      vendor_id: vendorId,
-      is_deleted: false 
-    }).select('status purchase_date warranty_end_date current_value');
+      vendor_id: vendorId
+    }).select('current_status purchase_date warranty_end current_value purchase_cost');
     
     // Calculate metrics
     const totalAssets = assets.length;

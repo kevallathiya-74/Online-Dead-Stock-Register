@@ -201,14 +201,14 @@ const EmployeeDashboard: React.FC = () => {
       title: "Request Asset",
       description: "Submit new asset request",
       icon: <AddIcon />,
-      onClick: () => navigate("/employee/requests"),
+      onClick: () => navigate("/employee/requests/new"),
       color: "success" as const,
     },
     {
       title: "Report Issue",
       description: "Report asset problems",
       icon: <MaintenanceIcon />,
-      onClick: () => navigate("/maintenance"),
+      onClick: () => navigate("/employee/requests"),
       color: "warning" as const,
     },
   ];

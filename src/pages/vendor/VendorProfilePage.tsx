@@ -17,7 +17,6 @@ import { getProfile, updateProfile } from '../../services/vendorPortal.service';
 import type { VendorProfile } from '../../types';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../context/AuthContext';
-import DashboardLayout from '../../components/layout/DashboardLayout';
 
 const VendorProfilePage: React.FC = () => {
   const { refreshUser } = useAuth();
@@ -125,19 +124,16 @@ const VendorProfilePage: React.FC = () => {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-          <CircularProgress />
-        </Box>
-      </DashboardLayout>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <CircularProgress />
+      </Box>
     );
   }
 
   return (
-    <DashboardLayout>
-      <Box sx={{ p: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          Company Profile
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom>
+        Company Profile
       </Typography>
       <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 3 }}>
         View and update your company information
@@ -379,7 +375,6 @@ const VendorProfilePage: React.FC = () => {
         </Grid>
       </Grid>
     </Box>
-    </DashboardLayout>
   );
 };
 

@@ -55,11 +55,11 @@ const AssetLabelsPage: React.FC = () => {
       setLoading(true);
       const response = await api.get('/assets', {
         params: {
-          status: 'Active,Available,Under Maintenance' // Only show assets that might need labels
+          limit: 100 // Get all assets for labels
         }
       });
-      // Backend returns { data: { assets: [] } } or { data: [] } or { assets: [] }
-      const assetsData = response.data.data || response.data.assets || response.data;
+      // Backend returns { success: true, data: [...assets array], pagination: {} }
+      const assetsData = response.data.data || response.data;
       const assetsList = Array.isArray(assetsData) ? assetsData : [];
       setAssets(assetsList);
       

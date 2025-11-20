@@ -248,11 +248,13 @@ exports.generateReport = async (req, res, next) => {
     // Build query based on parameters
     const query = {};
     if (parameters?.startDate && parameters?.endDate) {
-      query.created_at = {
+      // Use purchase_date for filtering if available
+      query.purchase_date = {
         $gte: new Date(parameters.startDate),
         $lte: new Date(parameters.endDate)
       };
     }
+    // If no date parameters provided, get all assets (no date filter)
 
     // Get data based on template category
     switch (template.category) {

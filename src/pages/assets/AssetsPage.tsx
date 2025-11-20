@@ -58,6 +58,7 @@ import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../services/api';
 import assetUpdateService from '../../services/assetUpdateService';
+import DatabaseStatus from '../../components/common/DatabaseStatus';
 
 interface Asset {
   _id?: string;
@@ -1006,6 +1007,9 @@ const AssetsPage = () => {
   return (
     <DashboardLayout>
       <Box>
+        {/* Database Status Indicator - Shows alert if database is empty */}
+        <DatabaseStatus onDataSeeded={loadAssets} />
+
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box>
             <Typography variant="h4" gutterBottom>

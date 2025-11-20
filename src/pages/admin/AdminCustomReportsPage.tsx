@@ -43,6 +43,7 @@ import {
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { toast } from 'react-toastify';
+import api from '../../services/api';
 
 interface DataSource {
   id: string;
@@ -124,30 +125,74 @@ const AdminCustomReportsPage: React.FC = () => {
     }
   }, [selectedDataSource]);
 
-  const loadSavedReports = () => {
-    // Mock saved reports
-    setSavedReports([
-      { id: '1', name: 'Asset Summary Report', type: 'table', created: '2024-01-15' },
-      { id: '2', name: 'User Activity Dashboard', type: 'dashboard', created: '2024-01-12' },
-      { id: '3', name: 'Financial Overview', type: 'chart', created: '2024-01-10' }
-    ]);
+  const loadSavedReports = async () => {
+    try {
+      const response = await api.get('/reports/templates');
+      if (response.data.success) {
+        const reports = response.data.data.map((template: any) => ({
+          id: template._id,
+          name: template.name,
+          type: template.type?.toLowerCase() || 'table',
+          created: template.lastGenerated || template.createdAt || new Date().toISOString()
+        }));
+        setSavedReports(reports);
+      }
+    } catch (error) {
+      console.error('Error loading saved reports:', error);
+      toast.error('Failed to load saved reports');
+      setSavedReports([]);
+    }
   };
 
   const loadAvailableFields = () => {
-    // Mock fields based on selected data source
-    const mockFields: ReportField[] = [
-      { id: '1', name: 'Asset ID', type: 'string', source: 'assets', selected: false },
-      { id: '2', name: 'Asset Name', type: 'string', source: 'assets', selected: false },
-      { id: '3', name: 'Category', type: 'string', source: 'asset_categories', selected: false },
-      { id: '4', name: 'Location', type: 'string', source: 'asset_locations', selected: false },
-      { id: '5', name: 'Status', type: 'string', source: 'assets', selected: false },
-      { id: '6', name: 'Purchase Date', type: 'date', source: 'assets', selected: false },
-      { id: '7', name: 'Purchase Value', type: 'number', source: 'assets', selected: false },
-      { id: '8', name: 'Assigned User', type: 'string', source: 'asset_assignments', selected: false },
-      { id: '9', name: 'Department', type: 'string', source: 'asset_assignments', selected: false },
-      { id: '10', name: 'Last Audit Date', type: 'date', source: 'assets', selected: false }
-    ];
-    setAvailableFields(mockFields);
+    // Generate fields based on selected data source
+    let fields: ReportField[] = [];
+    
+    if (selectedDataSource === 'assets') {
+      fields = [
+        { id: '1', name: 'unique_asset_id', type: 'string', source: 'assets', selected: false },
+        { id: '2', name: 'name', type: 'string', source: 'assets', selected: false },
+        { id: '3', name: 'asset_type', type: 'string', source: 'assets', selected: false },
+        { id: '4', name: 'location', type: 'string', source: 'assets', selected: false },
+        { id: '5', name: 'status', type: 'string', source: 'assets', selected: false },
+        { id: '6', name: 'purchase_date', type: 'date', source: 'assets', selected: false },
+        { id: '7', name: 'purchase_cost', type: 'number', source: 'assets', selected: false },
+        { id: '8', name: 'assigned_user', type: 'string', source: 'assets', selected: false },
+        { id: '9', name: 'department', type: 'string', source: 'assets', selected: false },
+        { id: '10', name: 'last_audit_date', type: 'date', source: 'assets', selected: false },
+        { id: '11', name: 'manufacturer', type: 'string', source: 'assets', selected: false },
+        { id: '12', name: 'model', type: 'string', source: 'assets', selected: false },
+        { id: '13', name: 'serial_number', type: 'string', source: 'assets', selected: false },
+        { id: '14', name: 'condition', type: 'string', source: 'assets', selected: false },
+        { id: '15', name: 'warranty_expiry', type: 'date', source: 'assets', selected: false }
+      ];
+    } else if (selectedDataSource === 'users') {
+      fields = [
+        { id: '1', name: 'name', type: 'string', source: 'users', selected: false },
+        { id: '2', name: 'email', type: 'string', source: 'users', selected: false },
+        { id: '3', name: 'role', type: 'string', source: 'users', selected: false },
+        { id: '4', name: 'department', type: 'string', source: 'users', selected: false },
+        { id: '5', name: 'employee_id', type: 'string', source: 'users', selected: false },
+        { id: '6', name: 'is_active', type: 'boolean', source: 'users', selected: false },
+        { id: '7', name: 'last_login', type: 'date', source: 'users', selected: false }
+      ];
+    } else if (selectedDataSource === 'transactions') {
+      fields = [
+        { id: '1', name: 'vendor_name', type: 'string', source: 'vendors', selected: false },
+        { id: '2', name: 'contact_email', type: 'string', source: 'vendors', selected: false },
+        { id: '3', name: 'performance_rating', type: 'number', source: 'vendors', selected: false },
+        { id: '4', name: 'is_active', type: 'boolean', source: 'vendors', selected: false }
+      ];
+    } else if (selectedDataSource === 'analytics') {
+      fields = [
+        { id: '1', name: 'action', type: 'string', source: 'audit_logs', selected: false },
+        { id: '2', name: 'user', type: 'string', source: 'audit_logs', selected: false },
+        { id: '3', name: 'timestamp', type: 'date', source: 'audit_logs', selected: false },
+        { id: '4', name: 'severity', type: 'string', source: 'audit_logs', selected: false }
+      ];
+    }
+    
+    setAvailableFields(fields);
   };
 
   const handleNext = () => {

@@ -262,7 +262,7 @@ const BulkImportPage: React.FC = () => {
                     <li>model - Model name/number (optional)</li>
                     <li>serial_number - Serial number (optional)</li>
                     <li>purchase_date - Date in YYYY-MM-DD format (optional)</li>
-                    <li>purchase_value - Purchase cost in ₹ (optional)</li>
+                    <li>purchase_cost - Purchase cost in ₹ (optional)</li>
                     <li>warranty_expiry - Warranty expiry date (optional)</li>
                     <li>status - Available, Active, Under Maintenance, etc. (optional)</li>
                     <li>condition - Excellent, Good, Fair, Poor, Damaged (optional)</li>

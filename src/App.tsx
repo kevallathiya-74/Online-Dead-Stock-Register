@@ -104,6 +104,7 @@ const App = () => {
                   <Route path="/dashboard/*" element={<Dashboard />} />
                   <Route path="/employee/my-assets" element={<MyAssetsPage />} />
                   <Route path="/employee/requests" element={<RequestsPage />} />
+                  <Route path="/employee/requests/new" element={<RequestsPage />} />
                   <Route path="/employee/profile" element={<ProfilePage />} />
                   <Route path="/employee/history" element={<HistoryPage />} />
                   <Route path="/employee/help" element={<HelpPage />} />
@@ -164,6 +165,7 @@ const App = () => {
               <Route path="/auditor/audit-list" element={<AuditListPage />} />
               <Route path="/auditor/compliance" element={<CompliancePage />} />
               <Route path="/auditor/reports" element={<ReportsPage />} />
+              <Route path="/auditor/help" element={<HelpPage />} />
             </Route>
 
             {/* Vendor Routes - VENDOR role only */}
@@ -174,6 +176,7 @@ const App = () => {
               <Route path="/vendor/products" element={<VendorProductsPage />} />
               <Route path="/vendor/invoices" element={<VendorInvoicesPage />} />
               <Route path="/vendor/profile" element={<VendorProfilePage />} />
+              <Route path="/vendor/help" element={<HelpPage />} />
             </Route>
 
             {/* Default Routes */}

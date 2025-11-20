@@ -48,7 +48,8 @@ import { toast } from 'react-toastify';
 import api from '../../services/api';
 
 interface ScrapItem {
-  id: string;
+  _id: string;
+  id?: string; // Deprecated: use _id
   assetId: string;
   assetName: string;
   category: string;
@@ -180,13 +181,13 @@ const ScrapPage = () => {
 
   const handleApproveScrap = async (item: ScrapItem) => {
     try {
-      await api.post(`/inventory/scrap/${item.id}/approve`);
+      await api.post(`/inventory/scrap/${item._id}/approve`);
       
       toast.success(`Scrap request approved for ${item.assetName}`);
       
       // Update local state
       setScrapItems(prev => prev.map(i => 
-        i.id === item.id 
+        i._id === item._id 
           ? { 
               ...i, 
               status: 'Approved for Scrap' as const, 
@@ -407,7 +408,7 @@ const ScrapPage = () => {
                     </TableRow>
                   ) : (
                     filteredItems.map((item) => (
-                      <TableRow key={item.id}>
+                      <TableRow key={item._id}>
                         <TableCell>
                           <Box>
                             <Typography variant="subtitle2">

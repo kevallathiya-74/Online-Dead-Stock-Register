@@ -269,7 +269,13 @@ const ApprovalsPage: React.FC = () => {
                     {loading ? (
                       <Skeleton variant="text" width={60} height={40} />
                     ) : (
-                      <Typography variant="h4">{avgProcessingTime}d</Typography>
+                      <Typography variant="h4">
+                        {avgProcessingTime >= 1 
+                          ? `${Math.round(avgProcessingTime)}d` 
+                          : avgProcessingTime > 0 
+                            ? '<1d' 
+                            : '0d'}
+                      </Typography>
                     )}
                   </Box>
                   <Avatar sx={{ backgroundColor: 'info.main' }}>

@@ -145,10 +145,7 @@ const ReportsPage = () => {
       const response = await api.post('/reports/generate', {
         template_id: template._id,
         format: template.format || 'PDF',
-        parameters: {
-          startDate: selectedDateRange.startDate,
-          endDate: selectedDateRange.endDate
-        }
+        parameters: {} // No date filtering - get all data
       });
 
       if (response.data.success) {

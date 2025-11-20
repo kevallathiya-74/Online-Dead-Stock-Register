@@ -339,7 +339,7 @@ const handleNext = () => {
                 options={users}
                 getOptionLabel={(option: any) => {
                   if (typeof option === 'string') return option;
-                  return option.full_name || option.email || 'Unknown';
+                  return option.name || option.email || 'Unknown';
                 }}
                 value={users.find(u => (u._id || u.id) === formData.to_user) || null}
                 onChange={(_, newValue) => handleInputChange('to_user', newValue ? (newValue._id || newValue.id) : '')}
@@ -356,7 +356,7 @@ const handleNext = () => {
                       <PersonIcon />
                     </Avatar>
                     <Box>
-                      <Typography variant="subtitle2">{option.full_name}</Typography>
+                      <Typography variant="subtitle2">{option.name}</Typography>
                       <Typography variant="caption" color="text.secondary">
                         {option.email} {option.role && `• ${option.role}`}
                       </Typography>
@@ -481,7 +481,7 @@ const handleNext = () => {
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" color="text.secondary">To User:</Typography>
-                    <Typography variant="body1">{selectedToUser?.full_name || 'Unassigned'}</Typography>
+                    <Typography variant="body1">{selectedToUser?.name || 'Unassigned'}</Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" color="text.secondary">Reason:</Typography>

@@ -162,11 +162,15 @@ export const exportAuditReport = async (format: 'json' | 'csv' = 'json'): Promis
     if (format === 'csv') {
       // For CSV, we need to handle the response as a blob
       const response = await axios.post(
-        `${API_BASE_URL}/export-import/export?type=assets&format=csv`,
-        {},
+        `${API_BASE_URL}/export-import/export`,
+        {
+          includeAssets: true,
+          format: 'csv',
+        },
         {
           headers: {
             Authorization: getAuthToken(),
+            'Content-Type': 'application/json',
           },
           responseType: 'blob', // Important for file download
         }
@@ -177,8 +181,8 @@ export const exportAuditReport = async (format: 'json' | 'csv' = 'json'): Promis
       const response = await axios.post(
         `${API_BASE_URL}/export-import/export`,
         {
-          type: 'assets',
-          format: format,
+          includeAssets: true,
+          format: 'json',
         },
         {
           headers: {

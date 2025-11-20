@@ -32,8 +32,8 @@ exports.getAllInvoices = async (req, res, next) => {
       Invoice.find(query)
         .populate('vendor', 'vendor_name contact_person email phone')
         .populate('purchase_order', 'po_number status')
-        .populate('created_by', 'full_name email')
-        .populate('approved_by', 'full_name email')
+        .populate('created_by', 'name email')
+        .populate('approved_by', 'name email')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit))
@@ -66,8 +66,8 @@ exports.getInvoiceById = async (req, res, next) => {
     const invoice = await Invoice.findById(req.params.id)
       .populate('vendor', 'vendor_name contact_person email phone address payment_terms')
       .populate('purchase_order')
-      .populate('created_by', 'full_name email')
-      .populate('approved_by', 'full_name email')
+      .populate('created_by', 'name email')
+      .populate('approved_by', 'name email')
       .lean();
     
     if (!invoice) {
@@ -144,7 +144,7 @@ exports.createInvoice = async (req, res, next) => {
     const populatedInvoice = await Invoice.findById(invoice._id)
       .populate('vendor', 'vendor_name contact_person email')
       .populate('purchase_order', 'po_number')
-      .populate('created_by', 'full_name email')
+      .populate('created_by', 'name email')
       .lean();
     
     logger.info(`Invoice ${invoice.invoice_number} created by user ${req.user.email}`);

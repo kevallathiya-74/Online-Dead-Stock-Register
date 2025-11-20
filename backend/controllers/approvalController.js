@@ -152,7 +152,10 @@ exports.rejectRequest = async (req, res, next) => {
  */
 exports.getPendingApprovals = async (req, res, next) => {
   try {
-    const pendingApprovals = await approvalService.getPendingApprovalsForUser(req.user._id);
+    const pendingApprovals = await approvalService.getPendingApprovalsForUser(
+      req.user._id,
+      req.user.role
+    );
     
     res.status(200).json({
       success: true,

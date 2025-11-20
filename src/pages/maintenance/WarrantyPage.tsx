@@ -42,7 +42,8 @@ import { toast } from 'react-toastify';
 import api from '../../services/api';
 
 interface WarrantyItem {
-  id: string;
+  _id: string;
+  id?: string; // Deprecated: use _id
   assetId: string;
   assetName: string;
   manufacturer: string;
@@ -137,7 +138,7 @@ const WarrantyPage = () => {
   const handleFileWarrantyClaim = async (warranty: WarrantyItem) => {
     try {
       await api.post('/maintenance/warranties/claim', {
-        assetId: warranty.id,
+        assetId: warranty._id,
         description: `Warranty claim for ${warranty.assetName}`,
         issueType: 'warranty_claim'
       });
@@ -146,7 +147,7 @@ const WarrantyPage = () => {
       
       // Update local state to reflect claim filed
       setWarranties(prev => prev.map(w => 
-        w.id === warranty.id 
+        w._id === warranty._id 
           ? { ...w, status: 'Claim Filed' as const, claimHistory: w.claimHistory + 1 }
           : w
       ));
@@ -332,7 +333,7 @@ const WarrantyPage = () => {
                     filteredWarranties.map((warranty) => {
                       const daysUntilExpiry = getDaysUntilExpiry(warranty.endDate);
                       return (
-                        <TableRow key={warranty.id}>
+                        <TableRow key={warranty._id}>
                           <TableCell>
                             <Box>
                               <Typography variant="subtitle2">
