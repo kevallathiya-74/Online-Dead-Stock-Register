@@ -84,6 +84,42 @@ router.get('/scrap',
   inventoryController.getScrapItems
 );
 
+// POST /api/v1/inventory/scrap - Create new scrap request
+router.post('/scrap',
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']),
+  inventoryController.createScrapRequest
+);
+
+// GET /api/v1/inventory/scrap/stats - Get scrap statistics
+router.get('/scrap/stats',
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']),
+  inventoryController.getScrapStats
+);
+
+// GET /api/v1/inventory/scrap/export - Export scrap report
+router.get('/scrap/export',
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']),
+  inventoryController.exportScrapReport
+);
+
+// GET /api/v1/inventory/scrap/:id - Get scrap item by ID
+router.get('/scrap/:id',
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']),
+  inventoryController.getScrapItemById
+);
+
+// PATCH /api/v1/inventory/scrap/:id - Update scrap item
+router.patch('/scrap/:id',
+  requireRole(['ADMIN', 'INVENTORY_MANAGER']),
+  inventoryController.updateScrapItem
+);
+
+// DELETE /api/v1/inventory/scrap/:id - Delete scrap item
+router.delete('/scrap/:id',
+  requireRole(['ADMIN']),
+  inventoryController.deleteScrapItem
+);
+
 // POST /api/v1/inventory/scrap/:id/approve - Approve scrap item
 router.post('/scrap/:id/approve', 
   requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']),

@@ -23,7 +23,6 @@ import {
   DialogContent,
   DialogActions,
   Alert,
-  Badge,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -39,25 +38,8 @@ import {
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { toast } from 'react-toastify';
-import api from '../../services/api';
-
-interface WarrantyItem {
-  _id: string;
-  id?: string; // Deprecated: use _id
-  assetId: string;
-  assetName: string;
-  manufacturer: string;
-  model: string;
-  serialNumber: string;
-  warrantyType: 'Standard' | 'Extended' | 'Comprehensive';
-  startDate: string;
-  endDate: string;
-  status: 'Active' | 'Expired' | 'Expiring Soon' | 'Claim Filed';
-  vendor: string;
-  claimHistory: number;
-  coverageDetails: string;
-  lastClaimDate?: string;
-}
+import warrantyService, { WarrantyItem } from '../../services/warranty.service';
+import { formatCurrency } from '../../utils/errorHandling';
 
 const WarrantyPage = () => {
   const [warranties, setWarranties] = useState<WarrantyItem[]>([]);
@@ -77,14 +59,14 @@ const WarrantyPage = () => {
   const loadWarrantyData = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/maintenance/warranties');
-      const data = response.data.data || response.data;
-      setWarranties(data);
+      const response = await warrantyService.getWarranties({
+        search: searchTerm
+      });
+      setWarranties(response.data || []);
       
       // Calculate total coverage value from actual asset values
-      const totalValue = data.reduce((sum: number, w: WarrantyItem) => {
-        // Assuming coverage value is similar to asset purchase cost
-        return sum + 100000; // Default placeholder, should be fetched from backend
+      const totalValue = response.data.reduce((sum: number, w: WarrantyItem) => {
+        return sum + (w.coverageValue || 100000); // Use actual coverage value or default
       }, 0);
       setTotalCoverageValue(totalValue);
     } catch (error: any) {
@@ -137,26 +119,44 @@ const WarrantyPage = () => {
 
   const handleFileWarrantyClaim = async (warranty: WarrantyItem) => {
     try {
-      await api.post('/maintenance/warranties/claim', {
-        assetId: warranty._id,
+      const result = await warrantyService.fileWarrantyClaim({
+        warrantyId: warranty._id,
+        assetId: warranty.assetId, // Use assetId not _id
         description: `Warranty claim for ${warranty.assetName}`,
         issueType: 'warranty_claim'
       });
       
-      toast.success(`Warranty claim filed successfully for ${warranty.assetName}`);
-      
-      // Update local state to reflect claim filed
-      setWarranties(prev => prev.map(w => 
-        w._id === warranty._id 
-          ? { ...w, status: 'Claim Filed' as const, claimHistory: w.claimHistory + 1 }
-          : w
-      ));
+      toast.success(result.message || `Warranty claim filed successfully for ${warranty.assetName}`);
       
       // Reload data to get updated information from backend
-      setTimeout(() => loadWarrantyData(), 1000);
+      await loadWarrantyData();
     } catch (error: any) {
       console.error('Error filing warranty claim:', error);
       toast.error(error.response?.data?.message || 'Failed to file warranty claim');
+    }
+  };
+
+  const handleExportReport = async () => {
+    try {
+      toast.info('Preparing warranty report...');
+      const blob = await warrantyService.exportWarrantyReport('csv', {
+        search: searchTerm
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `warranty-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Warranty report downloaded successfully');
+    } catch (error: any) {
+      console.error('Error exporting report:', error);
+      toast.error('Failed to export warranty report');
     }
   };
 
@@ -174,7 +174,7 @@ const WarrantyPage = () => {
           <Button
             variant="outlined"
             startIcon={<DownloadIcon />}
-            onClick={() => toast.info('Warranty report download started')}
+            onClick={handleExportReport}
           >
             Export Report
           </Button>
@@ -208,9 +208,7 @@ const WarrantyPage = () => {
                       Expiring Soon
                     </Typography>
                     <Typography variant="h4" color="warning.main">
-                      <Badge badgeContent={expiringCount} color="warning">
-                        {expiringCount}
-                      </Badge>
+                      {expiringCount}
                     </Typography>
                   </Box>
                   <WarningIcon color="warning" sx={{ fontSize: 40 }} />
@@ -244,7 +242,7 @@ const WarrantyPage = () => {
                       Total Coverage Value
                     </Typography>
                     <Typography variant="h4">
-                      ₹{(totalCoverageValue / 1000000).toFixed(1)}M
+                      {formatCurrency(totalCoverageValue)}
                     </Typography>
                   </Box>
                   <ScheduleIcon color="primary" sx={{ fontSize: 40 }} />

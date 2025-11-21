@@ -8,6 +8,7 @@ const vendorSchema = new mongoose.Schema({
   email: { type: String },
   contact_email: { type: String }, // Alias for email for backward compatibility
   phone: { type: String },
+  profile_photo: { type: String }, // URL or base64 encoded image
   address: {
     street: String,
     city: String,

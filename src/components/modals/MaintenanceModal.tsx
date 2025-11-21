@@ -28,6 +28,7 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import api from '../../services/api';
+import maintenanceService from '../../services/maintenance.service';
 
 interface MaintenanceModalProps {
   open: boolean;
@@ -82,11 +83,11 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({ open, onClose, onSu
     try {
       const [assetsRes, techniciansRes] = await Promise.all([
         api.get('/assets'),
-        api.get('/maintenance/technicians')
+        maintenanceService.getTechnicians()
       ]);
 
       const assetsData = assetsRes.data.data || assetsRes.data || [];
-      const techniciansData = techniciansRes.data.data || techniciansRes.data || [];
+      const techniciansData = techniciansRes.data || [];
 
       setAssets(Array.isArray(assetsData) ? assetsData : []);
       setTechnicians(Array.isArray(techniciansData) ? techniciansData : []);
@@ -125,14 +126,33 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({ open, onClose, onSu
   };
 
   const handleSubmit = async () => {
-    if (!formData.asset_id || !formData.maintenance_type || !formData.maintenance_date) {
-      toast.error('Please fill in all required fields');
+    // Validation
+    if (!formData.asset_id) {
+      toast.error('Please select an asset');
+      return;
+    }
+    
+    if (!formData.maintenance_type) {
+      toast.error('Please select maintenance type');
+      return;
+    }
+    
+    if (!formData.maintenance_date) {
+      toast.error('Please select maintenance date');
+      return;
+    }
+
+    // Validate date is not in the past
+    const selectedDate = new Date(formData.maintenance_date);
+    const now = new Date();
+    if (selectedDate < now) {
+      toast.error('Maintenance date cannot be in the past');
       return;
     }
 
     setLoading(true);
     try {
-      const payload = {
+      const result = await maintenanceService.createMaintenance({
         asset_id: formData.asset_id,
         maintenance_type: formData.maintenance_type,
         description: formData.description,
@@ -143,13 +163,10 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({ open, onClose, onSu
         status: 'Scheduled',
         estimated_duration: formData.estimated_duration,
         downtime_impact: formData.downtime_impact,
-      };
-
-      const response = await api.post('/maintenance', payload);
-      const createdMaintenance = response.data.data || response.data;
+      });
       
-      onSubmit(createdMaintenance);
-      toast.success('Maintenance scheduled successfully!');
+      toast.success(result.message || 'Maintenance scheduled successfully!');
+      onSubmit(result.data);
       
       // Reset form
       setFormData({
@@ -167,7 +184,8 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({ open, onClose, onSu
       onClose();
     } catch (error: any) {
       console.error('Failed to schedule maintenance:', error);
-      toast.error(error.response?.data?.message || 'Failed to schedule maintenance');
+      const errorMessage = error.response?.data?.message || 'Failed to schedule maintenance';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

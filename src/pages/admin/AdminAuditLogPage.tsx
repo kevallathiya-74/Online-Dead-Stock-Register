@@ -131,7 +131,7 @@ const AdminAuditLogPage: React.FC = () => {
   );
 
   const getSeverityColor = (severity: AdminAuditLog["severity"]) => {
-    switch (severity.toLowerCase()) {
+    switch (severity?.toLowerCase()) {
       case "critical":
         return "error";
       case "error":
@@ -145,33 +145,38 @@ const AdminAuditLogPage: React.FC = () => {
     }
   };
 
+  const formatSeverity = (severity: string) => {
+    return severity?.charAt(0).toUpperCase() + severity?.slice(1).toLowerCase() || "Info";
+  };
+
   const getSeverityIcon = (severity: AdminAuditLog["severity"]) => {
-    switch (severity.toLowerCase()) {
+    switch (severity?.toLowerCase()) {
       case "critical":
-        return <ErrorIcon color="error" />;
+        return <ErrorIcon fontSize="small" />;
       case "error":
-        return <ErrorIcon color="error" />;
+        return <ErrorIcon fontSize="small" />;
       case "warning":
-        return <WarningIcon color="warning" />;
+        return <WarningIcon fontSize="small" />;
       case "info":
-        return <InfoIcon color="info" />;
+        return <InfoIcon fontSize="small" />;
       default:
-        return <CheckCircleIcon />;
+        return <CheckCircleIcon fontSize="small" />;
     }
   };
 
   const getEntityIcon = (entityType: string) => {
-    switch (entityType.toLowerCase()) {
+    const type = entityType?.toLowerCase() || '';
+    switch (type) {
       case "user":
-        return <PersonIcon />;
+        return <PersonIcon fontSize="small" />;
       case "asset":
-        return <AssetIcon />;
+        return <AssetIcon fontSize="small" />;
       case "transaction":
-        return <TransactionIcon />;
+        return <TransactionIcon fontSize="small" />;
       case "system":
-        return <SettingsIcon />;
+        return <SettingsIcon fontSize="small" />;
       default:
-        return <SecurityIcon />;
+        return <SecurityIcon fontSize="small" />;
     }
   };
 
@@ -399,7 +404,7 @@ const AdminAuditLogPage: React.FC = () => {
                     <MenuItem value="all">All Severities</MenuItem>
                     {severities.map((severity) => (
                       <MenuItem key={severity} value={severity}>
-                        {severity}
+                        {formatSeverity(severity)}
                       </MenuItem>
                     ))}
                   </Select>
@@ -416,7 +421,7 @@ const AdminAuditLogPage: React.FC = () => {
                     <MenuItem value="all">All Entities</MenuItem>
                     {entityTypes.map((entity) => (
                       <MenuItem key={entity} value={entity}>
-                        {entity}
+                        {entity.charAt(0).toUpperCase() + entity.slice(1)}
                       </MenuItem>
                     ))}
                   </Select>
@@ -433,7 +438,9 @@ const AdminAuditLogPage: React.FC = () => {
                     <MenuItem value="all">All Actions</MenuItem>
                     {actions.map((action) => (
                       <MenuItem key={action} value={action}>
-                        {action}
+                        {action.replace(/_/g, ' ').split(' ').map(word => 
+                          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                        ).join(' ')}
                       </MenuItem>
                     ))}
                   </Select>
@@ -488,123 +495,179 @@ const AdminAuditLogPage: React.FC = () => {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Timestamp</TableCell>
-                    <TableCell>User & Action</TableCell>
-                    <TableCell>Entity & Details</TableCell>
-                    <TableCell>Severity</TableCell>
-                    <TableCell>Source Information</TableCell>
-                    <TableCell>Description</TableCell>
+                    <TableCell sx={{ minWidth: 120 }}>Timestamp</TableCell>
+                    <TableCell sx={{ minWidth: 180 }}>User & Action</TableCell>
+                    <TableCell sx={{ minWidth: 180 }}>Entity & Details</TableCell>
+                    <TableCell sx={{ minWidth: 100 }}>Severity</TableCell>
+                    <TableCell sx={{ minWidth: 150 }}>Source Information</TableCell>
+                    <TableCell sx={{ minWidth: 250 }}>Description</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {paginatedLogs.map((log) => (
-                    <TableRow key={log.id} hover>
-                      <TableCell>
-                        <Box>
-                          <Typography variant="body2" fontWeight="medium">
-                            {new Date(log.timestamp).toLocaleDateString()}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {new Date(log.timestamp).toLocaleTimeString()}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: "flex", alignItems: "center" }}>
-                          <Avatar
-                            sx={{
-                              mr: 2,
-                              bgcolor: "primary.main",
-                              width: 32,
-                              height: 32,
-                            }}
-                          >
-                            {(log.user?.name || log.user_name || "U").charAt(0)}
-                          </Avatar>
-                          <Box>
-                            <Typography variant="subtitle2" fontWeight="medium">
-                              {log.user?.name || log.user_name || "Unknown"}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              {log.action}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: "flex", alignItems: "center" }}>
-                          <Avatar
-                            sx={{
-                              mr: 1,
-                              bgcolor: "secondary.main",
-                              width: 24,
-                              height: 24,
-                            }}
-                          >
-                            {getEntityIcon(log.entity_type)}
-                          </Avatar>
+                  {paginatedLogs.length > 0 ? (
+                    paginatedLogs.map((log) => (
+                      <TableRow key={log.id} hover>
+                        <TableCell>
                           <Box>
                             <Typography variant="body2" fontWeight="medium">
-                              {log.entity_type}
+                              {new Date(log.timestamp).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit'
+                              })}
                             </Typography>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              sx={{ fontFamily: "monospace" }}
-                            >
-                              ID: {log.entity_id}
+                            <Typography variant="caption" color="text.secondary">
+                              {new Date(log.timestamp).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true
+                              })}
                             </Typography>
                           </Box>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          icon={getSeverityIcon(log.severity)}
-                          label={log.severity}
-                          color={getSeverityColor(log.severity) as any}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Box>
-                          <Typography
-                            variant="body2"
-                            fontWeight="medium"
-                            sx={{ fontFamily: "monospace" }}
-                          >
-                            {log.ip_address}
-                          </Typography>
-                          {log.user_agent && (
-                            <Tooltip title={log.user_agent}>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{
-                                  maxWidth: 150,
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                  display: "block",
-                                }}
-                              >
-                                {log.user_agent.split(" ")[0]}...
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Avatar
+                              sx={{
+                                bgcolor: "primary.main",
+                                width: 32,
+                                height: 32,
+                                fontSize: '0.875rem'
+                              }}
+                            >
+                              {(log.user?.name || log.user_name || "U").charAt(0).toUpperCase()}
+                            </Avatar>
+                            <Box>
+                              <Typography variant="body2" fontWeight="medium">
+                                {log.user?.name || log.user_name || "Unknown User"}
                               </Typography>
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {log.description}
-                        </Typography>
-                        {log.old_values && log.new_values && (
-                          <Typography variant="caption" color="text.secondary">
-                            Values changed
+                              <Typography variant="caption" color="text.secondary">
+                                {log.action || 'No action'}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                bgcolor: "secondary.light",
+                                borderRadius: 1,
+                                width: 32,
+                                height: 32,
+                                color: "secondary.dark"
+                              }}
+                            >
+                              {getEntityIcon(log.entity_type)}
+                            </Box>
+                            <Box>
+                              <Typography variant="body2" fontWeight="medium">
+                                {log.entity_type || 'Unknown'}
+                              </Typography>
+                              {log.entity_id && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ 
+                                    fontFamily: "monospace",
+                                    fontSize: '0.7rem'
+                                  }}
+                                >
+                                  {log.entity_id.length > 12 
+                                    ? `${log.entity_id.substring(0, 12)}...` 
+                                    : log.entity_id}
+                                </Typography>
+                              )}
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            icon={getSeverityIcon(log.severity)}
+                            label={formatSeverity(log.severity)}
+                            color={getSeverityColor(log.severity) as any}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Box>
+                            {log.ip_address && log.ip_address !== 'Unknown' && log.ip_address !== 'System' ? (
+                              <>
+                                <Typography
+                                  variant="body2"
+                                  fontWeight="medium"
+                                  sx={{ fontFamily: "monospace", fontSize: '0.875rem' }}
+                                >
+                                  {log.ip_address}
+                                </Typography>
+                                {log.user_agent && log.user_agent !== 'Unknown' && (
+                                  <Tooltip title={log.user_agent} arrow>
+                                    <Typography
+                                      variant="caption"
+                                      color="text.secondary"
+                                      sx={{
+                                        maxWidth: 140,
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                        display: "block",
+                                        cursor: 'help'
+                                      }}
+                                    >
+                                      {log.user_agent.includes('Mozilla') 
+                                        ? log.user_agent.match(/\(([^)]+)\)/)?.[1]?.split(';')[0] || log.user_agent.split(" ")[0]
+                                        : log.user_agent.split(" ")[0]}
+                                    </Typography>
+                                  </Tooltip>
+                                )}
+                              </>
+                            ) : (
+                              <Box>
+                                <Chip 
+                                  label={log.ip_address === 'System' ? 'System' : 'Not Recorded'} 
+                                  size="small" 
+                                  variant="outlined"
+                                  color={log.ip_address === 'System' ? 'default' : 'warning'}
+                                  sx={{ fontSize: '0.75rem' }}
+                                />
+                                {log.user_agent && log.user_agent !== 'Unknown' && (
+                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                                    {log.user_agent === 'Automated Process' ? 'Automated' : 'Manual Entry'}
+                                  </Typography>
+                                )}
+                              </Box>
+                            )}
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {log.description || log.action || 'No description available'}
                           </Typography>
-                        )}
+                          {log.old_values && log.new_values && (
+                            <Chip
+                              label="Values changed"
+                              size="small"
+                              variant="outlined"
+                              color="info"
+                              sx={{ mt: 0.5 }}
+                            />
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                        <Typography variant="body1" color="text.secondary">
+                          No audit logs found
+                        </Typography>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>

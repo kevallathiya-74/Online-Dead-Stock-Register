@@ -44,10 +44,6 @@ export const API_ENDPOINTS = {
   DOCUMENTS: '/documents',
   DOCUMENT_BY_ID: (id: string) => `/documents/${id}`,
 
-  // Maintenance endpoints
-  MAINTENANCE: '/maintenance',
-  MAINTENANCE_BY_ID: (id: string) => `/maintenance/${id}`,
-
   // Transaction endpoints
   TRANSACTIONS: '/transactions',
   TRANSACTION_BY_ID: (id: string) => `/transactions/${id}`,
@@ -71,5 +67,24 @@ export const API_ENDPOINTS = {
     AUDIT_ITEMS: '/dashboard/auditor/audit-items',
     CHART_DATA: (type: string) => `/dashboard/chart-data/${type}`,
     REALTIME_UPDATES: '/dashboard/realtime-updates'
+  },
+
+  // Inventory endpoints
+  INVENTORY: {
+    SCRAP: '/inventory/scrap',
+    SCRAP_BY_ID: (id: string) => `/inventory/scrap/${id}`,
+    SCRAP_APPROVE: (id: string) => `/inventory/scrap/${id}/approve`,
+    DEAD_STOCK: '/inventory/dead-stock',
+    CATEGORIES: '/inventory/categories'
+  },
+
+  // Maintenance endpoints
+  MAINTENANCE: {
+    WARRANTIES: '/maintenance/warranties',
+    WARRANTY_BY_ID: (id: string) => `/maintenance/warranties/${id}`,
+    WARRANTY_CLAIM: '/maintenance/warranties/claim',
+    MAINTENANCE_RECORDS: '/maintenance',
+    MAINTENANCE_BY_ID: (id: string) => `/maintenance/${id}`,
+    TECHNICIANS: '/maintenance/technicians'
   }
 };

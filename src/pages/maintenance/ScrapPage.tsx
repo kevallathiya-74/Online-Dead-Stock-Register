@@ -45,31 +45,7 @@ import {
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'react-toastify';
-import api from '../../services/api';
-
-interface ScrapItem {
-  _id: string;
-  id?: string; // Deprecated: use _id
-  assetId: string;
-  assetName: string;
-  category: string;
-  manufacturer: string;
-  model: string;
-  serialNumber: string;
-  currentLocation: string;
-  scrapReason: 'End of Life' | 'Beyond Repair' | 'Obsolete' | 'Policy Compliance' | 'Accident Damage';
-  scrapDate: string;
-  approvalDate?: string;
-  disposalDate?: string;
-  status: 'Pending Approval' | 'Approved for Scrap' | 'In Disposal Process' | 'Disposed' | 'Sold' | 'Recycled';
-  originalValue: number;
-  scrapValue: number;
-  disposalMethod: 'Recycle' | 'Sell' | 'Donate' | 'Destroy' | 'Return to Vendor';
-  approvedBy?: string;
-  vendorName?: string;
-  documentReference?: string;
-  environmentalCompliance: boolean;
-}
+import scrapService, { ScrapItem } from '../../services/scrap.service';
 
 const steps = ['Request Submitted', 'Under Review', 'Approved', 'Disposal Process', 'Completed'];
 
@@ -79,7 +55,17 @@ const ScrapPage = () => {
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [selectedItem, setSelectedItem] = useState<ScrapItem | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isNewRequestModalOpen, setIsNewRequestModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // New scrap request form state
+  const [newRequestForm, setNewRequestForm] = useState({
+    assetId: '',
+    scrapReason: '',
+    estimatedValue: '',
+    disposalMethod: '',
+    notes: ''
+  });
 
   useEffect(() => {
     loadScrapData();
@@ -91,9 +77,11 @@ const ScrapPage = () => {
   const loadScrapData = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/inventory/scrap');
-      const data = response.data.data || response.data;
-      setScrapItems(data);
+      const response = await scrapService.getScrapItems({
+        search: searchTerm,
+        status: statusFilter === 'All' ? undefined : statusFilter
+      });
+      setScrapItems(response.data || []);
     } catch (error: any) {
       console.error('Error loading scrap data:', error);
       if (error.response?.status !== 401) {
@@ -181,27 +169,86 @@ const ScrapPage = () => {
 
   const handleApproveScrap = async (item: ScrapItem) => {
     try {
-      await api.post(`/inventory/scrap/${item._id}/approve`);
+      const result = await scrapService.approveScrapItem(item._id);
       
-      toast.success(`Scrap request approved for ${item.assetName}`);
-      
-      // Update local state
-      setScrapItems(prev => prev.map(i => 
-        i._id === item._id 
-          ? { 
-              ...i, 
-              status: 'Approved for Scrap' as const, 
-              approvalDate: new Date().toISOString(),
-              approvedBy: 'Current User'
-            }
-          : i
-      ));
+      toast.success(result.message || `Scrap request approved for ${item.assetName}`);
       
       // Reload data to get updated information from backend
-      setTimeout(() => loadScrapData(), 1000);
+      await loadScrapData();
     } catch (error: any) {
       console.error('Error approving scrap:', error);
       toast.error(error.response?.data?.message || 'Failed to approve scrap request');
+    }
+  };
+
+  const handleExportReport = async () => {
+    try {
+      toast.info('Preparing scrap report...');
+      const blob = await scrapService.exportScrapReport('csv', {
+        search: searchTerm,
+        status: statusFilter === 'All' ? undefined : statusFilter
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `scrap-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Scrap report downloaded successfully');
+    } catch (error: any) {
+      console.error('Error exporting report:', error);
+      toast.error('Failed to export scrap report');
+    }
+  };
+
+  const handleNewScrapRequest = () => {
+    setNewRequestForm({
+      assetId: '',
+      scrapReason: '',
+      estimatedValue: '',
+      disposalMethod: '',
+      notes: ''
+    });
+    setIsNewRequestModalOpen(true);
+  };
+
+  const handleCloseNewRequestModal = () => {
+    setIsNewRequestModalOpen(false);
+    setNewRequestForm({
+      assetId: '',
+      scrapReason: '',
+      estimatedValue: '',
+      disposalMethod: '',
+      notes: ''
+    });
+  };
+
+  const handleSubmitNewRequest = async () => {
+    try {
+      if (!newRequestForm.assetId || !newRequestForm.scrapReason) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+
+      await scrapService.createScrapRequest({
+        assetId: newRequestForm.assetId,
+        scrapReason: newRequestForm.scrapReason,
+        estimatedValue: newRequestForm.estimatedValue ? parseFloat(newRequestForm.estimatedValue) : undefined,
+        disposalMethod: newRequestForm.disposalMethod || undefined,
+        notes: newRequestForm.notes || undefined
+      });
+
+      toast.success('Scrap request created successfully');
+      handleCloseNewRequestModal();
+      await loadScrapData();
+    } catch (error: any) {
+      console.error('Error creating scrap request:', error);
+      toast.error(error.response?.data?.message || 'Failed to create scrap request');
     }
   };
 
@@ -224,14 +271,14 @@ const ScrapPage = () => {
             <Button
               variant="outlined"
               startIcon={<AddIcon />}
-              onClick={() => toast.info('Add scrap request feature coming soon')}
+              onClick={handleNewScrapRequest}
             >
               New Scrap Request
             </Button>
             <Button
               variant="outlined"
               startIcon={<DownloadIcon />}
-              onClick={() => toast.info('Scrap report download started')}
+              onClick={handleExportReport}
             >
               Export Report
             </Button>
@@ -601,6 +648,104 @@ const ScrapPage = () => {
                 Approve Scrap
               </Button>
             )}
+          </DialogActions>
+        </Dialog>
+
+        {/* New Scrap Request Modal */}
+        <Dialog 
+          open={isNewRequestModalOpen} 
+          onClose={handleCloseNewRequestModal}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            Create New Scrap Request
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ mt: 2 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    required
+                    label="Asset ID"
+                    value={newRequestForm.assetId}
+                    onChange={(e) => setNewRequestForm({ ...newRequestForm, assetId: e.target.value })}
+                    placeholder="Enter asset unique ID"
+                    helperText="Enter the unique ID of the asset to be scrapped"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControl fullWidth required>
+                    <InputLabel>Scrap Reason</InputLabel>
+                    <Select
+                      value={newRequestForm.scrapReason}
+                      label="Scrap Reason"
+                      onChange={(e) => setNewRequestForm({ ...newRequestForm, scrapReason: e.target.value })}
+                    >
+                      <MenuItem value="End of Life">End of Life</MenuItem>
+                      <MenuItem value="Beyond Repair">Beyond Repair</MenuItem>
+                      <MenuItem value="Obsolete">Obsolete</MenuItem>
+                      <MenuItem value="Policy Compliance">Policy Compliance</MenuItem>
+                      <MenuItem value="Accident Damage">Accident Damage</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControl fullWidth>
+                    <InputLabel>Disposal Method</InputLabel>
+                    <Select
+                      value={newRequestForm.disposalMethod}
+                      label="Disposal Method"
+                      onChange={(e) => setNewRequestForm({ ...newRequestForm, disposalMethod: e.target.value })}
+                    >
+                      <MenuItem value="Recycle">Recycle</MenuItem>
+                      <MenuItem value="Sell">Sell</MenuItem>
+                      <MenuItem value="Donate">Donate</MenuItem>
+                      <MenuItem value="Destroy">Destroy</MenuItem>
+                      <MenuItem value="Return to Vendor">Return to Vendor</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Estimated Scrap Value"
+                    value={newRequestForm.estimatedValue}
+                    onChange={(e) => setNewRequestForm({ ...newRequestForm, estimatedValue: e.target.value })}
+                    placeholder="Enter estimated value in ₹"
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                    }}
+                    helperText="Optional: Estimated value that can be recovered"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={3}
+                    label="Additional Notes"
+                    value={newRequestForm.notes}
+                    onChange={(e) => setNewRequestForm({ ...newRequestForm, notes: e.target.value })}
+                    placeholder="Enter any additional information or notes"
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseNewRequestModal}>
+              Cancel
+            </Button>
+            <Button 
+              variant="contained" 
+              color="primary"
+              onClick={handleSubmitNewRequest}
+            >
+              Submit Request
+            </Button>
           </DialogActions>
         </Dialog>
       </Box>

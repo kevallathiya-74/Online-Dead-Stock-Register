@@ -1056,10 +1056,10 @@ const getAuditorStats = async (req, res) => {
       ]
     });
     
-    // Get discrepancies (assets with condition 'Poor' or 'Damaged' or specific status)
+    // Get discrepancies (assets with condition 'poor' or 'damaged' or specific status)
     const discrepancies = await Asset.countDocuments({
       $or: [
-        { condition: { $in: ['Poor', 'Damaged'] } },
+        { condition: { $in: ['poor', 'damaged'] } },
         { status: 'Under Review' }
       ]
     });
@@ -1100,7 +1100,9 @@ const getAuditItems = async (req, res) => {
       if (!asset.last_audit_date || asset.last_audit_date < new Date(Date.now() - 365*24*60*60*1000)) {
         auditStatus = 'pending';
       }
-      if (asset.condition === 'Poor' || asset.condition === 'Damaged' || asset.status === 'Under Review') {
+      // Normalize condition comparison to lowercase
+      const condition = (asset.condition || '').toLowerCase();
+      if (condition === 'poor' || condition === 'damaged' || asset.status === 'Under Review') {
         auditStatus = 'discrepancy';
       }
       if (asset.status === 'Missing') {
@@ -1115,7 +1117,7 @@ const getAuditItems = async (req, res) => {
         assigned_user: asset.assigned_user ? asset.assigned_user.name : 'Unassigned',
         last_audit_date: asset.last_audit_date || '1970-01-01',
         status: auditStatus,
-        condition: asset.condition || 'Unknown',
+        condition: condition || 'unknown',
         notes: asset.notes
       };
     });
@@ -1155,7 +1157,7 @@ const getAuditProgressChart = async (req, res) => {
       const discrepancyCount = await Asset.countDocuments({
         last_audit_date: { $gte: startOfMonth, $lte: endOfMonth },
         $or: [
-          { condition: { $in: ['Poor', 'Damaged'] } },
+          { condition: { $in: ['poor', 'damaged'] } },
           { status: 'Under Review' }
         ]
       });
@@ -1243,7 +1245,7 @@ const getAuditorActivities = async (req, res) => {
     const recentAssets = await Asset.find({
       $or: [
         { last_audit_date: { $gte: new Date(Date.now() - 30*24*60*60*1000) } },
-        { condition: { $in: ['Poor', 'Damaged'] } },
+        { condition: { $in: ['poor', 'damaged'] } },
         { status: { $in: ['Missing', 'Under Review'] } }
       ]
     })
@@ -1261,7 +1263,7 @@ const getAuditorActivities = async (req, res) => {
         activityType = 'asset_missing';
         title = 'Asset Missing';
         priority = 'critical';
-      } else if (asset.condition === 'Poor' || asset.condition === 'Damaged') {
+      } else if (asset.condition === 'poor' || asset.condition === 'damaged') {
         activityType = 'discrepancy_found';
         title = 'Asset Condition Issue';
         priority = 'high';
@@ -1298,7 +1300,7 @@ const getComplianceMetrics = async (req, res) => {
   try {
     const totalAssets = await Asset.countDocuments();
     const compliantAssets = await Asset.countDocuments({
-      condition: { $in: ['Excellent', 'Good'] },
+      condition: { $in: ['excellent', 'good'] },
       status: 'Active',
       last_audit_date: { $gte: new Date(Date.now() - 365*24*60*60*1000) }
     });
@@ -1307,7 +1309,7 @@ const getComplianceMetrics = async (req, res) => {
     
     // Category scores - calculate based on real data
     const excellentGoodAssets = await Asset.countDocuments({
-      condition: { $in: ['Excellent', 'Good'] }
+      condition: { $in: ['excellent', 'good'] }
     });
     const physicalConditionScore = totalAssets > 0 ? Math.round((excellentGoodAssets / totalAssets) * 100) : 0;
     

@@ -363,6 +363,7 @@ export interface VendorProfile {
   contact_person: string;
   email: string;
   phone: string;
+  profile_photo?: string;
   address: {
     street?: string;
     city?: string;

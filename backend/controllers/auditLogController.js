@@ -234,22 +234,38 @@ exports.exportAuditLogs = async (req, res) => {
       .lean();
 
     if (format === 'csv') {
-      // Convert to CSV
-      const csv = [
-        'Timestamp,User,Action,Entity Type,Entity ID,Description,Severity,IP Address',
-        ...logs.map(log => [
-          log.timestamp,
-          log.user_id?.name || 'System',
-          log.action,
-          log.entity_type,
-          log.entity_id || '',
-          `"${(log.description || '').replace(/"/g, '""')}"`,
-          log.severity || 'info',
-          log.ip_address || ''
-        ].join(','))
-      ].join('\n');
+      // Proper CSV escaping function
+      const escapeCsvValue = (value) => {
+        if (value === null || value === undefined) return '';
+        const stringValue = String(value);
+        // Escape quotes by doubling them and wrap in quotes
+        if (stringValue.includes('"') || stringValue.includes(',') || stringValue.includes('\n') || stringValue.includes('\r')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return `"${stringValue}"`;
+      };
 
-      res.setHeader('Content-Type', 'text/csv');
+      // Convert to CSV
+      const csvHeaders = ['Timestamp', 'User', 'Action', 'Entity Type', 'Entity ID', 'Description', 'Severity', 'IP Address'];
+      const csvRows = logs.map(log => [
+        escapeCsvValue(log.timestamp ? new Date(log.timestamp).toISOString() : ''),
+        escapeCsvValue(log.user_id?.name || 'System'),
+        escapeCsvValue(log.action),
+        escapeCsvValue(log.entity_type),
+        escapeCsvValue(log.entity_id || ''),
+        escapeCsvValue(log.description || ''),
+        escapeCsvValue(log.severity || 'info'),
+        escapeCsvValue(log.ip_address || '')
+      ]);
+
+      // Add BOM for proper Excel UTF-8 support
+      const BOM = '\uFEFF';
+      const csv = BOM + [
+        csvHeaders.map(h => escapeCsvValue(h)).join(','),
+        ...csvRows.map(row => row.join(','))
+      ].join('\r\n'); // Use Windows line endings
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename=audit-logs-${Date.now()}.csv`);
       res.send(csv);
     } else {

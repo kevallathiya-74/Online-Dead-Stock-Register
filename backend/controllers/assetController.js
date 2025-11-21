@@ -1,5 +1,6 @@
 const assetService = require('../services/assetService');
 const logger = require('../utils/logger');
+const { logUserAction } = require('../utils/auditHelper');
 const Asset = require('../models/asset');
 const mongoose = require('mongoose');
 
@@ -159,7 +160,6 @@ exports.updateAsset = async (req, res) => {
     // Create audit log if location changed (asset transfer)
     if (req.body.location && originalLocation !== req.body.location) {
       try {
-        const AuditLog = require('../models/auditLog');
         const User = require('../models/user');
         
         // Get assigned user name if ObjectId provided
@@ -173,32 +173,15 @@ exports.updateAsset = async (req, res) => {
         
         const description = `Asset ${asset.unique_asset_id} transferred from "${originalLocation}" to "${req.body.location}"${req.body.assigned_user ? ` and assigned to ${assignedUserName}` : ''}`;
         
-        await AuditLog.create({
-          user_id: req.user.id,
-          action: 'asset_transferred',
-          entity_type: 'Asset',
-          entity_id: asset._id,
-          description: description,
-          severity: 'info',
-          details: {
-            asset_id: asset.unique_asset_id,
-            asset_name: asset.name || `${asset.manufacturer} ${asset.model}`,
-            from_location: originalLocation,
-            to_location: req.body.location,
-            assigned_to: assignedUserName
-          },
-          old_values: {
-            location: originalLocation,
-            assigned_user: originalAssignedUser
-          },
-          new_values: {
-            location: req.body.location,
-            assigned_user: req.body.assigned_user
-          },
-          ip_address: req.ip || req.connection.remoteAddress,
-          user_agent: req.headers['user-agent'],
-          timestamp: new Date()
-        });
+        // Use new audit helper for proper IP tracking
+        await logUserAction(
+          req,
+          'asset_transferred',
+          'Asset',
+          asset._id,
+          description,
+          'info'
+        );
         
         console.log('Audit log created for asset transfer');
       } catch (auditErr) {

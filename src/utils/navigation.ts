@@ -173,12 +173,6 @@ export const auditorNavigation: NavigationItem[] = [
     path: '/auditor/reports',
     icon: ReportIcon,
   },
-  {
-    id: 'help',
-    title: 'Help & Support',
-    path: '/auditor/help',
-    icon: HelpIcon,
-  },
 ];
 
 export const vendorNavigation: NavigationItem[] = [
@@ -205,18 +199,6 @@ export const vendorNavigation: NavigationItem[] = [
     title: 'Invoices',
     path: '/vendor/invoices',
     icon: DocumentIcon,
-  },
-  {
-    id: 'profile',
-    title: 'Profile',
-    path: '/vendor/profile',
-    icon: ProfileIcon,
-  },
-  {
-    id: 'help',
-    title: 'Help & Support',
-    path: '/vendor/help',
-    icon: HelpIcon,
   },
 ];
 

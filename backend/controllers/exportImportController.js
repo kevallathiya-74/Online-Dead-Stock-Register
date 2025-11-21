@@ -23,7 +23,13 @@ const jsonToCSV = (data) => {
   const keys = Array.from(allKeys);
   
   // Create CSV header
-  const header = keys.join(',');
+  const header = keys.map(key => {
+    const value = String(key);
+    if (value.includes(',') || value.includes('\n') || value.includes('"')) {
+      return '"' + value.replace(/"/g, '""') + '"';
+    }
+    return '"' + value + '"';
+  }).join(',');
   
   // Create CSV rows
   const rows = data.map(item => {
@@ -32,7 +38,7 @@ const jsonToCSV = (data) => {
       
       // Handle different data types
       if (value === null || value === undefined) {
-        return '';
+        return '""';
       }
       
       // Handle dates
@@ -49,15 +55,17 @@ const jsonToCSV = (data) => {
       value = String(value);
       
       // Escape quotes and wrap in quotes if contains comma, newline, or quote
-      if (value.includes(',') || value.includes('\n') || value.includes('"')) {
+      if (value.includes(',') || value.includes('\n') || value.includes('"') || value.includes('\r')) {
         value = '"' + value.replace(/"/g, '""') + '"';
+      } else {
+        value = '"' + value + '"';
       }
       
       return value;
     }).join(',');
   });
   
-  return [header, ...rows].join('\n');
+  return [header, ...rows].join('\r\n'); // Use Windows line endings
 };
 
 // Export data
@@ -250,46 +258,49 @@ exports.exportData = async (req, res) => {
       let csvContent = '';
       
       // Add export summary
-      csvContent += '=== EXPORT SUMMARY ===\n';
-      csvContent += `Export Date,${exportData.exportDate}\n`;
-      csvContent += `Exported By,${exportData.exportedBy}\n`;
-      csvContent += `Total Assets,${exportData.statistics.totalAssets}\n`;
-      csvContent += `Total Users,${exportData.statistics.totalUsers}\n`;
-      csvContent += `Total Transactions,${exportData.statistics.totalTransactions}\n`;
-      csvContent += `Total Vendors,${exportData.statistics.totalVendors}\n`;
-      csvContent += '\n\n';
+      csvContent += '=== EXPORT SUMMARY ===\r\n';
+      csvContent += `Export Date,"${exportData.exportDate}"\r\n`;
+      csvContent += `Exported By,"${exportData.exportedBy}"\r\n`;
+      csvContent += `Total Assets,${exportData.statistics.totalAssets}\r\n`;
+      csvContent += `Total Users,${exportData.statistics.totalUsers}\r\n`;
+      csvContent += `Total Transactions,${exportData.statistics.totalTransactions}\r\n`;
+      csvContent += `Total Vendors,${exportData.statistics.totalVendors}\r\n`;
+      csvContent += '\r\n\r\n';
       
       // Add Assets data
       if (exportData.data.assets && exportData.data.assets.length > 0) {
-        csvContent += '=== ASSETS ===\n';
+        csvContent += '=== ASSETS ===\r\n';
         csvContent += jsonToCSV(exportData.data.assets);
-        csvContent += '\n\n';
+        csvContent += '\r\n\r\n';
       }
       
       // Add Users data
       if (exportData.data.users && exportData.data.users.length > 0) {
-        csvContent += '=== USERS ===\n';
+        csvContent += '=== USERS ===\r\n';
         csvContent += jsonToCSV(exportData.data.users);
-        csvContent += '\n\n';
+        csvContent += '\r\n\r\n';
       }
       
       // Add Transactions data
       if (exportData.data.transactions && exportData.data.transactions.length > 0) {
-        csvContent += '=== TRANSACTIONS ===\n';
+        csvContent += '=== TRANSACTIONS ===\r\n';
         csvContent += jsonToCSV(exportData.data.transactions);
-        csvContent += '\n\n';
+        csvContent += '\r\n\r\n';
       }
       
       // Add Vendors data
       if (exportData.data.vendors && exportData.data.vendors.length > 0) {
-        csvContent += '=== VENDORS ===\n';
+        csvContent += '=== VENDORS ===\r\n';
         csvContent += jsonToCSV(exportData.data.vendors);
-        csvContent += '\n';
+        csvContent += '\r\n';
       }
+      
+      // Add BOM for proper Excel UTF-8 support
+      const BOM = '\uFEFF';
       
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="system-export-${Date.now()}.csv"`);
-      res.send(csvContent);
+      res.send(BOM + csvContent);
     } else {
       res.status(400).json({
         success: false,

@@ -85,22 +85,43 @@ const AdminSystemSettingsPage: React.FC = () => {
     type: 'text' | 'number' | 'boolean' | 'select' | 'email';
   } | null>(null);
   const [editValue, setEditValue] = useState<string | boolean | number>('');
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(false);
 
   useEffect(() => {
     loadSystemConfiguration();
     loadAccessibleCategories();
   }, []);
 
-  const loadSystemConfiguration = async () => {
-    setLoading(true);
+  // Auto-refresh every 30 seconds if enabled
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (autoRefresh) {
+      interval = setInterval(() => {
+        loadSystemConfiguration(true);
+      }, 30000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [autoRefresh]);
+
+  const loadSystemConfiguration = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const data = await settingsService.getSettings();
       setSettings(data);
+      setLastUpdated(new Date());
+      if (!silent) {
+        toast.success('Settings loaded successfully');
+      }
     } catch (error) {
       console.error('Failed to load system settings:', error);
-      toast.error('Failed to load system settings');
+      if (!silent) {
+        toast.error('Failed to load system settings');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -134,26 +155,20 @@ const AdminSystemSettingsPage: React.FC = () => {
         [selectedConfig.field]: editValue
       };
       
-      await settingsService.updateCategory(
+      const updatedSettings = await settingsService.updateCategory(
         selectedConfig.category as 'security' | 'database' | 'email' | 'application',
         updates
       );
       
-      // Update local state
-      const categoryKey = selectedConfig.category as keyof SystemSettings;
-      const currentCategory = settings[categoryKey];
-      if (currentCategory && typeof currentCategory === 'object') {
-        setSettings({
-          ...settings,
-          [categoryKey]: {
-            ...currentCategory,
-            [selectedConfig.field]: editValue
-          }
-        });
-      }
+      // Update local state with fresh data from server
+      setSettings(updatedSettings);
+      setLastUpdated(new Date());
       
       toast.success(`${selectedConfig.label} updated successfully`);
       setConfigDialog(false);
+      
+      // Reload to ensure consistency
+      await loadSystemConfiguration(true);
     } catch (error: any) {
       console.error('Failed to update setting:', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.errors?.[0]?.message || 'Failed to update setting';
@@ -172,23 +187,14 @@ const AdminSystemSettingsPage: React.FC = () => {
         [field]: newValue
       };
       
-      await settingsService.updateCategory(
+      const updatedSettings = await settingsService.updateCategory(
         category as 'security' | 'database' | 'email' | 'application',
         updates
       );
       
-      // Update local state
-      const categoryKey = category as keyof SystemSettings;
-      const currentCategory = settings[categoryKey];
-      if (currentCategory && typeof currentCategory === 'object') {
-        setSettings({
-          ...settings,
-          [categoryKey]: {
-            ...currentCategory,
-            [field]: newValue
-          }
-        });
-      }
+      // Update with fresh data from server
+      setSettings(updatedSettings);
+      setLastUpdated(new Date());
       
       toast.success(`${label} ${newValue ? 'enabled' : 'disabled'}`);
     } catch (error: any) {
@@ -286,15 +292,32 @@ const AdminSystemSettingsPage: React.FC = () => {
             <Typography variant="body1" color="text.secondary">
               Configure system-wide settings and parameters
             </Typography>
+            {lastUpdated && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                Last updated: {lastUpdated.toLocaleTimeString()}
+              </Typography>
+            )}
           </Box>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={loadSystemConfiguration}
-            disabled={loading}
-          >
-            Refresh
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={autoRefresh}
+                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                  size="small"
+                />
+              }
+              label="Auto-refresh"
+            />
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={() => loadSystemConfiguration()}
+              disabled={loading}
+            >
+              Refresh
+            </Button>
+          </Box>
         </Box>
 
         {/* Status Alert */}

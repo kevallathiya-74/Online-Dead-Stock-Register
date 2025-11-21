@@ -146,12 +146,11 @@ const AssetsPage = () => {
     try {
       const response = await api.get('/assets/categories');
       if (response.data.success && response.data.data) {
-        // Extract unique asset_type values from the database categories
-        const assetTypes = response.data.data
-          .map((cat: any) => cat.asset_type)
-          .filter((type: string) => type); // Remove any null/undefined
-        const uniqueTypes = Array.from(new Set(assetTypes));
-        setCategories(uniqueTypes as string[]);
+        // Extract category names from the database categories
+        const categoryNames = response.data.data
+          .map((cat: any) => cat.name)
+          .filter((name: string) => name); // Remove any null/undefined
+        setCategories(categoryNames as string[]);
       }
     } catch (error) {
       console.error('Failed to load categories:', error);
@@ -404,7 +403,7 @@ const AssetsPage = () => {
       serial_number: asset.serial_number,
       location: asset.location,
       purchase_date: asset.purchase_date?.split('T')[0] || '',
-      purchase_cost: asset.purchase_cost?.toString() || '',  // ✅ Fixed
+      purchase_cost: asset.purchase_cost !== undefined && asset.purchase_cost !== null ? asset.purchase_cost.toString() : '',
       status: asset.status,
       condition: asset.condition,
       department: '',
@@ -1846,7 +1845,11 @@ const AssetsPage = () => {
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body2" color="text.secondary">Current Value</Typography>
                           <Typography variant="body1" fontWeight="bold">
-                            ₹{typeof selectedAsset.current_value === 'number' ? selectedAsset.current_value.toLocaleString('en-IN') : 'N/A'}
+                            ₹{typeof selectedAsset.current_value === 'number' && selectedAsset.current_value > 0 
+                              ? selectedAsset.current_value.toLocaleString('en-IN') 
+                              : typeof selectedAsset.purchase_cost === 'number' 
+                                ? selectedAsset.purchase_cost.toLocaleString('en-IN')
+                                : '0'}
                           </Typography>
                         </Grid>
                         <Grid item xs={12} sm={6}>

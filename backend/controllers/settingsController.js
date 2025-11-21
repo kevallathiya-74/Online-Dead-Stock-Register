@@ -32,8 +32,8 @@ exports.updateSettings = async (req, res) => {
   try {
     const updates = req.body;
     const userId = req.user._id;
-    const ipAddress = req.ip || req.connection.remoteAddress;
-    const userAgent = req.get('user-agent') || 'unknown';
+    const ipAddress = req.clientIp || req.ip || req.connection?.remoteAddress || 'Unknown';
+    const userAgent = req.get('user-agent') || 'Unknown';
 
     const settings = await settingsService.updateSettings(updates, userId, ipAddress, userAgent);
 
@@ -77,8 +77,8 @@ exports.updateCategory = async (req, res) => {
     const { category } = req.params;
     const updates = req.body;
     const userId = req.user._id;
-    const ipAddress = req.ip || req.connection.remoteAddress;
-    const userAgent = req.get('user-agent') || 'unknown';
+    const ipAddress = req.clientIp || req.ip || req.connection?.remoteAddress || 'Unknown';
+    const userAgent = req.get('user-agent') || 'Unknown';
 
     const settings = await settingsService.updateCategory(category, updates, userId, ipAddress, userAgent);
 
@@ -320,8 +320,8 @@ exports.sendTestEmail = async (req, res) => {
 exports.resetToDefaults = async (req, res) => {
   try {
     const userId = req.user._id;
-    const ipAddress = req.ip || req.connection.remoteAddress;
-    const userAgent = req.get('user-agent') || 'unknown';
+    const ipAddress = req.clientIp || req.ip || req.connection?.remoteAddress || 'Unknown';
+    const userAgent = req.get('user-agent') || 'Unknown';
 
     const settings = await settingsService.resetToDefaults(userId, ipAddress, userAgent);
 
@@ -365,8 +365,8 @@ exports.importSettings = async (req, res) => {
   try {
     const importData = req.body;
     const userId = req.user._id;
-    const ipAddress = req.ip || req.connection.remoteAddress;
-    const userAgent = req.get('user-agent') || 'unknown';
+    const ipAddress = req.clientIp || req.ip || req.connection?.remoteAddress || 'Unknown';
+    const userAgent = req.get('user-agent') || 'Unknown';
 
     const settings = await settingsService.importSettings(importData, userId, ipAddress, userAgent);
 
@@ -439,8 +439,8 @@ exports.updateRolePermissions = async (req, res) => {
   try {
     const { category, roles } = req.body;
     const userId = req.user._id;
-    const ipAddress = req.ip || req.connection.remoteAddress;
-    const userAgent = req.get('user-agent') || 'unknown';
+    const ipAddress = req.clientIp || req.ip || req.connection?.remoteAddress || 'Unknown';
+    const userAgent = req.get('user-agent') || 'Unknown';
 
     if (!category || !roles || !Array.isArray(roles)) {
       return res.status(400).json({

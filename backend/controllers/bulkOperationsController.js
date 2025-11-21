@@ -1036,21 +1036,31 @@ exports.generateImportTemplate = async (req, res) => {
       res.setHeader('Content-Disposition', 'attachment; filename=asset-import-template.xlsx');
       res.send(buffer);
     } else {
+      // Proper CSV escaping function
+      const escapeCsvValue = (value) => {
+        if (value === null || value === undefined) return '';
+        const stringValue = String(value);
+        // Escape quotes by doubling them and wrap in quotes if contains comma, quote, or newline
+        if (stringValue.includes('"') || stringValue.includes(',') || stringValue.includes('\n') || stringValue.includes('\r')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return `"${stringValue}"`;
+      };
+
       // Generate CSV file
       const csvRows = [];
-      csvRows.push(headers.join(','));
+      csvRows.push(headers.map(h => escapeCsvValue(h)).join(','));
       
       sampleData.forEach(row => {
-        const values = headers.map(header => {
-          const value = row[header] || '';
-          return `"${value}"`;
-        });
+        const values = headers.map(header => escapeCsvValue(row[header] || ''));
         csvRows.push(values.join(','));
       });
       
-      const csvContent = csvRows.join('\n');
+      // Add BOM for proper Excel UTF-8 support
+      const BOM = '\uFEFF';
+      const csvContent = BOM + csvRows.join('\r\n'); // Use Windows line endings for Excel compatibility
       
-      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', 'attachment; filename=asset-import-template.csv');
       res.send(csvContent);
     }

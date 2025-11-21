@@ -17,6 +17,7 @@ const errorHandler = require('./middleware/errorHandler');
 const logger = require('./utils/logger');
 const requestLogger = require('./middleware/requestLogger');
 const requestIdMiddleware = require('./middleware/requestId');
+const captureClientIp = require('./middleware/ipCapture');
 const { swaggerUi, swaggerSpec } = require('./config/swagger');
 const dbUtils = require('./utils/dbUtils');
 
@@ -134,6 +135,9 @@ app.use(helmet({
 
 // HTTP Request Logging with Morgan and Winston
 app.use(requestLogger);
+
+// IP Address Capture Middleware - Ensures proper IP tracking for audit logs
+app.use(captureClientIp);
 
 // ========================================
 // RATE LIMITING - CRITICAL SECURITY

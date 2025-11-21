@@ -105,13 +105,17 @@ const CategoriesPage: React.FC = () => {
         color: currentCategory.color || '#1976d2',
       };
 
+      console.log('Saving category with payload:', payload);
+
       if (editMode && currentCategory._id) {
         const response = await api.put(`/assets/categories/${currentCategory._id}`, payload);
+        console.log('Update response:', response.data);
         if (response.data?.success) {
           toast.success('Category updated successfully');
         }
       } else {
         const response = await api.post('/assets/categories', payload);
+        console.log('Create response:', response.data);
         if (response.data?.success) {
           toast.success('Category created successfully');
         }
@@ -120,13 +124,20 @@ const CategoriesPage: React.FC = () => {
       handleCloseDialog();
     } catch (error: any) {
       console.error('Error saving category:', error);
-      const errorMsg = error?.response?.data?.message || 'Failed to save category';
+      console.error('Error response:', error?.response?.data);
+      const errorMsg = error?.response?.data?.message || error?.message || 'Failed to save category';
       toast.error(errorMsg);
     }
   };
 
-  const handleDeleteCategory = async (categoryId: string) => {
-    if (!window.confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
+  const handleDeleteCategory = async (categoryId: string, categoryName: string, assetCount: number) => {
+    // Check if category has assets
+    if (assetCount > 0) {
+      toast.warning(`Cannot delete "${categoryName}". This category has ${assetCount} asset${assetCount > 1 ? 's' : ''} assigned to it. Please reassign or remove the assets first.`);
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete the "${categoryName}" category? This action cannot be undone.`)) {
       return;
     }
 
@@ -247,7 +258,9 @@ const CategoriesPage: React.FC = () => {
                   <IconButton
                     size="small"
                     color="error"
-                    onClick={() => handleDeleteCategory(category._id)}
+                    onClick={() => handleDeleteCategory(category._id, category.name, category.count)}
+                    disabled={category.count > 0}
+                    title={category.count > 0 ? `Cannot delete - ${category.count} asset${category.count > 1 ? 's' : ''} assigned` : 'Delete category'}
                   >
                     <DeleteIcon />
                   </IconButton>

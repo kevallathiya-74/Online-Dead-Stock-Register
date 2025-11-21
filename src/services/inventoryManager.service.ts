@@ -229,7 +229,7 @@ class InventoryManagerService {
   // Schedule maintenance
   async scheduleMaintenance(maintenanceData: any): Promise<any> {
     try {
-      const response = await api.post<ApiResponse<any>>(API_ENDPOINTS.MAINTENANCE, maintenanceData);
+      const response = await api.post<ApiResponse<any>>(API_ENDPOINTS.MAINTENANCE.MAINTENANCE_RECORDS, maintenanceData);
       if (response.data.success && response.data.data) {
         return response.data.data;
       }

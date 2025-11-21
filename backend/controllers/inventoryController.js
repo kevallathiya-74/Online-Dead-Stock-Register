@@ -743,6 +743,475 @@ exports.approveScrapItem = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Create new scrap request
+ * @route   POST /api/v1/inventory/scrap
+ * @access  Private (ADMIN, INVENTORY_MANAGER)
+ */
+exports.createScrapRequest = async (req, res, next) => {
+  try {
+    const { assetId, scrapReason, estimatedValue, disposalMethod, notes } = req.body;
+
+    if (!assetId || !scrapReason) {
+      return res.status(400).json({
+        success: false,
+        message: 'Asset ID and scrap reason are required'
+      });
+    }
+
+    // Find the asset
+    const asset = await Asset.findOne({
+      $or: [
+        { unique_asset_id: assetId },
+        { _id: assetId }
+      ]
+    });
+
+    if (!asset) {
+      return res.status(404).json({
+        success: false,
+        message: 'Asset not found'
+      });
+    }
+
+    // Check if asset is already marked for scrap
+    if (asset.status === 'Ready for Scrap') {
+      return res.status(400).json({
+        success: false,
+        message: 'Asset is already marked for scrap'
+      });
+    }
+
+    // Update asset status to Ready for Scrap
+    asset.status = 'Ready for Scrap';
+    asset.condition = scrapReason === 'Beyond Repair' ? 'Beyond Repair' : 
+                      scrapReason === 'Obsolete' ? 'Obsolete' : asset.condition;
+    await asset.save();
+
+    // Create disposal record
+    const disposal = await DisposalRecord.create({
+      asset_id: asset.unique_asset_id,
+      asset_name: asset.name || asset.model,
+      category: asset.asset_type,
+      disposal_method: disposalMethod || 'Scrap',
+      disposal_value: estimatedValue || Math.round((asset.purchase_cost || 0) * 0.1),
+      reason: scrapReason,
+      notes: notes,
+      status: 'pending',
+      created_by: req.user.id
+    });
+
+    logger.info('Scrap request created', {
+      userId: req.user.id,
+      assetId: asset._id,
+      disposalId: disposal._id
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Scrap request created successfully',
+      data: disposal
+    });
+  } catch (error) {
+    logger.error('Error creating scrap request:', error);
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get scrap item by ID
+ * @route   GET /api/v1/inventory/scrap/:id
+ * @access  Private (ADMIN, INVENTORY_MANAGER)
+ */
+exports.getScrapItemById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    
+    const asset = await Asset.findById(id)
+      .populate('vendor', 'company_name')
+      .lean();
+
+    if (!asset) {
+      return res.status(404).json({
+        success: false,
+        message: 'Scrap item not found'
+      });
+    }
+
+    // Get disposal record
+    const disposal = await DisposalRecord.findOne({
+      $or: [
+        { asset_id: asset.unique_asset_id },
+        { asset_id: id }
+      ]
+    }).lean();
+
+    // Determine scrap reason and status
+    let scrapReason = 'End of Life';
+    if (asset.condition === 'Damaged' || asset.condition === 'Beyond Repair') {
+      scrapReason = 'Beyond Repair';
+    } else if (asset.condition === 'Obsolete') {
+      scrapReason = 'Obsolete';
+    }
+
+    let itemStatus = 'Pending Approval';
+    let approvalDate = null;
+    let disposalDate = null;
+    
+    if (disposal) {
+      if (disposal.status === 'completed') {
+        itemStatus = disposal.disposal_method === 'Sale' ? 'Sold' : 'Recycled';
+        disposalDate = disposal.disposal_date;
+        approvalDate = disposal.createdAt;
+      } else if (disposal.status === 'in_progress') {
+        itemStatus = 'In Disposal Process';
+        approvalDate = disposal.createdAt;
+      } else if (disposal.status === 'pending') {
+        itemStatus = 'Approved for Scrap';
+        approvalDate = disposal.createdAt;
+      }
+    }
+
+    const scrapItem = {
+      _id: asset._id.toString(),
+      assetId: asset.unique_asset_id,
+      assetName: asset.name || asset.model || 'Unknown Asset',
+      category: asset.asset_type || 'General',
+      manufacturer: asset.manufacturer || 'Unknown',
+      model: asset.model || 'Unknown',
+      serialNumber: asset.serial_number || 'N/A',
+      currentLocation: asset.location || 'Unknown',
+      scrapReason: scrapReason,
+      scrapDate: asset.updatedAt ? asset.updatedAt.toISOString() : new Date().toISOString(),
+      approvalDate: approvalDate ? approvalDate.toISOString() : null,
+      disposalDate: disposalDate ? disposalDate.toISOString() : null,
+      status: itemStatus,
+      originalValue: asset.purchase_cost || 0,
+      scrapValue: disposal?.disposal_value || Math.round((asset.purchase_cost || 0) * 0.1),
+      disposalMethod: disposal?.disposal_method || 'Recycle',
+      approvedBy: disposal?.approved_by || null,
+      vendorName: asset.vendor?.company_name || null,
+      documentReference: disposal?.document_reference || null,
+      environmentalCompliance: true
+    };
+
+    res.status(200).json({
+      success: true,
+      data: scrapItem
+    });
+  } catch (error) {
+    logger.error('Error fetching scrap item:', error);
+    next(error);
+  }
+};
+
+/**
+ * @desc    Update scrap item
+ * @route   PATCH /api/v1/inventory/scrap/:id
+ * @access  Private (ADMIN, INVENTORY_MANAGER)
+ */
+exports.updateScrapItem = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status, disposalDate, vendorName, documentReference } = req.body;
+
+    const asset = await Asset.findById(id);
+    if (!asset) {
+      return res.status(404).json({
+        success: false,
+        message: 'Asset not found'
+      });
+    }
+
+    // Update disposal record
+    const disposal = await DisposalRecord.findOne({
+      $or: [
+        { asset_id: asset.unique_asset_id },
+        { asset_id: id }
+      ]
+    });
+
+    if (!disposal) {
+      return res.status(404).json({
+        success: false,
+        message: 'Disposal record not found'
+      });
+    }
+
+    // Map status to disposal status
+    if (status === 'In Disposal Process') {
+      disposal.status = 'in_progress';
+    } else if (status === 'Disposed' || status === 'Sold' || status === 'Recycled') {
+      disposal.status = 'completed';
+      disposal.disposal_date = disposalDate || new Date();
+    }
+
+    if (vendorName) disposal.vendor_name = vendorName;
+    if (documentReference) disposal.document_reference = documentReference;
+
+    await disposal.save();
+
+    logger.info('Scrap item updated', {
+      userId: req.user.id,
+      assetId: id
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Scrap item updated successfully',
+      data: disposal
+    });
+  } catch (error) {
+    logger.error('Error updating scrap item:', error);
+    next(error);
+  }
+};
+
+/**
+ * @desc    Delete scrap item
+ * @route   DELETE /api/v1/inventory/scrap/:id
+ * @access  Private (ADMIN only)
+ */
+exports.deleteScrapItem = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const asset = await Asset.findById(id);
+    if (!asset) {
+      return res.status(404).json({
+        success: false,
+        message: 'Asset not found'
+      });
+    }
+
+    // Remove from Ready for Scrap status
+    asset.status = 'Available';
+    await asset.save();
+
+    // Delete disposal record
+    await DisposalRecord.deleteOne({
+      $or: [
+        { asset_id: asset.unique_asset_id },
+        { asset_id: id }
+      ]
+    });
+
+    logger.info('Scrap item deleted', {
+      userId: req.user.id,
+      assetId: id
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Scrap item deleted successfully'
+    });
+  } catch (error) {
+    logger.error('Error deleting scrap item:', error);
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get scrap statistics
+ * @route   GET /api/v1/inventory/scrap/stats
+ * @access  Private (ADMIN, INVENTORY_MANAGER)
+ */
+exports.getScrapStats = async (req, res, next) => {
+  try {
+    const [assets, disposalRecords] = await Promise.all([
+      Asset.find({ status: 'Ready for Scrap' }).lean(),
+      DisposalRecord.find().lean()
+    ]);
+
+    const disposalMap = {};
+    disposalRecords.forEach(record => {
+      disposalMap[record.asset_id] = record;
+    });
+
+    let pendingCount = 0;
+    let approvedCount = 0;
+    let inProcessCount = 0;
+    let completedCount = 0;
+    let totalScrapValue = 0;
+    let totalOriginalValue = 0;
+
+    assets.forEach(asset => {
+      const disposal = disposalMap[asset.unique_asset_id] || disposalMap[asset._id.toString()];
+      
+      if (disposal) {
+        if (disposal.status === 'completed') {
+          completedCount++;
+          totalScrapValue += disposal.disposal_value || 0;
+          totalOriginalValue += asset.purchase_cost || 0;
+        } else if (disposal.status === 'in_progress') {
+          inProcessCount++;
+        } else if (disposal.status === 'pending') {
+          approvedCount++;
+        }
+      } else {
+        pendingCount++;
+      }
+    });
+
+    const stats = {
+      pendingCount,
+      approvedCount,
+      inProcessCount,
+      completedCount,
+      totalScrapValue,
+      totalLossValue: totalOriginalValue - totalScrapValue
+    };
+
+    res.status(200).json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    logger.error('Error fetching scrap stats:', error);
+    next(error);
+  }
+};
+
+/**
+ * @desc    Export scrap report
+ * @route   GET /api/v1/inventory/scrap/export
+ * @access  Private (ADMIN, INVENTORY_MANAGER)
+ */
+exports.exportScrapReport = async (req, res, next) => {
+  try {
+    const { format = 'csv', search = '', status = '' } = req.query;
+
+    // Get scrap items
+    const assetsQuery = { status: 'Ready for Scrap' };
+    
+    if (search) {
+      assetsQuery.$or = [
+        { unique_asset_id: { $regex: search, $options: 'i' } },
+        { name: { $regex: search, $options: 'i' } },
+        { manufacturer: { $regex: search, $options: 'i' } },
+        { serial_number: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const [assets, disposalRecords] = await Promise.all([
+      Asset.find(assetsQuery).populate('vendor', 'company_name').lean(),
+      DisposalRecord.find().lean()
+    ]);
+
+    const disposalMap = {};
+    disposalRecords.forEach(record => {
+      disposalMap[record.asset_id] = record;
+    });
+
+    // Transform to scrap items
+    const scrapItems = assets.map(asset => {
+      const disposal = disposalMap[asset.unique_asset_id] || disposalMap[asset._id.toString()];
+      
+      let scrapReason = 'End of Life';
+      if (asset.condition === 'Damaged' || asset.condition === 'Beyond Repair') {
+        scrapReason = 'Beyond Repair';
+      } else if (asset.condition === 'Obsolete') {
+        scrapReason = 'Obsolete';
+      }
+
+      let itemStatus = 'Pending Approval';
+      if (disposal) {
+        if (disposal.status === 'completed') {
+          itemStatus = disposal.disposal_method === 'Sale' ? 'Sold' : 'Recycled';
+        } else if (disposal.status === 'in_progress') {
+          itemStatus = 'In Disposal Process';
+        } else if (disposal.status === 'pending') {
+          itemStatus = 'Approved for Scrap';
+        }
+      }
+
+      return {
+        assetId: asset.unique_asset_id,
+        assetName: asset.name || asset.model || 'Unknown Asset',
+        category: asset.asset_type || 'General',
+        manufacturer: asset.manufacturer || 'Unknown',
+        model: asset.model || 'Unknown',
+        serialNumber: asset.serial_number || 'N/A',
+        location: asset.location || 'Unknown',
+        scrapReason: scrapReason,
+        status: itemStatus,
+        originalValue: asset.purchase_cost || 0,
+        scrapValue: disposal?.disposal_value || Math.round((asset.purchase_cost || 0) * 0.1),
+        disposalMethod: disposal?.disposal_method || 'Recycle',
+        approvedBy: disposal?.approved_by || 'N/A',
+        scrapDate: asset.updatedAt ? asset.updatedAt.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+      };
+    });
+
+    // Filter by status if provided
+    const filteredItems = status && status !== 'All'
+      ? scrapItems.filter(item => item.status === status)
+      : scrapItems;
+
+    if (format === 'csv') {
+      // Proper CSV escaping function
+      const escapeCsvValue = (value) => {
+        if (value === null || value === undefined) return '';
+        const stringValue = String(value);
+        // Escape quotes by doubling them and wrap in quotes if contains comma, quote, or newline
+        if (stringValue.includes('"') || stringValue.includes(',') || stringValue.includes('\n') || stringValue.includes('\r')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return `"${stringValue}"`;
+      };
+
+      // Generate CSV
+      const csvHeaders = [
+        'Asset ID', 'Asset Name', 'Category', 'Manufacturer', 'Model', 
+        'Serial Number', 'Location', 'Scrap Reason', 'Status', 
+        'Original Value (₹)', 'Scrap Value (₹)', 'Disposal Method', 'Approved By', 'Scrap Date'
+      ];
+
+      const csvRows = filteredItems.map(item => [
+        escapeCsvValue(item.assetId),
+        escapeCsvValue(item.assetName),
+        escapeCsvValue(item.category),
+        escapeCsvValue(item.manufacturer),
+        escapeCsvValue(item.model),
+        escapeCsvValue(item.serialNumber),
+        escapeCsvValue(item.location),
+        escapeCsvValue(item.scrapReason),
+        escapeCsvValue(item.status),
+        escapeCsvValue(item.originalValue ? item.originalValue.toLocaleString('en-IN') : '0'),
+        escapeCsvValue(item.scrapValue ? item.scrapValue.toLocaleString('en-IN') : '0'),
+        escapeCsvValue(item.disposalMethod),
+        escapeCsvValue(item.approvedBy),
+        escapeCsvValue(item.scrapDate)
+      ]);
+
+      // Add BOM for proper Excel UTF-8 support
+      const BOM = '\uFEFF';
+      const csvContent = BOM + [
+        csvHeaders.map(h => escapeCsvValue(h)).join(','),
+        ...csvRows.map(row => row.join(','))
+      ].join('\r\n'); // Use Windows line endings for Excel compatibility
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename=scrap-report-${new Date().toISOString().split('T')[0]}.csv`);
+      res.send(csvContent);
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Unsupported export format. Only CSV is supported.'
+      });
+    }
+
+    logger.info('Scrap report exported', {
+      userId: req.user.id,
+      format,
+      count: filteredItems.length
+    });
+  } catch (error) {
+    logger.error('Error exporting scrap report:', error);
+    next(error);
+  }
+};
+
 // ========================================
 // ASSET CATEGORIES CONTROLLERS
 // ========================================

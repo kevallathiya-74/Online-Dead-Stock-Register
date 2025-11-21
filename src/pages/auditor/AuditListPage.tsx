@@ -58,7 +58,6 @@ const AuditListPage: React.FC = () => {
     status: '',
     notes: '',
   });
-  const [exportFormat, setExportFormat] = useState<'json' | 'csv'>('json');
   
   // CSV Import states
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -115,8 +114,8 @@ const AuditListPage: React.FC = () => {
   const handleEditClick = (item: AuditItem) => {
     setSelectedItem(item);
     setEditData({
-      condition: item.condition,
-      status: item.status,
+      condition: item.condition?.toLowerCase() || 'good',
+      status: item.status?.toLowerCase() || 'pending',
       notes: item.notes || '',
     });
     setEditDialogOpen(true);
@@ -136,9 +135,28 @@ const AuditListPage: React.FC = () => {
     if (!selectedItem) return;
 
     try {
+      // Map audit status to valid asset status
+      let assetStatus = 'Available';
+      switch (editData.status.toLowerCase()) {
+        case 'verified':
+          assetStatus = 'Active';
+          break;
+        case 'pending':
+          assetStatus = 'Available';
+          break;
+        case 'discrepancy':
+          assetStatus = 'Under Maintenance';
+          break;
+        case 'missing':
+          assetStatus = 'Damaged';
+          break;
+        default:
+          assetStatus = 'Available';
+      }
+
       await auditorService.updateAuditStatus(selectedItem.id, {
-        condition: editData.condition,
-        status: editData.status === 'verified' ? 'Active' : 'Under Review',
+        condition: editData.condition.toLowerCase(),
+        status: assetStatus,
         notes: editData.notes,
         last_audit_date: new Date().toISOString(),
       });
@@ -154,33 +172,17 @@ const AuditListPage: React.FC = () => {
 
   const handleExport = async () => {
     try {
-      if (exportFormat === 'csv') {
-        // Handle CSV export (blob response)
-        const blob = await auditorService.exportAuditReport('csv');
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `audit-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      } else {
-        // Handle JSON export
-        const data = await auditorService.exportAuditReport('json');
-        const blob = new Blob([JSON.stringify(data, null, 2)], {
-          type: 'application/json',
-        });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `audit-report-${format(new Date(), 'yyyy-MM-dd')}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }
-      toast.success(`Audit report exported successfully as ${exportFormat.toUpperCase()}`);
+      // Handle CSV export (blob response)
+      const blob = await auditorService.exportAuditReport('csv');
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `audit-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('Audit report exported successfully as CSV');
     } catch (err) {
       console.error('Export error:', err);
       toast.error('Failed to export audit report');
@@ -207,8 +209,8 @@ const AuditListPage: React.FC = () => {
     if (!file) return;
 
     // Check file type
-    if (!file.name.endsWith('.csv') && !file.name.endsWith('.json')) {
-      toast.error('Please select a CSV or JSON file');
+    if (!file.name.endsWith('.csv')) {
+      toast.error('Please select a CSV file');
       return;
     }
 
@@ -237,9 +239,7 @@ const AuditListPage: React.FC = () => {
     try {
       const formData = new FormData();
       formData.append('file', importFile);
-      
-      const format = importFile.name.endsWith('.csv') ? 'csv' : 'json';
-      formData.append('format', format);
+      formData.append('format', 'csv');
 
       const result = await auditorService.importAuditData(formData);
 
@@ -345,26 +345,15 @@ const AuditListPage: React.FC = () => {
               onClick={handleImportClick}
               color="primary"
             >
-              Import Data
+              Import CSV
             </Button>
-            <FormControl sx={{ minWidth: 120 }}>
-              <InputLabel>Format</InputLabel>
-              <Select
-                value={exportFormat}
-                label="Format"
-                onChange={(e) => setExportFormat(e.target.value as 'json' | 'csv')}
-                size="small"
-              >
-                <MenuItem value="json">JSON</MenuItem>
-                <MenuItem value="csv">CSV</MenuItem>
-              </Select>
-            </FormControl>
             <Button
               variant="contained"
               startIcon={<FileDownloadIcon />}
               onClick={handleExport}
+              color="primary"
             >
-              Export {exportFormat.toUpperCase()}
+              Export CSV
             </Button>
           </Box>
         </Box>
@@ -443,13 +432,16 @@ const AuditListPage: React.FC = () => {
                         : 'Never'}
                     </TableCell>
                     <TableCell>
-                      <Chip label={item.condition} size="small" />
+                      <Chip 
+                        label={item.condition ? item.condition.charAt(0).toUpperCase() + item.condition.slice(1).toLowerCase() : 'Unknown'} 
+                        size="small" 
+                      />
                     </TableCell>
                     <TableCell>
                       <Chip
-                        icon={getStatusIcon(item.status) || undefined}
-                        label={item.status.toUpperCase()}
-                        color={getStatusColor(item.status)}
+                        icon={getStatusIcon(item.status?.toLowerCase() || 'pending') || undefined}
+                        label={item.status ? item.status.toUpperCase() : 'PENDING'}
+                        color={getStatusColor(item.status?.toLowerCase() || 'pending')}
                         size="small"
                       />
                     </TableCell>
@@ -566,16 +558,16 @@ const AuditListPage: React.FC = () => {
                 <input
                   id="file-input"
                   type="file"
-                  accept=".csv,.json"
+                  accept=".csv"
                   onChange={handleFileSelect}
                   style={{ display: 'none' }}
                 />
                 <FileUploadIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
                 <Typography variant="h6" gutterBottom>
-                  {importFile ? importFile.name : 'Choose a file or drag it here'}
+                  {importFile ? importFile.name : 'Choose a CSV file or drag it here'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Supports CSV and JSON files (max 15MB)
+                  Supports CSV files only (max 15MB)
                 </Typography>
                 {importFile && (
                   <Box mt={2}>
@@ -591,13 +583,14 @@ const AuditListPage: React.FC = () => {
               {/* Import Instructions */}
               <Alert severity="info">
                 <Typography variant="body2" fontWeight="bold" gutterBottom>
-                  Import Instructions:
+                  CSV Import Instructions:
                 </Typography>
                 <Typography variant="body2" component="div">
                   <ul style={{ margin: 0, paddingLeft: 20 }}>
-                    <li>CSV files must have headers in the first row</li>
-                    <li>Required fields: assetTag, description</li>
-                    <li>Date format: YYYY-MM-DD or ISO 8601</li>
+                    <li>First row must contain column headers</li>
+                    <li>Required columns: Asset ID, Asset Name, Location</li>
+                    <li>Optional columns: Condition, Status, Notes, Assigned User</li>
+                    <li>Date format: YYYY-MM-DD</li>
                     <li>Maximum file size: 15MB</li>
                   </ul>
                 </Typography>
