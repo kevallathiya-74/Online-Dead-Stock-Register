@@ -1365,48 +1365,6 @@ const getComplianceMetrics = async (req, res) => {
   }
 };
 
-// ===== EMPLOYEE DASHBOARD ENDPOINTS =====
-
-// Employee Dashboard - Get employee statistics
-const getEmployeeStats = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    
-    // Get assets assigned to current user
-    const userAssets = await Asset.find({ assigned_user: userId });
-    const activeAssets = userAssets.filter(asset => asset.status === 'Active');
-    
-    // Get pending maintenance requests for user's assets
-    const pendingMaintenance = await Maintenance.countDocuments({
-      asset: { $in: userAssets.map(a => a._id) },
-      status: 'Pending'
-    });
-    
-    // Get warranties expiring within 3 months
-    const threeMonthsFromNow = new Date();
-    threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
-    
-    const warrantiesExpiring = userAssets.filter(asset => {
-      return asset.warranty_expiry && 
-             new Date(asset.warranty_expiry) <= threeMonthsFromNow &&
-             new Date(asset.warranty_expiry) > new Date();
-    }).length;
-    
-    res.json({
-      total_assets: userAssets.length,
-      active_assets: activeAssets.length,
-      pending_maintenance: pendingMaintenance,
-      warranties_expiring: warrantiesExpiring
-    });
-  } catch (error) {
-    console.error('Error getting employee stats:', error);
-    res.status(500).json({ 
-      message: 'Failed to get employee statistics',
-      error: error.message 
-    });
-  }
-};
-
 module.exports = {
   getDashboardStats,
   getRecentActivities,
@@ -1429,7 +1387,5 @@ module.exports = {
   getAuditProgressChart,
   getConditionChart,
   getAuditorActivities,
-  getComplianceMetrics,
-  // Employee endpoints
-  getEmployeeStats
+  getComplianceMetrics
 };

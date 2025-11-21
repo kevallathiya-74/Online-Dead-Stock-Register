@@ -197,14 +197,15 @@ const FilterResultsPreview: React.FC<FilterResultsPreviewProps> = ({
   };
 
   const getConditionColor = (condition: string) => {
+    const normalizedCondition = condition.toLowerCase();
     const colors: { [key: string]: string } = {
-      Excellent: '#4CAF50',
-      Good: '#8BC34A',
-      Fair: '#FF9800',
-      Poor: '#f44336',
-      'Non-functional': '#000000'
+      excellent: '#4CAF50',
+      good: '#8BC34A',
+      fair: '#FF9800',
+      poor: '#f44336',
+      damaged: '#000000'
     };
-    return colors[condition] || '#999';
+    return colors[normalizedCondition] || '#999';
   };
 
   if (Object.keys(filterConfig).length === 0) {

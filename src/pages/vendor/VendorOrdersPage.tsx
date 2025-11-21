@@ -32,6 +32,7 @@ import { Search, Visibility, Close } from '@mui/icons-material';
 import { getOrders, getOrderById } from '../../services/vendorPortal.service';
 import type { VendorOrder } from '../../types';
 import { format } from 'date-fns';
+import DashboardLayout from '../../components/layout/DashboardLayout';
 
 const VendorOrdersPage: React.FC = () => {
   const [orders, setOrders] = useState<VendorOrder[]>([]);
@@ -141,10 +142,11 @@ const VendorOrdersPage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        My Orders
-      </Typography>
+    <DashboardLayout>
+      <Box sx={{ p: 3 }}>
+        <Typography variant="h4" gutterBottom>
+          My Orders
+        </Typography>
       <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 3 }}>
         View and manage all your purchase orders
       </Typography>
@@ -423,6 +425,7 @@ const VendorOrdersPage: React.FC = () => {
         </DialogActions>
       </Dialog>
     </Box>
+    </DashboardLayout>
   );
 };
 

@@ -44,10 +44,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   // Detect if we're on a profile page
-  const isProfilePage = location.pathname === '/employee/profile' || 
-                        location.pathname === '/vendor/profile' ||
-                        location.pathname === '/auditor/profile' ||
-                        location.pathname === '/admin/profile';
+  const isProfilePage = location.pathname.endsWith('/profile');
 
   // Use profile navigation if on profile page, otherwise use regular navigation
   const navigation = user 
@@ -240,7 +237,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               horizontal: 'right',
             }}
           >
-            <MenuItem onClick={() => { navigate('/employee/profile'); handleProfileMenuClose(); }}>
+            <MenuItem onClick={() => { 
+              const profilePath = user?.role === 'VENDOR' ? '/vendor/profile' : 
+                                 user?.role === 'AUDITOR' ? '/auditor/profile' : 
+                                 user?.role === 'ADMIN' ? '/admin/profile' : 
+                                 '/dashboard';
+              navigate(profilePath); 
+              handleProfileMenuClose(); 
+            }}>
               <ListItemIcon>
                 <PersonIcon fontSize="small" />
               </ListItemIcon>

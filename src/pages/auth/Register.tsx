@@ -87,7 +87,7 @@ const Register = () => {
       password: '',
       confirmPassword: '',
       department: Department.INVENTORY,
-      role: UserRole.EMPLOYEE,
+      role: UserRole.AUDITOR,
     },
   });
 
@@ -253,7 +253,7 @@ const Register = () => {
                     label="Role"
                     error={!!errors.role}
                   >
-                    <MenuItem value={UserRole.EMPLOYEE}>Employee</MenuItem>
+                    <MenuItem value={UserRole.AUDITOR}>Auditor</MenuItem>
                     <MenuItem value={UserRole.INVENTORY_MANAGER}>Inventory Manager</MenuItem>
                     <MenuItem value={UserRole.ADMIN}>Admin</MenuItem>
                   </Select>

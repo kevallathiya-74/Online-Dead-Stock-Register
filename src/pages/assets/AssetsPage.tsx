@@ -70,11 +70,12 @@ interface Asset {
   model: string;
   serial_number: string;
   status: 'Active' | 'Available' | 'Under Maintenance' | 'Damaged' | 'Ready for Scrap' | 'Disposed';
-  condition: 'Excellent' | 'Good' | 'Fair' | 'Poor' | 'Obsolete' | 'Beyond Repair';
+  condition: 'excellent' | 'good' | 'fair' | 'poor' | 'damaged';
   location: string;
   assigned_user?: string | { _id: string; name: string; email: string };
   purchase_date: string;
   purchase_cost: number;
+  current_value?: number;
   warranty_expiry?: string;
   last_audit_date?: string;
   last_audited_by?: {
@@ -127,7 +128,7 @@ const AssetsPage = () => {
     purchase_date: '',
     purchase_cost: '',  // ✅ Fixed: Changed from purchase_value to purchase_cost
     status: 'Active',
-    condition: 'Good',
+    condition: 'good',
     department: '',
   });
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
@@ -333,7 +334,7 @@ const AssetsPage = () => {
         purchase_date: formData.purchase_date || new Date().toISOString(),
         purchase_cost: formData.purchase_cost ? Number(formData.purchase_cost) : 0,  // ✅ Fixed
         status: formData.status,
-        condition: formData.condition,
+        condition: formData.condition.toLowerCase(),
       };
 
       const response = await api.post('/assets', payload);
@@ -424,10 +425,16 @@ const AssetsPage = () => {
         purchase_date: formData.purchase_date,
         purchase_cost: formData.purchase_cost ? Number(formData.purchase_cost) : undefined,  // ✅ Fixed
         status: formData.status,
-        condition: formData.condition,
+        condition: formData.condition.toLowerCase(),
       };
 
       await api.put(`/assets/${selectedAsset.id}`, payload);
+      
+      // Notify other components about the update
+      if (selectedAsset.id) {
+        assetUpdateService.notifyUpdate(selectedAsset.id, { type: 'updated', asset: { ...selectedAsset, ...payload } });
+      }
+      
       toast.success('Asset updated successfully');
       setEditDialogOpen(false);
       resetForm();
@@ -552,6 +559,11 @@ const AssetsPage = () => {
         // Update local state
         setAssets(prevAssets => prevAssets.filter(a => a.id !== asset.id));
         
+        // Notify other components about the deletion
+        if (asset.id) {
+          assetUpdateService.notifyUpdate(asset.id, { type: 'deleted', asset });
+        }
+        
         toast.success(`Asset "${asset.name}" has been successfully deleted.`);
         
         // Reload assets to ensure consistency with backend
@@ -599,6 +611,11 @@ const AssetsPage = () => {
       
       // Update asset location directly
       const response = await api.put(`/assets/${selectedAsset.id}`, updatePayload);
+      
+      // Notify other components about the transfer
+      if (selectedAsset.id) {
+        assetUpdateService.notifyUpdate(selectedAsset.id, { type: 'transferred', asset: response.data, transferData });
+      }
       
       console.log('Transfer successful:', response.data);
 
@@ -974,18 +991,16 @@ const AssetsPage = () => {
   };
 
   const getConditionColor = (condition: string) => {
-    switch (condition) {
-      case 'Excellent':
+    const normalizedCondition = condition.toLowerCase();
+    switch (normalizedCondition) {
+      case 'excellent':
         return 'success';
-      case 'Good':
+      case 'good':
         return 'primary';
-      case 'Fair':
+      case 'fair':
         return 'warning';
-      case 'Poor':
-        return 'error';
-      case 'Obsolete':
-        return 'error';
-      case 'Beyond Repair':
+      case 'poor':
+      case 'damaged':
         return 'error';
       default:
         return 'default';
@@ -1123,7 +1138,7 @@ const AssetsPage = () => {
                     <Typography color="textSecondary" gutterBottom variant="overline">
                       Total Value
                     </Typography>
-                    <Typography variant="h4">₹{((stats.totalValue || 0) / 100000).toFixed(1)}L</Typography>
+                    <Typography variant="h4">₹{Number((stats.totalValue || 0)).toLocaleString('en-IN')}</Typography>
                   </Box>
                   <Avatar sx={{ backgroundColor: 'info.main' }}>
                     <InventoryIcon />
@@ -1274,7 +1289,7 @@ const AssetsPage = () => {
                       </TableCell>
                       <TableCell>{asset.location}</TableCell>
                       <TableCell>{typeof asset.assigned_user === 'object' ? asset.assigned_user?.name : asset.assigned_user || 'Unassigned'}</TableCell>
-                      <TableCell>₹{asset.purchase_cost?.toLocaleString() || '0'}</TableCell>
+                      <TableCell>₹{typeof asset.purchase_cost === 'number' ? asset.purchase_cost.toLocaleString('en-IN') : '0'}</TableCell>
                       <TableCell>
                         <IconButton 
                           size="small" 
@@ -1465,12 +1480,11 @@ const AssetsPage = () => {
                       value={formData.condition}
                       onChange={(e) => setFormData({...formData, condition: e.target.value})}
                     >
-                      <MenuItem value="Excellent">Excellent</MenuItem>
-                      <MenuItem value="Good">Good</MenuItem>
-                      <MenuItem value="Fair">Fair</MenuItem>
-                      <MenuItem value="Poor">Poor</MenuItem>
-                      <MenuItem value="Obsolete">Obsolete</MenuItem>
-                      <MenuItem value="Beyond Repair">Beyond Repair</MenuItem>
+                      <MenuItem value="excellent">Excellent</MenuItem>
+                      <MenuItem value="good">Good</MenuItem>
+                      <MenuItem value="fair">Fair</MenuItem>
+                      <MenuItem value="poor">Poor</MenuItem>
+                      <MenuItem value="damaged">Damaged</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -1600,12 +1614,11 @@ const AssetsPage = () => {
                       value={formData.condition}
                       onChange={(e) => setFormData({...formData, condition: e.target.value})}
                     >
-                      <MenuItem value="Excellent">Excellent</MenuItem>
-                      <MenuItem value="Good">Good</MenuItem>
-                      <MenuItem value="Fair">Fair</MenuItem>
-                      <MenuItem value="Poor">Poor</MenuItem>
-                      <MenuItem value="Obsolete">Obsolete</MenuItem>
-                      <MenuItem value="Beyond Repair">Beyond Repair</MenuItem>
+                      <MenuItem value="excellent">Excellent</MenuItem>
+                      <MenuItem value="good">Good</MenuItem>
+                      <MenuItem value="fair">Fair</MenuItem>
+                      <MenuItem value="poor">Poor</MenuItem>
+                      <MenuItem value="damaged">Damaged</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -1787,13 +1800,12 @@ const AssetsPage = () => {
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body2" color="text.secondary">Condition</Typography>
                           <Chip 
-                            label={selectedAsset.condition}
+                            label={selectedAsset.condition.charAt(0).toUpperCase() + selectedAsset.condition.slice(1)}
                             color={
-                              selectedAsset.condition === 'Excellent' ? 'success' :
-                              selectedAsset.condition === 'Good' ? 'info' :
-                              selectedAsset.condition === 'Fair' ? 'warning' :
-                              selectedAsset.condition === 'Obsolete' || selectedAsset.condition === 'Beyond Repair' ? 'error' :
-                              selectedAsset.condition === 'Poor' ? 'error' : 'default'
+                              selectedAsset.condition.toLowerCase() === 'excellent' ? 'success' :
+                              selectedAsset.condition.toLowerCase() === 'good' ? 'info' :
+                              selectedAsset.condition.toLowerCase() === 'fair' ? 'warning' :
+                              selectedAsset.condition.toLowerCase() === 'poor' || selectedAsset.condition.toLowerCase() === 'damaged' ? 'error' : 'default'
                             }
                             size="small"
                             sx={{ mt: 0.5 }}
@@ -1828,7 +1840,13 @@ const AssetsPage = () => {
                         <Grid item xs={12} sm={6}>
                           <Typography variant="body2" color="text.secondary">Purchase Cost</Typography>
                           <Typography variant="body1" fontWeight="bold">
-                            ₹{selectedAsset.purchase_cost?.toLocaleString('en-IN') || '0'}
+                            ₹{typeof selectedAsset.purchase_cost === 'number' ? selectedAsset.purchase_cost.toLocaleString('en-IN') : '0'}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography variant="body2" color="text.secondary">Current Value</Typography>
+                          <Typography variant="body1" fontWeight="bold">
+                            ₹{typeof selectedAsset.current_value === 'number' ? selectedAsset.current_value.toLocaleString('en-IN') : 'N/A'}
                           </Typography>
                         </Grid>
                         <Grid item xs={12} sm={6}>

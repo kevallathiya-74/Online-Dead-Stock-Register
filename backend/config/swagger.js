@@ -44,8 +44,8 @@ const options = {
             email: { type: 'string', example: 'john.doe@company.com' },
             role: { 
               type: 'string', 
-              enum: ['ADMIN', 'INVENTORY_MANAGER', 'EMPLOYEE', 'AUDITOR', 'VENDOR'],
-              example: 'EMPLOYEE'
+              enum: ['ADMIN', 'INVENTORY_MANAGER', 'AUDITOR', 'VENDOR'],
+              example: 'AUDITOR'
             },
             department: {
               type: 'string',

@@ -16,7 +16,7 @@ exports.getApprovals = async (filters = {}, pagination = {}, userRole, userId) =
     const query = {};
     
     // Role-based access control
-    if (userRole === 'Employee' || userRole === 'Vendor') {
+    if (userRole === 'Vendor') {
       query.requested_by = userId;
     } else if (userRole === 'Manager' || userRole === 'Department Head') {
       // Managers see approvals they need to approve or have approved

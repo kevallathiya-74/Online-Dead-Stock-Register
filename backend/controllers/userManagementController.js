@@ -198,7 +198,7 @@ exports.changeUserRole = async (req, res) => {
     const { id } = req.params;
     const { role } = req.body;
 
-    const validRoles = ['ADMIN', 'INVENTORY_MANAGER', 'AUDITOR', 'EMPLOYEE'];
+    const validRoles = ['ADMIN', 'INVENTORY_MANAGER', 'AUDITOR'];
     if (!validRoles.includes(role)) {
       return res.status(400).json({ message: 'Invalid role specified' });
     }

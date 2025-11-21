@@ -38,7 +38,7 @@ const Landing = () => {
     {
       icon: <SecurityIcon sx={{ fontSize: 40, color: 'primary.main' }} />,
       title: 'Role-Based Access',
-      description: 'Secure access control with different permission levels for admins, managers, auditors, and employees.',
+      description: 'Secure access control with different permission levels for admins, managers, auditors, and vendors.',
     },
     {
       icon: <ReportIcon sx={{ fontSize: 40, color: 'primary.main' }} />,

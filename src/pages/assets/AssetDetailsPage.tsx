@@ -199,13 +199,14 @@ const AssetDetailsPage: React.FC = () => {
 
   const getConditionColor = (condition: string) => {
     switch (condition) {
-      case 'Excellent':
+      case 'excellent':
         return 'success';
-      case 'Good':
-        return 'info';
-      case 'Fair':
+      case 'good':
+        return 'primary';
+      case 'fair':
         return 'warning';
-      case 'Poor':
+      case 'poor':
+      case 'damaged':
         return 'error';
       default:
         return 'default';

@@ -24,6 +24,7 @@ import { CurrencyRupee, Receipt, CheckCircle } from '@mui/icons-material';
 import { getInvoices } from '../../services/vendorPortal.service';
 import type { VendorInvoice } from '../../types';
 import { format } from 'date-fns';
+import DashboardLayout from '../../components/layout/DashboardLayout';
 
 const VendorInvoicesPage: React.FC = () => {
   const [invoices, setInvoices] = useState<VendorInvoice[]>([]);
@@ -78,10 +79,11 @@ const VendorInvoicesPage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Invoices
-      </Typography>
+    <DashboardLayout>
+      <Box sx={{ p: 3 }}>
+        <Typography variant="h4" gutterBottom>
+          Invoices
+        </Typography>
       <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 3 }}>
         Track all your payment invoices
       </Typography>
@@ -237,6 +239,7 @@ const VendorInvoicesPage: React.FC = () => {
         )}
       </Paper>
     </Box>
+    </DashboardLayout>
   );
 };
 

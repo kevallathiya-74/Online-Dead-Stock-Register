@@ -247,7 +247,7 @@ const AdminAnalyticsPage: React.FC = () => {
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
-                    <Typography variant="h4">₹{(kpis.totalValue / 1000).toFixed(0)}K</Typography>
+                    <Typography variant="h4">₹{Number(kpis.totalValue || 0).toLocaleString('en-IN')}</Typography>
                     <Typography variant="body2">Total Asset Value</Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                       <TrendingUpIcon sx={{ fontSize: 16, mr: 0.5 }} />
@@ -594,19 +594,19 @@ const AdminAnalyticsPage: React.FC = () => {
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="body2">Purchase Costs</Typography>
                     <Typography variant="h5" color="primary.main">
-                      ₹{(kpis.totalValue / 1000).toFixed(0)}K
+                      ₹{Number(kpis.totalValue || 0).toLocaleString('en-IN')}
                     </Typography>
                   </Box>
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="body2">Maintenance Costs</Typography>
                     <Typography variant="h5" color="warning.main">
-                      ₹{(kpis.maintenanceCost / 1000).toFixed(0)}K
+                      ₹{Number(kpis.maintenanceCost || 0).toLocaleString('en-IN')}
                     </Typography>
                   </Box>
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="body2">Cost Savings</Typography>
                     <Typography variant="h5" color="success.main">
-                      ₹{(kpis.costSavings / 1000).toFixed(0)}K
+                      ₹{Number(kpis.costSavings || 0).toLocaleString('en-IN')}
                     </Typography>
                   </Box>
                   <Divider sx={{ my: 2 }} />

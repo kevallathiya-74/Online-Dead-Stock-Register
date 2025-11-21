@@ -80,7 +80,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signup = async (email: string, password: string, fullName: string, role: UserRole = UserRole.EMPLOYEE, department: Department = Department.INVENTORY): Promise<void> => {
+  const signup = async (email: string, password: string, fullName: string, role: UserRole = UserRole.AUDITOR, department: Department = Department.INVENTORY): Promise<void> => {
     setLoading(true);
     try {
       const response = await authService.signUp({

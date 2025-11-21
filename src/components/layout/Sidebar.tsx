@@ -32,7 +32,7 @@ const menuItems: MenuItem[] = [
     title: 'Dashboard',
     path: '/dashboard',
     icon: DashboardIcon,
-    roles: [UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.IT_MANAGER, UserRole.AUDITOR, UserRole.EMPLOYEE],
+    roles: [UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.IT_MANAGER, UserRole.AUDITOR, UserRole.VENDOR],
   },
   {
     title: 'Approvals',

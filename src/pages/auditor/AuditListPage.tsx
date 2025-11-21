@@ -495,11 +495,11 @@ const AuditListPage: React.FC = () => {
                   label="Condition"
                   onChange={(e) => setEditData({ ...editData, condition: e.target.value })}
                 >
-                  <MenuItem value="Excellent">Excellent</MenuItem>
-                  <MenuItem value="Good">Good</MenuItem>
-                  <MenuItem value="Fair">Fair</MenuItem>
-                  <MenuItem value="Poor">Poor</MenuItem>
-                  <MenuItem value="Damaged">Damaged</MenuItem>
+                  <MenuItem value="excellent">Excellent</MenuItem>
+                  <MenuItem value="good">Good</MenuItem>
+                  <MenuItem value="fair">Fair</MenuItem>
+                  <MenuItem value="poor">Poor</MenuItem>
+                  <MenuItem value="damaged">Damaged</MenuItem>
                 </Select>
               </FormControl>
               <FormControl fullWidth>

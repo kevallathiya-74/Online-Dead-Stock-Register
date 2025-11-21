@@ -221,7 +221,7 @@ const DisposalRecordsPage: React.FC = () => {
                 Total Disposal Value (₹)
               </Typography>
               <Typography variant="h4" component="div">
-                ₹{(totalDisposalValue / 100000).toFixed(2)}L
+                ₹{Number(totalDisposalValue || 0).toLocaleString('en-IN')}
               </Typography>
             </CardContent>
           </Card>

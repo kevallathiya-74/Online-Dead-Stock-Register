@@ -15,7 +15,7 @@
 
 ### Core Functionality
 
-- 🔐 **Role-Based Access Control** - 7 user roles (Admin, Inventory Manager, IT Manager, Auditor, Employee, Vendor)
+- 🔐 **Role-Based Access Control** - 5 user roles (Admin, Inventory Manager, IT Manager, Auditor, Vendor)
 - 📦 **Asset Lifecycle Management** - Track assets from purchase to disposal
 - 📱 **QR Code System** - Generate and scan QR codes with camera integration
 - ✅ **Multi-Level Approvals** - Approval workflows for requests and transfers
@@ -130,7 +130,6 @@ npm run dev
 | Inventory Manager | inventory@test.com | inventory123 |
 | IT Manager        | itmanager@test.com | itmanager123 |
 | Auditor           | auditor@test.com   | auditor123   |
-| Employee          | employee1@test.com | employee123  |
 | Vendor            | vendor@test.com    | vendor123    |
 
 > ⚠️ **Security Note**: Change these passwords before deploying to production!

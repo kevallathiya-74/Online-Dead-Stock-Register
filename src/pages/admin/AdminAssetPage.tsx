@@ -977,10 +977,11 @@ const AdminAssetPage: React.FC = () => {
                     label="Condition"
                     onChange={(e) => setNewAsset(prev => ({ ...prev, condition: e.target.value }))}
                   >
-                    <MenuItem value="Excellent">Excellent</MenuItem>
-                    <MenuItem value="Good">Good</MenuItem>
-                    <MenuItem value="Fair">Fair</MenuItem>
-                    <MenuItem value="Poor">Poor</MenuItem>
+                    <MenuItem value="excellent">Excellent</MenuItem>
+                    <MenuItem value="good">Good</MenuItem>
+                    <MenuItem value="fair">Fair</MenuItem>
+                    <MenuItem value="poor">Poor</MenuItem>
+                    <MenuItem value="damaged">Damaged</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -1035,7 +1036,7 @@ const AdminAssetPage: React.FC = () => {
                           sx={{ ml: 1 }}
                         />
                       </Typography>
-                      <Typography sx={{ mt: 1 }}><strong>Condition:</strong> {selectedAsset.condition}</Typography>
+                      <Typography sx={{ mt: 1 }}><strong>Condition:</strong> {selectedAsset.condition.charAt(0).toUpperCase() + selectedAsset.condition.slice(1)}</Typography>
                       <Typography><strong>Assigned User:</strong> {typeof selectedAsset.assigned_user === 'object' ? selectedAsset.assigned_user?.name : selectedAsset.assigned_user || 'Unassigned'}</Typography>
                     </CardContent>
                   </Card>
@@ -1171,10 +1172,11 @@ const AdminAssetPage: React.FC = () => {
                     label="Condition"
                     onChange={(e) => setEditAsset(prev => ({ ...prev, condition: e.target.value }))}
                   >
-                    <MenuItem value="Excellent">Excellent</MenuItem>
-                    <MenuItem value="Good">Good</MenuItem>
-                    <MenuItem value="Fair">Fair</MenuItem>
-                    <MenuItem value="Poor">Poor</MenuItem>
+                    <MenuItem value="excellent">Excellent</MenuItem>
+                    <MenuItem value="good">Good</MenuItem>
+                    <MenuItem value="fair">Fair</MenuItem>
+                    <MenuItem value="poor">Poor</MenuItem>
+                    <MenuItem value="damaged">Damaged</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>

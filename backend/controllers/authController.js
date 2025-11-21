@@ -25,7 +25,7 @@ const validatePassword = (password) => {
 
 exports.signup = async (req, res) => {
   try {
-    const { full_name, username, email, password, department, role = 'employee' } = req.body;
+    const { full_name, username, email, password, department, role = 'AUDITOR' } = req.body;
     
     // Use full_name if available, otherwise fall back to username
     const name = full_name || username;
@@ -34,10 +34,11 @@ exports.signup = async (req, res) => {
     const roleMap = {
       'ADMIN': 'ADMIN',
       'INVENTORY_MANAGER': 'INVENTORY_MANAGER',
-      'EMPLOYEE': 'EMPLOYEE'
+      'AUDITOR': 'AUDITOR',
+      'VENDOR': 'VENDOR'
     };
     
-    const mappedRole = roleMap[role.toUpperCase()] || 'EMPLOYEE';
+    const mappedRole = roleMap[role.toUpperCase()] || 'AUDITOR';
     
     // Validate required fields
     if (!name) {
@@ -105,7 +106,7 @@ exports.signup = async (req, res) => {
       user: {
         id: saved._id,
         email: saved.email,
-        role: saved.role, // Send role in uppercase format: ADMIN, INVENTORY_MANAGER, EMPLOYEE
+        role: saved.role, // Send role in uppercase format: ADMIN, INVENTORY_MANAGER, AUDITOR, VENDOR
         name: saved.name,
         full_name: saved.name,
         department: saved.department
@@ -171,7 +172,7 @@ exports.login = async (req, res) => {
       user: {
         id: user._id,
         email: user.email,
-        role: user.role, // Send role in uppercase format: ADMIN, INVENTORY_MANAGER, EMPLOYEE
+        role: user.role, // Send role in uppercase format: ADMIN, INVENTORY_MANAGER, AUDITOR, VENDOR
         name: user.name,
         full_name: user.name,
         department: user.department

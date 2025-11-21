@@ -236,7 +236,7 @@ const AddAssetModal: React.FC<AddAssetModalProps> = ({
         location: formData.location || "Not Assigned",
         department: "INVENTORY", // Will be set by backend based on user's role
         status: "Available",
-        condition: "Excellent",
+        condition: "excellent",
         purchase_date:
           formData.purchase_date || new Date().toISOString().split("T")[0],
         purchase_cost: parseFloat(formData.purchase_cost) || 0,

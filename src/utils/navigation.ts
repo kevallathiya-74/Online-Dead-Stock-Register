@@ -148,43 +148,6 @@ export const inventoryManagerNavigation: NavigationItem[] = [
   },
 ];
 
-export const employeeNavigation: NavigationItem[] = [
-  {
-    id: 'dashboard',
-    title: 'Dashboard',
-    path: '/dashboard',
-    icon: DashboardIcon,
-  },
-  {
-    id: 'my-assets',
-    title: 'My Assets',
-    path: '/employee/my-assets',
-    icon: InventoryIcon,
-  },
-  {
-    id: 'requests',
-    title: 'My Requests',
-    path: '/employee/requests',
-    icon: RequestIcon,
-    children: [
-      { id: 'new-request', title: 'New Request', path: '/employee/requests/new', icon: RequestIcon },
-      { id: 'my-requests', title: 'View Requests', path: '/employee/requests', icon: RequestIcon },
-    ],
-  },
-  {
-    id: 'profile',
-    title: 'My Profile',
-    path: '/employee/profile',
-    icon: ProfileIcon,
-  },
-  {
-    id: 'help',
-    title: 'Help & Support',
-    path: '/employee/help',
-    icon: HelpIcon,
-  },
-];
-
 export const auditorNavigation: NavigationItem[] = [
   {
     id: 'dashboard',
@@ -222,7 +185,7 @@ export const vendorNavigation: NavigationItem[] = [
   {
     id: 'dashboard',
     title: 'Dashboard',
-    path: '/vendor/dashboard',
+    path: '/dashboard',
     icon: DashboardIcon,
   },
   {
@@ -264,14 +227,12 @@ export const getNavigationForRole = (role: UserRole): NavigationItem[] => {
     case UserRole.INVENTORY_MANAGER:
     case UserRole.IT_MANAGER:
       return inventoryManagerNavigation;
-    case UserRole.EMPLOYEE:
-      return employeeNavigation;
     case UserRole.AUDITOR:
       return auditorNavigation;
     case UserRole.VENDOR:
       return vendorNavigation;
     default:
-      return employeeNavigation;
+      return [];
   }
 };
 
@@ -285,16 +246,6 @@ export const getProfileNavigationForRole = (role: UserRole): NavigationItem[] =>
     case UserRole.IT_MANAGER:
       // IT Manager and Inventory Manager see full navigation on profile page
       return inventoryManagerNavigation;
-    case UserRole.EMPLOYEE:
-      // Employee sees only Dashboard on profile page
-      return [
-        {
-          id: 'dashboard',
-          title: 'Dashboard',
-          path: '/dashboard',
-          icon: DashboardIcon,
-        }
-      ];
     case UserRole.AUDITOR:
       // Auditor sees only Dashboard on profile page
       return [

@@ -349,7 +349,7 @@ const PurchaseOrdersPage = () => {
                     {loading ? (
                       <Skeleton variant="text" width={60} height={32} />
                     ) : (
-                      <Typography variant="h6">₹{(stats.totalValue / 10000000).toFixed(1)}Cr</Typography>
+                      <Typography variant="h6">₹{Number(stats.totalValue || 0).toLocaleString('en-IN')}</Typography>
                     )}
                   </Box>
                   <Avatar sx={{ backgroundColor: 'secondary.main' }}>
@@ -370,7 +370,7 @@ const PurchaseOrdersPage = () => {
                     {loading ? (
                       <Skeleton variant="text" width={60} height={32} />
                     ) : (
-                      <Typography variant="h6">₹{(stats.avgOrderValue / 100000).toFixed(1)}L</Typography>
+                      <Typography variant="h6">₹{Number(stats.avgOrderValue || 0).toLocaleString('en-IN')}</Typography>
                     )}
                   </Box>
                   <Avatar sx={{ backgroundColor: 'info.main' }}>
@@ -564,11 +564,11 @@ const PurchaseOrdersPage = () => {
                             </TableCell>
                             <TableCell>
                               <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                                ₹{(order.total_amount / 100000).toFixed(1)}L
+                                ₹{Number(order.total_amount || 0).toLocaleString('en-IN')}
                               </Typography>
                               {order.tax_amount > 0 && (
                                 <Typography variant="caption" color="text.secondary">
-                                  +₹{(order.tax_amount / 1000).toFixed(1)}K tax
+                                  +₹{Number(order.tax_amount || 0).toLocaleString('en-IN')} tax
                                 </Typography>
                               )}
                             </TableCell>
@@ -651,7 +651,7 @@ const PurchaseOrdersPage = () => {
                                   {order.vendor?.name || 'N/A'}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                  ₹{(order.total_amount / 100000).toFixed(1)}L • {order.items.length} items
+                                  ₹{Number(order.total_amount || 0).toLocaleString('en-IN')} • {order.items.length} items
                                 </Typography>
                               </Box>
                             }
@@ -757,11 +757,11 @@ const PurchaseOrdersPage = () => {
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="h6" gutterBottom>Financial Summary</Typography>
-                  <Typography variant="body2"><strong>Subtotal:</strong> ₹{(selectedPO.subtotal / 100000).toFixed(2)}L</Typography>
-                  <Typography variant="body2"><strong>Tax Amount:</strong> ₹{(selectedPO.tax_amount / 1000).toFixed(2)}K</Typography>
-                  <Typography variant="body2"><strong>Shipping:</strong> ₹{(selectedPO.shipping_cost / 1000).toFixed(2)}K</Typography>
+                  <Typography variant="body2"><strong>Subtotal:</strong> ₹{Number(selectedPO.subtotal || 0).toLocaleString('en-IN')}</Typography>
+                  <Typography variant="body2"><strong>Tax Amount:</strong> ₹{Number(selectedPO.tax_amount || 0).toLocaleString('en-IN')}</Typography>
+                  <Typography variant="body2"><strong>Shipping:</strong> ₹{Number(selectedPO.shipping_cost || 0).toLocaleString('en-IN')}</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 'bold', mt: 1 }}>
-                    <strong>Total Amount:</strong> ₹{(selectedPO.total_amount / 100000).toFixed(2)}L
+                    <strong>Total Amount:</strong> ₹{Number(selectedPO.total_amount || 0).toLocaleString('en-IN')}
                   </Typography>
                   <Typography variant="body2" sx={{ mt: 1 }}><strong>Items Count:</strong> {selectedPO.items.length}</Typography>
                   <Typography variant="body2"><strong>Currency:</strong> {selectedPO.currency}</Typography>

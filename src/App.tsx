@@ -63,13 +63,6 @@ const ApprovalsPage = lazy(() => import('./pages/approvals/ApprovalsPage'));
 const DeadStockItemsPage = lazy(() => import('./pages/inventory/DeadStockItemsPage'));
 const DisposalRecordsPage = lazy(() => import('./pages/inventory/DisposalRecordsPage'));
 
-// Employee Pages
-const MyAssetsPage = lazy(() => import('./pages/employee/MyAssetsPage'));
-const RequestsPage = lazy(() => import('./pages/employee/RequestsPage'));
-const ProfilePage = lazy(() => import('./pages/employee/ProfilePage'));
-const HistoryPage = lazy(() => import('./pages/employee/HistoryPage'));
-const HelpPage = lazy(() => import('./pages/employee/HelpPage'));
-
 // Auditor Pages
 const AuditorDashboard = lazy(() => import('./pages/auditor/AuditorDashboard'));
 const AuditListPage = lazy(() => import('./pages/auditor/AuditListPage'));
@@ -102,12 +95,6 @@ const App = () => {
                 <Route element={<ProtectedRoute />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/dashboard/*" element={<Dashboard />} />
-                  <Route path="/employee/my-assets" element={<MyAssetsPage />} />
-                  <Route path="/employee/requests" element={<RequestsPage />} />
-                  <Route path="/employee/requests/new" element={<RequestsPage />} />
-                  <Route path="/employee/profile" element={<ProfilePage />} />
-                  <Route path="/employee/history" element={<HistoryPage />} />
-                  <Route path="/employee/help" element={<HelpPage />} />
                 </Route>
               
             {/* Admin Only Routes */}
@@ -165,7 +152,6 @@ const App = () => {
               <Route path="/auditor/audit-list" element={<AuditListPage />} />
               <Route path="/auditor/compliance" element={<CompliancePage />} />
               <Route path="/auditor/reports" element={<ReportsPage />} />
-              <Route path="/auditor/help" element={<HelpPage />} />
             </Route>
 
             {/* Vendor Routes - VENDOR role only */}
@@ -176,7 +162,6 @@ const App = () => {
               <Route path="/vendor/products" element={<VendorProductsPage />} />
               <Route path="/vendor/invoices" element={<VendorInvoicesPage />} />
               <Route path="/vendor/profile" element={<VendorProfilePage />} />
-              <Route path="/vendor/help" element={<HelpPage />} />
             </Route>
 
             {/* Default Routes */}

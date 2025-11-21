@@ -24,6 +24,7 @@ import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../services/api';
 import AssetQRCodeDialog from '../../components/AssetQRCodeDialog';
+import { assetUpdateService } from '../../services/assetUpdateService';
 
 const AddAssetPage: React.FC = () => {
   const navigate = useNavigate();
@@ -42,7 +43,7 @@ const AddAssetPage: React.FC = () => {
     purchase_cost: '',  // ✅ Fixed: Changed from purchase_value
     warranty_expiry: '',
     status: 'Available',
-    condition: 'Excellent',
+    condition: 'excellent',
     location: '',
     department: '',
     description: '',
@@ -50,7 +51,7 @@ const AddAssetPage: React.FC = () => {
 
   const assetTypes = ['IT Equipment', 'Office Equipment', 'Mobile Device', 'Furniture', 'Machinery', 'Vehicle', 'Other'];
   const departments = ['INVENTORY', 'IT', 'ADMIN', 'VENDOR'];
-  const conditions = ['Excellent', 'Good', 'Fair', 'Poor'];
+  const conditions = ['excellent', 'good', 'fair', 'poor', 'damaged'];
   const statuses = ['Available', 'Active', 'Under Maintenance', 'Damaged', 'Ready for Scrap'];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | any) => {
@@ -81,6 +82,9 @@ const AddAssetPage: React.FC = () => {
 
   const response = await api.post('/assets', payload);
   const createdAsset = response.data.data || response.data;
+
+  // Notify other components about the new asset
+  assetUpdateService.notifyUpdate(createdAsset.id || createdAsset._id, { type: 'created', asset: createdAsset });
 
   // Open QR dialog for created asset
   setCreatedAssetForQr(createdAsset);

@@ -9,20 +9,22 @@ const assetSchema = new mongoose.Schema({
   asset_type: { type: String, required: true },
   location: { type: String, required: true },
   assigned_user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  status: { type: String, enum: ['Active', 'Under Maintenance', 'Available', 'Damaged', 'Ready for Scrap', 'Disposed'], default: 'Available' },
+  status: { type: String, enum: ['Active', 'Under Maintenance', 'Available', 'Damaged', 'Ready for Scrap', 'Disposed', 'active', 'in_maintenance', 'available', 'disposed'], default: 'Available' },
   department: { type: String, enum: ['INVENTORY', 'IT', 'ADMIN'], required: true },
   purchase_date: { type: Date },
   purchase_cost: { type: Number },
+  current_value: { type: Number },
   warranty_expiry: { type: Date },
   last_audit_date: { type: Date },
   last_audited_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  condition: { type: String },
+  condition: { type: String, enum: ['excellent', 'good', 'fair', 'poor', 'damaged'], default: 'good' },
   notes: { type: String },
   vendor: { type: mongoose.Schema.Types.ObjectId, ref: 'Vendor' },
   images: [{ type: String }],
   last_maintenance_date: { type: Date },
   configuration: { type: Object },
   expected_lifespan: { type: Number },
+  quantity: { type: Number, default: 1 },
 },{
   timestamps: true
 });
@@ -39,6 +41,7 @@ assetSchema.index({ asset_type: 1, department: 1 }); // Type by department
 assetSchema.index({ purchase_date: -1 }); // Recent purchases (descending)
 assetSchema.index({ location: 1, status: 1 }); // Location inventory
 assetSchema.index({ createdAt: -1 }); // Recently created assets
+assetSchema.index({ vendor: 1, status: 1 }); // Vendor products
 
 // Text search index for full-text search across multiple fields
 assetSchema.index({ 

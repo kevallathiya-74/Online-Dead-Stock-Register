@@ -126,6 +126,11 @@ const VendorDashboard: React.FC = () => {
 
   useEffect(() => {
     loadDashboardData();
+    
+    // Auto-refresh every 2 minutes for real-time updates
+    const intervalId = setInterval(loadDashboardData, 120000);
+    
+    return () => clearInterval(intervalId);
   }, []);
 
   const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'warning' | 'info' | 'success' => {

@@ -128,6 +128,11 @@ const purchaseOrderSchema = new mongoose.Schema({
     enum: ['bank_transfer', 'check', 'credit_card', 'cash', 'other'],
     default: 'bank_transfer'
   },
+  payment_status: {
+    type: String,
+    enum: ['pending', 'partial', 'paid', 'refunded'],
+    default: 'pending'
+  },
   notes: {
     type: String,
     default: ''

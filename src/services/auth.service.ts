@@ -61,7 +61,7 @@ const removeToken = (): void => {
 };
 
 export const authService = {
-  async signUp({ email, password, full_name, department, role = UserRole.EMPLOYEE }: SignUpData): Promise<AuthResponse> {
+  async signUp({ email, password, full_name, department, role = UserRole.AUDITOR }: SignUpData): Promise<AuthResponse> {
     try {
       const response = await axios.post(`${API_BASE_URL}${API_ENDPOINTS.REGISTER}`, {
         email,

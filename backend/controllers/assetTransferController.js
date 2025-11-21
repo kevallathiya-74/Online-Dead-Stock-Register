@@ -27,16 +27,6 @@ exports.getAllAssetTransfers = async (req, res) => {
     // Build filter based on user role and permissions
     let filter = {};
     
-    // Role-based filtering
-    if (req.user.role === 'EMPLOYEE') {
-      // Employees can only see transfers they're involved in
-      filter.$or = [
-        { initiated_by: req.user.id },
-        { from_user: req.user.id },
-        { to_user: req.user.id }
-      ];
-    }
-
     // Apply additional filters
     if (status) filter.status = status;
     if (from_user) filter.from_user = from_user;
@@ -113,17 +103,6 @@ exports.getAssetTransferById = async (req, res) => {
 
     if (!transfer) {
       return res.status(404).json({ message: 'Asset transfer not found' });
-    }
-
-    // Check permissions
-    if (req.user.role === 'EMPLOYEE') {
-      const isInvolved = transfer.initiated_by._id.toString() === req.user.id ||
-                        transfer.from_user._id.toString() === req.user.id ||
-                        transfer.to_user._id.toString() === req.user.id;
-      
-      if (!isInvolved) {
-        return res.status(403).json({ success: false, message: 'Access denied to this transfer' });
-      }
     }
 
     res.json({
@@ -229,7 +208,7 @@ exports.createAssetTransfer = async (req, res) => {
         from_user: fromUser.name,
         to_user: toUser.name
       },
-      action_url: `/employee/asset-transfers/${transfer._id}`
+      action_url: `/assets/transfers/${transfer._id}`
     }));
 
     if (notifications.length > 0) {
@@ -354,7 +333,7 @@ exports.updateAssetTransferStatus = async (req, res) => {
         transfer_number: transfer.transfer_id,
         status
       },
-      action_url: `/employee/asset-transfers/${transfer._id}`
+      action_url: `/assets/transfers/${transfer._id}`
     }));
 
     await Notification.insertMany(notifications);

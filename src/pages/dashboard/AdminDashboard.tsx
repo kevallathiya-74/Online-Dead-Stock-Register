@@ -231,11 +231,11 @@ const AdminDashboard = () => {
 
   const [stats, setStats] = useState({
     totalAssets: 0,
-    totalValue: "₹0",
+    totalValue: 0,
     activeUsers: 0,
     pendingApprovals: 0,
     scrapAssets: 0,
-    monthlyPurchase: "₹0",
+    monthlyPurchase: 0,
   });
 
   const [trends, setTrends] = useState({
@@ -311,13 +311,11 @@ const AdminDashboard = () => {
 
       setStats({
         totalAssets: dashboardStats.totalAssets,
-        totalValue: `₹${dashboardStats.totalValue.toLocaleString()}`,
+        totalValue: dashboardStats.totalValue,
         activeUsers: dashboardStats.activeUsers,
         pendingApprovals: dashboardStats.pendingApprovals,
         scrapAssets: dashboardStats.disposedAssets || 0,
-        monthlyPurchase: `₹${
-          dashboardStats.monthlyPurchaseValue?.toLocaleString() || "0"
-        }`,
+        monthlyPurchase: dashboardStats.monthlyPurchaseValue || 0,
       });
 
       // Set trends from backend data (if available)
@@ -509,7 +507,7 @@ const AdminDashboard = () => {
           <Grid item xs={12} sm={6} md={4}>
             <StatCard
               title="Total Asset Value"
-              value={stats.totalValue}
+              value={formatCurrency(stats.totalValue)}
               icon={<ValueIcon />}
               trend={trends.value}
               color="success"
@@ -543,7 +541,7 @@ const AdminDashboard = () => {
           <Grid item xs={12} sm={6} md={4}>
             <StatCard
               title="Monthly Purchase Value"
-              value={stats.monthlyPurchase}
+              value={formatCurrency(stats.monthlyPurchase)}
               icon={<PurchaseIcon />}
               trend={trends.purchase}
               color="primary"

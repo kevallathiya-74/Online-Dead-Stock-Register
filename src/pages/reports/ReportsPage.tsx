@@ -296,8 +296,8 @@ const ReportsPage = () => {
                     {loading ? (
                       <Skeleton variant="text" width={60} height={32} />
                     ) : (
-                      <Typography variant="h5">
-                        ₹{(stats.totalValue / 10000000).toFixed(1)}Cr
+                      <Typography variant="h4">
+                        ₹{Number(stats.totalValue || 0).toLocaleString('en-IN')}
                       </Typography>
                     )}
                   </Box>
@@ -498,7 +498,7 @@ const ReportsPage = () => {
                                 <TableCell>{item.category}</TableCell>
                                 <TableCell align="right">{item.count}</TableCell>
                                 <TableCell align="right">
-                                  ₹{(item.value / 100000).toFixed(1)}L
+                                  ₹{Number(item.value || 0).toLocaleString('en-IN')}
                                 </TableCell>
                               </TableRow>
                             ))

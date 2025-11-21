@@ -391,11 +391,10 @@ const InventoryManagerDashboard: React.FC = () => {
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
-              title="Maintenance Due"
-              value={stats?.maintenanceDue || 0}
-              icon={<MaintenanceIcon />}
-              color="error"
-              onClick={() => navigate("/maintenance")}
+              title="Total Value"
+              value={`₹${Number(stats?.totalValue || 0).toLocaleString('en-IN')}`}
+              icon={<InventoryIcon />}
+              color="info"
               loading={loading}
             />
           </Grid>
@@ -620,7 +619,7 @@ const InventoryManagerDashboard: React.FC = () => {
                         secondary={
                           <>
                             <Typography variant="body2" component="span">
-                              {vendor.orders || 0} orders • ₹{(vendor.value || 0).toLocaleString('en-IN')}
+                              {vendor.orders || 0} orders • ₹{Number(vendor.value || 0).toLocaleString('en-IN')}
                             </Typography>
                             <br />
                             <Typography variant="caption" component="span">

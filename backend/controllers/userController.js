@@ -5,7 +5,10 @@ const logger = require('../utils/logger');
 // GET current user profile
 exports.getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('-password');
+    const user = await User.findById(req.user.id)
+      .select('-password')
+      .populate('vendor_id', 'company_name vendor_name email phone address');
+    
     if (!user) {
       return res.status(404).json({ 
         success: false,
@@ -21,6 +24,7 @@ exports.getProfile = async (req, res) => {
         role: user.role,
         department: user.department,
         employee_id: user.employee_id,
+        vendor_id: user.vendor_id?._id || user.vendor_id || null,
         phone: user.phone,
         is_active: user.is_active,
         created_at: user.created_at,

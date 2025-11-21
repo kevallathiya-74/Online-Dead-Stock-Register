@@ -390,7 +390,7 @@ const MaintenancePage = () => {
                     {loading ? (
                       <Skeleton variant="text" width={60} height={32} />
                     ) : (
-                      <Typography variant="h6">₹{(stats.totalCost / 100000).toFixed(1)}L</Typography>
+                      <Typography variant="h6">₹{Number(stats.totalCost || 0).toLocaleString('en-IN')}</Typography>
                     )}
                   </Box>
                   <Avatar sx={{ backgroundColor: 'secondary.main' }}>
@@ -613,7 +613,7 @@ const MaintenancePage = () => {
                             </TableCell>
                             <TableCell>
                               <Typography variant="body2">
-                                ₹{((record.actual_cost || record.estimated_cost) / 1000).toFixed(1)}K
+                                ₹{Number((record.actual_cost || record.estimated_cost) || 0).toLocaleString('en-IN')}
                               </Typography>
                             </TableCell>
                             <TableCell>
@@ -716,7 +716,7 @@ const MaintenancePage = () => {
                             Breakdown of maintenance costs by asset type and department
                           </Typography>
                           <Box sx={{ mt: 2 }}>
-                            <Typography variant="h4">₹{(stats.totalCost / 100000).toFixed(1)}L</Typography>
+                            <Typography variant="h4">₹{Number(stats.totalCost || 0).toLocaleString('en-IN')}</Typography>
                             <Typography variant="caption" color="text.secondary">Total Cost</Typography>
                           </Box>
                         </CardContent>

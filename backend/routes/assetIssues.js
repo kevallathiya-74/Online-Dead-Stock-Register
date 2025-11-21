@@ -16,7 +16,7 @@ router.use(authMiddleware);
 // Get all open issues across all assets (for dashboards)
 router.get(
   '/open',
-  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'AUDITOR']),
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR']),
   getAllOpenIssues
 );
 
@@ -30,7 +30,7 @@ router.put(
 ); // Reporter or Admin/Inventory Manager
 router.delete(
   '/assets/:id/issues/:issueId',
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']),
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']),
   deleteAssetIssue
 );
 

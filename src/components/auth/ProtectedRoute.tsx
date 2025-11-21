@@ -32,20 +32,17 @@ const ProtectedRoute = ({
 
   // If no user is authenticated, redirect to login
   if (!user) {
-    console.log('ProtectedRoute: No user found, redirecting to login');
     return <Navigate to={redirectPath} replace />;
   }
 
   // If specific roles are required, check if user has one of them
   if (allowedRoles && allowedRoles.length > 0) {
     if (!allowedRoles.includes(user.role)) {
-      console.log(`ProtectedRoute: User role ${user.role} not in allowed roles:`, allowedRoles);
       // User doesn't have required role, redirect to dashboard
       return <Navigate to="/dashboard" replace />;
     }
   }
 
-  console.log('ProtectedRoute: User authenticated, rendering protected route', user);
   // User is authenticated and has required role, render the protected route
   return <Outlet />;
 };

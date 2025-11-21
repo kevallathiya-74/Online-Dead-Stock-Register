@@ -229,8 +229,10 @@ const getAllOrders = async (req, res) => {
       orders: formattedOrders,
       pagination: {
         currentPage: page,
+        page: page,
         totalPages: Math.ceil(totalOrders / limit),
         totalOrders,
+        total: totalOrders,
         limit
       }
     });
@@ -339,14 +341,14 @@ const getProducts = async (req, res) => {
 
     const formattedProducts = products.map(product => ({
       _id: product._id,
-      asset_id: product.asset_id,
-      name: product.name,
-      description: product.description,
+      asset_id: product.unique_asset_id || product.asset_id,
+      name: product.name || `${product.manufacturer} ${product.model}`,
+      description: product.notes || `${product.manufacturer} ${product.model} - ${product.serial_number}`,
       category: product.asset_type,
-      status: product.status,
-      condition: product.condition,
-      purchase_price: product.purchase_price,
-      current_value: product.current_value,
+      status: product.status?.toLowerCase().replace(/\s+/g, '_') || 'active',
+      condition: product.condition || 'good',
+      purchase_cost: product.purchase_cost || product.purchase_price || 0,
+      current_value: product.current_value || product.purchase_cost || 0,
       purchase_date: product.purchase_date,
       warranty_expiry: product.warranty_expiry,
       assigned_to: product.assigned_user ? {
@@ -357,7 +359,7 @@ const getProducts = async (req, res) => {
       location: product.location,
       quantity: product.quantity || 1,
       serial_number: product.serial_number,
-      model_number: product.model_number
+      model_number: product.model || product.model_number
     }));
 
     res.json({
@@ -365,8 +367,10 @@ const getProducts = async (req, res) => {
       products: formattedProducts,
       pagination: {
         currentPage: page,
+        page: page,
         totalPages: Math.ceil(totalProducts / limit),
         totalProducts,
+        total: totalProducts,
         limit
       }
     });
@@ -428,9 +432,10 @@ const getInvoices = async (req, res) => {
         invoice_date: order.createdAt,
         due_date: order.expected_delivery_date,
         amount: order.total_amount,
+        currency: order.currency || 'INR',
         status: invoiceStatus,
-        payment_method: order.payment_method,
-        payment_terms: order.payment_terms,
+        payment_method: order.payment_method || 'bank_transfer',
+        payment_terms: order.payment_terms || 'Net 30',
         items_count: order.items.length,
         requested_by: order.requested_by ? order.requested_by.name : 'N/A'
       };
@@ -452,7 +457,8 @@ const getInvoices = async (req, res) => {
         totalInvoices: formattedInvoices.length,
         totalAmount: totalAmount,
         paidAmount: paidAmount,
-        pendingAmount: pendingAmount
+        pendingAmount: pendingAmount,
+        currency: 'INR'
       }
     });
 

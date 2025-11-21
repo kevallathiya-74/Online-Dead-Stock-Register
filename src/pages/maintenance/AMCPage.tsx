@@ -256,7 +256,7 @@ const AMCPage = () => {
                       Annual Cost
                     </Typography>
                     <Typography variant="h4">
-                      ₹{(totalAnnualCost / 100000).toFixed(1)}L
+                      ₹{Number(totalAnnualCost || 0).toLocaleString('en-IN')}
                     </Typography>
                   </Box>
                   <ScheduleIcon color="primary" sx={{ fontSize: 40 }} />

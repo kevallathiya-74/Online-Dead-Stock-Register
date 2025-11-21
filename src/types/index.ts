@@ -20,7 +20,6 @@ export enum UserRole {
   ADMIN = 'ADMIN',
   INVENTORY_MANAGER = 'INVENTORY_MANAGER',
   IT_MANAGER = 'IT_MANAGER',
-  EMPLOYEE = 'EMPLOYEE',
   AUDITOR = 'AUDITOR',
   VENDOR = 'VENDOR'
 }
@@ -48,6 +47,7 @@ export interface Asset {
   department: string;
   purchase_date: string;
   purchase_cost: number;
+  current_value?: number;
   warranty_expiry?: string;
   last_audit_date?: string;
   last_audited_by?: string;

@@ -55,7 +55,7 @@ const validateRegistration = [
   
   body('role')
     .optional()
-    .isIn(['ADMIN', 'INVENTORY_MANAGER', 'EMPLOYEE', 'AUDITOR', 'VENDOR'])
+    .isIn(['ADMIN', 'INVENTORY_MANAGER', 'AUDITOR', 'VENDOR'])
     .withMessage('Invalid role'),
   
   handleValidationErrors

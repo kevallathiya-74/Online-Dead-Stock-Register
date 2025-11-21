@@ -3,7 +3,6 @@ import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
 import AdminDashboard from './AdminDashboard';
 import InventoryManagerDashboard from './InventoryManagerDashboard';
-import EmployeeDashboard from './EmployeeDashboard';
 import AuditorDashboard from '../auditor/AuditorDashboard';
 import VendorDashboard from '../vendor/VendorDashboard';
 import { Box, CircularProgress, Typography } from '@mui/material';
@@ -64,10 +63,6 @@ const Dashboard = () => {
       roleComponent = <InventoryManagerDashboard />;
       break;
 
-    case UserRole.EMPLOYEE:
-      roleComponent = <EmployeeDashboard />;
-      break;
-
     case UserRole.AUDITOR:
       roleComponent = <AuditorDashboard />;
       break;
@@ -77,7 +72,18 @@ const Dashboard = () => {
       break;
 
     default:
-      roleComponent = <EmployeeDashboard />;
+      roleComponent = (
+        <Box
+          display="flex"
+          justifyContent="center"
+          alignItems="center"
+          minHeight="100vh"
+        >
+          <Typography variant="h6" color="error">
+            Invalid user role. Please contact administrator.
+          </Typography>
+        </Box>
+      );
       break;
   }
 

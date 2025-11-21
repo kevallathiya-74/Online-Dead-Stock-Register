@@ -195,8 +195,8 @@ const AdminDashboard = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Total Asset Value"
-            value={`₹${(stats.totalValue / 10000000).toFixed(2)}Cr`}
-            subtitle={`₹${(stats.monthlyPurchase / 100000).toFixed(2)}L this month`}
+            value={`₹${stats.totalValue.toLocaleString('en-IN')}`}
+            subtitle={`₹${stats.monthlyPurchase.toLocaleString('en-IN')} this month`}
             progress={stats.totalValue > 0 ? Math.min(100, (stats.totalValue / 100000000) * 100) : 0}
             progressColor="success"
             icon={<MoneyIcon />}
@@ -419,7 +419,7 @@ const AdminDashboard = () => {
               <Grid item xs={12} sm={6} md={3}>
                 <Box textAlign="center" p={2}>
                   <Typography variant="h4" color="warning.main">
-                    ₹{(stats.monthlyPurchase / 100000).toFixed(2)}L
+                    ₹{stats.monthlyPurchase.toLocaleString('en-IN')}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Monthly Purchases

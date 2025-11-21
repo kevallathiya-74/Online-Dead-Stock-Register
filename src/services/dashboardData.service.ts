@@ -9,14 +9,10 @@
  * - GET /api/v1/dashboard/top-vendors - Top performing vendors
  * - GET /api/v1/dashboard/inventory-approvals - Pending approvals
  * 
- * Connected Backend Endpoints (Employee):
- * - GET /api/v1/dashboard/employee/stats - Employee dashboard statistics
- * - GET /api/v1/assets/my-assets - Assets assigned to logged-in employee
- * 
  * Data Flow: Frontend → Service → Backend Controller → MongoDB
  * Authentication: Bearer token in Authorization header
  * Caching: Backend implements Redis caching (300-600s TTL)
- * Role Access: Role-based endpoints (ADMIN, INVENTORY_MANAGER, EMPLOYEE)
+ * Role Access: Role-based endpoints (ADMIN, INVENTORY_MANAGER, AUDITOR, VENDOR)
  */
 
 import { Asset, AssetStatus, UserRole } from '../types';
@@ -113,8 +109,6 @@ export class DashboardDataService {
         endpoint = API_ENDPOINTS.DASHBOARD.INVENTORY_STATS;
       } else if (userRole === UserRole.AUDITOR) {
         endpoint = API_ENDPOINTS.DASHBOARD.AUDITOR_STATS;
-      } else if (userRole === UserRole.EMPLOYEE) {
-        endpoint = API_ENDPOINTS.DASHBOARD.EMPLOYEE_STATS;
       }
       
       console.log('DashboardDataService: Fetching stats from endpoint:', endpoint);

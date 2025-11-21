@@ -300,7 +300,7 @@ const DeadStockItemsPage: React.FC = () => {
                 Total Value (₹)
               </Typography>
               <Typography variant="h4" component="div">
-                ₹{(stats.totalValue / 100000).toFixed(2)}L
+                ₹{typeof stats.totalValue === 'number' ? stats.totalValue.toLocaleString('en-IN') : '0'}
               </Typography>
             </CardContent>
           </Card>

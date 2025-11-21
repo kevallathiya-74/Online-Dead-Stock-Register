@@ -45,7 +45,7 @@ const AdminAddUserPage: React.FC = () => {
     email: '',
     phone: '',
     employee_id: '',
-    role: 'Employee',
+    role: 'Auditor',
     department: '',
     location: '',
     manager: '',
@@ -122,7 +122,7 @@ const AdminAddUserPage: React.FC = () => {
             settings: { read: true, write: false, delete: false }
           };
           break;
-        default: // Employee
+        default: // Other roles
           permissions = {
             assets: { read: true, write: false, delete: false },
             users: { read: false, write: false, delete: false },
@@ -258,8 +258,8 @@ const AdminAddUserPage: React.FC = () => {
                 >
                   <MenuItem value="ADMIN">Admin</MenuItem>
                   <MenuItem value="INVENTORY_MANAGER">Inventory Manager</MenuItem>
-                  <MenuItem value="EMPLOYEE">Employee</MenuItem>
                   <MenuItem value="AUDITOR">Auditor</MenuItem>
+                  <MenuItem value="VENDOR">Vendor</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -311,8 +311,8 @@ const AdminAddUserPage: React.FC = () => {
                 <Typography variant="body2">
                   {newUser.role === 'Admin' && 'Full system access with user management, settings, and all permissions.'}
                   {newUser.role === 'Inventory_Manager' && 'Manage assets, inventory, purchase orders, and generate reports.'}
-                  {newUser.role === 'Employee' && 'Basic access to view assigned assets and submit requests.'}
                   {newUser.role === 'Auditor' && 'Read-only access to all data for auditing and compliance purposes.'}
+                  {newUser.role === 'Vendor' && 'Access to vendor portal for purchase orders and invoices.'}
                 </Typography>
               </Alert>
             </Grid>

@@ -283,7 +283,7 @@ const InventoryManagerDashboard = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Total Value"
-            value={`₹${(stats.totalValue / 10000000).toFixed(1)}Cr`}
+            value={`₹${Number(stats.totalValue || 0).toLocaleString('en-IN')}`}
             subtitle={`${stats.locationCount} locations`}
             progress={65}
             progressColor="info"
@@ -496,7 +496,7 @@ const InventoryManagerDashboard = () => {
                         secondary={
                           <Box>
                             <Typography variant="caption" display="block">
-                              Orders: {vendor.orders} • Value: ₹{(vendor.value / 100000).toFixed(1)}L
+                              Orders: {vendor.orders} • Value: ₹{typeof vendor.value === 'number' ? vendor.value.toLocaleString('en-IN') : '0'}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
                               Rating: {vendor.rating}/5 ⭐

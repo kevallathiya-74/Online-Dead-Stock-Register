@@ -7,7 +7,7 @@ export interface User {
   full_name: string;
   email: string;
   employee_id: string;
-  role: 'ADMIN' | 'INVENTORY_MANAGER' | 'AUDITOR' | 'EMPLOYEE';
+  role: 'ADMIN' | 'INVENTORY_MANAGER' | 'AUDITOR';
   department: string;
   status: 'active' | 'inactive' | 'suspended';
   phone?: string;
@@ -48,7 +48,6 @@ export interface UserStats {
     ADMIN: number;
     INVENTORY_MANAGER: number;
     AUDITOR: number;
-    EMPLOYEE: number;
   };
   department_breakdown: DepartmentBreakdown[];
   recent_registrations: User[];
@@ -59,7 +58,7 @@ export interface CreateUserRequest {
   full_name: string;
   email: string;
   employee_id: string;
-  role: 'ADMIN' | 'INVENTORY_MANAGER' | 'AUDITOR' | 'EMPLOYEE';
+  role: 'ADMIN' | 'INVENTORY_MANAGER' | 'AUDITOR';
   department: string;
   phone?: string;
   hire_date?: string;

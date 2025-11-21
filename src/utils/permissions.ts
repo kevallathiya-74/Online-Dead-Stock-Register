@@ -40,15 +40,6 @@ export const rolePermissions: Record<UserRole, RolePermissions> = {
     documents: ['read'],
     vendors: ['read']
   },
-  [UserRole.EMPLOYEE]: {
-    users: [], 
-    assets: ['read'], 
-    approvals: ['create', 'read'], 
-    reports: [], 
-    system: [], 
-    documents: ['read'], 
-    vendors: ['read'] 
-  },
   [UserRole.IT_MANAGER]: {
     users: ['read'], 
     assets: ['create', 'read', 'update', 'delete'], 

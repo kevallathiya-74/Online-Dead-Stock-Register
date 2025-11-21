@@ -25,6 +25,7 @@ import { Search } from '@mui/icons-material';
 import { getProducts } from '../../services/vendorPortal.service';
 import type { VendorProduct } from '../../types';
 import { format } from 'date-fns';
+import DashboardLayout from '../../components/layout/DashboardLayout';
 
 const VendorProductsPage: React.FC = () => {
   const [products, setProducts] = useState<VendorProduct[]>([]);
@@ -108,10 +109,11 @@ const VendorProductsPage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        My Products
-      </Typography>
+    <DashboardLayout>
+      <Box sx={{ p: 3 }}>
+        <Typography variant="h4" gutterBottom>
+          My Products
+        </Typography>
       <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 3 }}>
         View all products (assets) supplied by your company
       </Typography>
@@ -285,6 +287,7 @@ const VendorProductsPage: React.FC = () => {
         )}
       </Paper>
     </Box>
+    </DashboardLayout>
   );
 };
 

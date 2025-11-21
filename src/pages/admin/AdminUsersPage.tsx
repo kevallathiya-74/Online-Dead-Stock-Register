@@ -54,7 +54,7 @@ interface AdminUser {
   id?: string; // Deprecated: use _id
   name: string;
   email: string;
-  role: 'ADMIN' | 'INVENTORY_MANAGER' | 'AUDITOR' | 'EMPLOYEE';
+  role: 'ADMIN' | 'INVENTORY_MANAGER' | 'AUDITOR' | 'VENDOR';
   department: string;
   employee_id: string;
   is_active: boolean;
@@ -106,7 +106,7 @@ const AdminUsersPage: React.FC = () => {
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
-    role: 'EMPLOYEE' as AdminUser['role'],
+    role: 'AUDITOR' as AdminUser['role'],
     department: '',
     phone: '',
     location: '',
@@ -140,7 +140,7 @@ const AdminUsersPage: React.FC = () => {
     active: users.filter(u => u.is_active).length,
     admins: users.filter(u => u.role === 'ADMIN').length,
     managers: users.filter(u => u.role === 'INVENTORY_MANAGER').length,
-    employees: users.filter(u => u.role === 'EMPLOYEE').length
+    vendors: users.filter(u => u.role === 'VENDOR').length
   };
 
   const filteredUsers = users.filter(user => {
@@ -195,7 +195,7 @@ const AdminUsersPage: React.FC = () => {
       setNewUser({
         name: '',
         email: '',
-        role: 'EMPLOYEE',
+        role: 'AUDITOR',
         department: '',
         phone: '',
         location: '',
@@ -306,8 +306,8 @@ const AdminUsersPage: React.FC = () => {
     const roleNames: Record<string, string> = {
       'ADMIN': 'Admin',
       'INVENTORY_MANAGER': 'Inventory Manager',
-      'EMPLOYEE': 'Employee',
-      'AUDITOR': 'Auditor'
+      'AUDITOR': 'Auditor',
+      'VENDOR': 'Vendor'
     };
     return roleNames[role] || role;
   };
@@ -320,7 +320,7 @@ const AdminUsersPage: React.FC = () => {
         return 'warning';
       case 'AUDITOR':
         return 'info';
-      case 'EMPLOYEE':
+      case 'VENDOR':
         return 'success';
       default:
         return 'default';
@@ -335,7 +335,7 @@ const AdminUsersPage: React.FC = () => {
         return <BusinessIcon fontSize="small" />;
       case 'AUDITOR':
         return <SecurityIcon fontSize="small" />;
-      case 'EMPLOYEE':
+      case 'VENDOR':
         return <PersonIcon fontSize="small" />;
       default:
         return <PersonIcon fontSize="small" />;
@@ -563,9 +563,9 @@ const AdminUsersPage: React.FC = () => {
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
-                    <Typography variant="h4">{stats.employees}</Typography>
+                    <Typography variant="h4">{stats.vendors}</Typography>
                     <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                      Employees
+                      Vendors
                     </Typography>
                   </Box>
                   <PersonIcon sx={{ fontSize: 40, opacity: 0.8 }} />
@@ -613,8 +613,8 @@ const AdminUsersPage: React.FC = () => {
               <MenuItem value="all">All Roles</MenuItem>
               <MenuItem value="ADMIN">Admin</MenuItem>
               <MenuItem value="INVENTORY_MANAGER">Inventory Manager</MenuItem>
-              <MenuItem value="EMPLOYEE">Employee</MenuItem>
               <MenuItem value="AUDITOR">Auditor</MenuItem>
+              <MenuItem value="VENDOR">Vendor</MenuItem>
             </Select>
           </FormControl>
         </Box>
@@ -669,8 +669,8 @@ const AdminUsersPage: React.FC = () => {
                     >
                       <MenuItem value="ADMIN">Admin</MenuItem>
                       <MenuItem value="INVENTORY_MANAGER">Inventory Manager</MenuItem>
-                      <MenuItem value="EMPLOYEE">Employee</MenuItem>
                       <MenuItem value="AUDITOR">Auditor</MenuItem>
+                      <MenuItem value="VENDOR">Vendor</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
@@ -763,8 +763,8 @@ const AdminUsersPage: React.FC = () => {
                     >
                       <MenuItem value="ADMIN">Admin</MenuItem>
                       <MenuItem value="INVENTORY_MANAGER">Inventory Manager</MenuItem>
-                      <MenuItem value="EMPLOYEE">Employee</MenuItem>
                       <MenuItem value="AUDITOR">Auditor</MenuItem>
+                      <MenuItem value="VENDOR">Vendor</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>

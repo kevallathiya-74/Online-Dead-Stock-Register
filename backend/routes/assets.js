@@ -21,26 +21,26 @@ router.get('/stats', authMiddleware, assetCtrl.getAssetStats);
 // Asset Categories (for backward compatibility - main route is in inventory)
 // IMPORTANT: Define specific routes BEFORE param routes like '/:id' to avoid conflicts
 router.get('/categories', authMiddleware, inventoryCtrl.getCategories);
-router.post('/categories', authMiddleware, requireRole(['ADMIN', 'INVENTORY_MANAGER']), inventoryCtrl.createCategory);
-router.put('/categories/:id', authMiddleware, requireRole(['ADMIN', 'INVENTORY_MANAGER']), inventoryCtrl.updateCategory);
+router.post('/categories', authMiddleware, requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), inventoryCtrl.createCategory);
+router.put('/categories/:id', authMiddleware, requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), inventoryCtrl.updateCategory);
 router.delete('/categories/:id', authMiddleware, requireRole(['ADMIN']), inventoryCtrl.deleteCategory);
 
 // Protected: GET single asset
 router.get('/:id', authMiddleware, validateObjectId, assetCtrl.getAssetById);
 
-// Admin and Inventory Manager: POST create asset
+// Admin, Inventory Manager, and IT Manager: POST create asset
 router.post('/', 
   authMiddleware, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
   validateAssetCreation,
   assetCtrl.createAsset
 );
 
-// Admin, Inventory Manager, and Auditor: PUT update asset
+// Admin, Inventory Manager, IT Manager, and Auditor: PUT update asset
 // Auditors can update for audit purposes (condition, status, last_audit_date)
 router.put('/:id', 
   authMiddleware, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'AUDITOR']),
+  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR']),
   validateObjectId,
   assetCtrl.updateAsset
 );

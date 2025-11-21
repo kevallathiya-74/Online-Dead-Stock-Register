@@ -218,22 +218,22 @@ const settingsSchema = new mongoose.Schema(
       security: {
         type: [String],
         default: ['ADMIN'],
-        enum: ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR', 'EMPLOYEE', 'VENDOR'],
+        enum: ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR', 'VENDOR'],
       },
       database: {
         type: [String],
         default: ['ADMIN'],
-        enum: ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR', 'EMPLOYEE', 'VENDOR'],
+        enum: ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR', 'VENDOR'],
       },
       email: {
         type: [String],
         default: ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER'],
-        enum: ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR', 'EMPLOYEE', 'VENDOR'],
+        enum: ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR', 'VENDOR'],
       },
       application: {
         type: [String],
         default: ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER'],
-        enum: ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR', 'EMPLOYEE', 'VENDOR'],
+        enum: ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR', 'VENDOR'],
       },
     },
 

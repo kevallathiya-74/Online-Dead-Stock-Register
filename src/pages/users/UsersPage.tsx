@@ -57,7 +57,7 @@ interface AdminUser {
   id?: string; // Deprecated: use _id
   name: string;
   email: string;
-  role: 'ADMIN' | 'INVENTORY_MANAGER' | 'IT_MANAGER' | 'AUDITOR' | 'EMPLOYEE';
+  role: 'ADMIN' | 'INVENTORY_MANAGER' | 'IT_MANAGER' | 'AUDITOR' | 'VENDOR';
   department: string;
   employee_id: string;
   status: 'Active' | 'Inactive';
@@ -86,7 +86,7 @@ const UsersPage = () => {
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
-    role: 'Employee' as AdminUser['role'],
+    role: 'AUDITOR' as AdminUser['role'],
     department: 'INVENTORY',
     employee_id: '',
     phone: '',
@@ -231,7 +231,7 @@ const UsersPage = () => {
     setNewUser({
       name: '',
       email: '',
-      role: 'EMPLOYEE',
+      role: 'AUDITOR',
       department: 'INVENTORY',
       employee_id: '',
       phone: '',
@@ -270,7 +270,7 @@ const UsersPage = () => {
           'view_users', 'view_assets', 'view_transactions', 'view_reports',
           'create_reports', 'export_data', 'view_audit_logs'
         ];
-      case 'EMPLOYEE':
+      case 'VENDOR':
         return ['view_assets', 'view_transactions'];
       default:
         return [];
@@ -287,7 +287,7 @@ const UsersPage = () => {
         return 'info';
       case 'AUDITOR':
         return 'secondary';
-      case 'EMPLOYEE':
+      case 'VENDOR':
         return 'success';
       default:
         return 'default';
@@ -307,7 +307,7 @@ const UsersPage = () => {
       'INVENTORY_MANAGER': users.filter(u => u.role === 'INVENTORY_MANAGER').length,
       'IT_MANAGER': users.filter(u => u.role === 'IT_MANAGER').length,
       'AUDITOR': users.filter(u => u.role === 'AUDITOR').length,
-      'EMPLOYEE': users.filter(u => u.role === 'EMPLOYEE').length,
+      'VENDOR': users.filter(u => u.role === 'VENDOR').length,
     },
     byDepartment: users.reduce((acc: any, user) => {
       if (user.department) {
@@ -323,15 +323,15 @@ const UsersPage = () => {
       'ADMIN': 'Admin',
       'INVENTORY_MANAGER': 'Inventory Manager',
       'IT_MANAGER': 'IT Manager',
-      'EMPLOYEE': 'Employee',
-      'AUDITOR': 'Auditor'
+      'AUDITOR': 'Auditor',
+      'VENDOR': 'Vendor'
     };
     return roleNames[role] || role;
   };
   
   // Filter out empty/undefined departments and ensure unique values
   const departments = Array.from(new Set(users.map(u => u.department).filter(d => d && d.trim() !== '')));
-  const roles = ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR', 'EMPLOYEE'];
+  const roles = ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR', 'VENDOR'];
 
   if (loading) {
     return (
@@ -795,7 +795,6 @@ const UsersPage = () => {
                     label="Role"
                     onChange={(e) => setNewUser(prev => ({ ...prev, role: e.target.value as AdminUser['role'] }))}
                   >
-                    <MenuItem value="EMPLOYEE">Employee</MenuItem>
                     <MenuItem value="AUDITOR">Auditor</MenuItem>
                     <MenuItem value="INVENTORY_MANAGER">Inventory Manager</MenuItem>
                     <MenuItem value="IT_MANAGER">IT Manager</MenuItem>

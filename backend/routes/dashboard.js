@@ -24,9 +24,7 @@ const {
   getAuditProgressChart,
   getConditionChart,
   getAuditorActivities,
-  getComplianceMetrics,
-  // Employee endpoints
-  getEmployeeStats
+  getComplianceMetrics
 } = require('../controllers/dashboardController');
 
 // Apply auth middleware to all dashboard routes
@@ -57,8 +55,5 @@ router.get('/auditor/progress-chart', requireRole(['ADMIN', 'AUDITOR']), getAudi
 router.get('/auditor/condition-chart', requireRole(['ADMIN', 'AUDITOR']), getConditionChart);
 router.get('/auditor/recent-activities', requireRole(['ADMIN', 'AUDITOR']), getAuditorActivities);
 router.get('/auditor/compliance-metrics', requireRole(['ADMIN', 'AUDITOR']), getComplianceMetrics);
-
-// Employee specific routes - All authenticated users can access their own data
-router.get('/employee/stats', getEmployeeStats);
 
 module.exports = router;

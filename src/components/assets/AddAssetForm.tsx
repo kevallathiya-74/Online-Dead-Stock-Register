@@ -68,7 +68,7 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ open, onClose, onSubmit }) 
     'Reception',
   ];
 
-  const conditions = ['Excellent', 'Good', 'Fair', 'Poor'];
+  const conditions = ['excellent', 'good', 'fair', 'poor', 'damaged'];
   const statuses = ['Active', 'Inactive', 'Maintenance'];
 
   const handleInputChange = (field: string, value: string) => {
@@ -321,12 +321,12 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ open, onClose, onSubmit }) 
                 {conditions.map((condition) => (
                   <MenuItem key={condition} value={condition}>
                     <Chip 
-                      label={condition} 
+                      label={condition.charAt(0).toUpperCase() + condition.slice(1)} 
                       size="small"
                       color={
-                        condition === 'Excellent' ? 'success' :
-                        condition === 'Good' ? 'primary' :
-                        condition === 'Fair' ? 'warning' : 'error'
+                        condition === 'excellent' ? 'success' :
+                        condition === 'good' ? 'primary' :
+                        condition === 'fair' ? 'warning' : 'error'
                       }
                     />
                   </MenuItem>

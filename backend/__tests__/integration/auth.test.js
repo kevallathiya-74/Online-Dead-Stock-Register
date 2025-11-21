@@ -36,7 +36,7 @@ describe('Auth API Integration Tests', () => {
         password: 'Test@1234',
         full_name: 'Test User',
         department: 'IT',
-        role: 'EMPLOYEE',
+        role: 'AUDITOR',
       };
 
       const response = await request(app)

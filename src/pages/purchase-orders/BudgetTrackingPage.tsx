@@ -212,7 +212,7 @@ const BudgetTrackingPage = () => {
                       Total Allocated
                     </Typography>
                     <Typography variant="h4">
-                      ₹{(totalAllocated / 10000000).toFixed(1)}Cr
+                      ₹{Number(totalAllocated || 0).toLocaleString('en-IN')}
                     </Typography>
                   </Box>
                   <BudgetIcon color="primary" sx={{ fontSize: 40 }} />
@@ -229,7 +229,7 @@ const BudgetTrackingPage = () => {
                       Total Spent
                     </Typography>
                     <Typography variant="h4" color="error.main">
-                      ₹{(totalSpent / 10000000).toFixed(1)}Cr
+                      ₹{Number(totalSpent || 0).toLocaleString('en-IN')}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {((totalSpent / totalAllocated) * 100).toFixed(1)}% utilized
@@ -249,7 +249,7 @@ const BudgetTrackingPage = () => {
                       Committed
                     </Typography>
                     <Typography variant="h4" color="warning.main">
-                      ₹{(totalCommitted / 1000000).toFixed(1)}L
+                      ₹{Number(totalCommitted || 0).toLocaleString('en-IN')}
                     </Typography>
                   </Box>
                   <CheckCircleIcon color="warning" sx={{ fontSize: 40 }} />
@@ -269,7 +269,7 @@ const BudgetTrackingPage = () => {
                       variant="h4" 
                       color={totalAvailable < 0 ? 'error.main' : 'success.main'}
                     >
-                      ₹{Math.abs(totalAvailable / 1000000).toFixed(1)}L
+                      ₹{Number(Math.abs(totalAvailable) || 0).toLocaleString('en-IN')}
                     </Typography>
                   </Box>
                   {totalAvailable >= 0 ? (
@@ -411,7 +411,7 @@ const BudgetTrackingPage = () => {
                               Allocated
                             </Typography>
                             <Typography variant="body2" fontWeight="medium">
-                              ₹{(category.allocatedAmount / 100000).toFixed(0)}L
+                              ₹{Number(category.allocatedAmount || 0).toLocaleString('en-IN')}
                             </Typography>
                           </Grid>
                           <Grid item xs={6}>
@@ -419,7 +419,7 @@ const BudgetTrackingPage = () => {
                               Spent
                             </Typography>
                             <Typography variant="body2" fontWeight="medium" color="error.main">
-                              ₹{(category.spentAmount / 100000).toFixed(0)}L
+                              ₹{Number(category.spentAmount || 0).toLocaleString('en-IN')}
                             </Typography>
                           </Grid>
                           <Grid item xs={6}>
@@ -427,7 +427,7 @@ const BudgetTrackingPage = () => {
                               Committed
                             </Typography>
                             <Typography variant="body2" fontWeight="medium" color="warning.main">
-                              ₹{(category.committedAmount / 100000).toFixed(0)}L
+                              ₹{Number(category.committedAmount || 0).toLocaleString('en-IN')}
                             </Typography>
                           </Grid>
                           <Grid item xs={6}>
@@ -439,7 +439,7 @@ const BudgetTrackingPage = () => {
                               fontWeight="medium"
                               color={category.availableAmount < 0 ? 'error.main' : 'success.main'}
                             >
-                              ₹{Math.abs(category.availableAmount / 100000).toFixed(0)}L
+                              ₹{Number(Math.abs(category.availableAmount) || 0).toLocaleString('en-IN')}
                             </Typography>
                           </Grid>
                         </Grid>

@@ -329,7 +329,7 @@ router.put(
       .isArray()
       .withMessage('Roles must be an array'),
     body('roles.*')
-      .isIn(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR', 'EMPLOYEE', 'VENDOR'])
+      .isIn(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR', 'VENDOR'])
       .withMessage('Invalid role in array'),
     handleValidationErrors,
   ],
