@@ -118,10 +118,7 @@ const Register = () => {
         toast.success('Registration successful! Please log in.');
         navigate('/login');
       }
-    } catch (error: any) {
-      console.error('Registration error:', error);
-      toast.error(error.message || 'Registration failed. Please try again.');
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setIsLoading(false);
     }
   };
@@ -137,8 +134,8 @@ const Register = () => {
         p: 2,
       }}
     >
-      <Card sx={{ maxWidth: 500, width: '100%' }}>
-        <CardContent sx={{ p: 4 }}>
+      <Card sx={{ maxWidth: { xs: '100%', sm: 500 }, width: '100%' }}>
+        <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
           <Box sx={{ mb: 4, textAlign: 'center' }}>
             <Typography variant="h4" component="h1" gutterBottom>
               Create Account

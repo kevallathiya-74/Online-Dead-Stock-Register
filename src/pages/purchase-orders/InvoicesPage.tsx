@@ -101,7 +101,6 @@ const InvoicesPage = () => {
       const data = response.data.data || response.data;
       setInvoices(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Error loading invoice data:', error);
       toast.error('Failed to load invoice data');
       setInvoices([]);
     } finally {
@@ -182,9 +181,7 @@ const InvoicesPage = () => {
       });
       toast.success(`Invoice ${invoice.invoice_number} approved for payment`);
       loadInvoiceData(); // Refresh the list
-    } catch (error) {
-      toast.error('Failed to approve invoice');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const handleMarkAsPaid = async (invoice: Invoice) => {
@@ -195,9 +192,7 @@ const InvoicesPage = () => {
       });
       toast.success(`Invoice ${invoice.invoice_number} marked as paid`);
       loadInvoiceData(); // Refresh the list
-    } catch (error) {
-      toast.error('Failed to mark invoice as paid');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const paidCount = invoices.filter(inv => inv.status === 'paid').length;
@@ -209,7 +204,7 @@ const InvoicesPage = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h4" component="h1">
             Invoice Management
@@ -233,7 +228,7 @@ const InvoicesPage = () => {
         </Box>
 
         {/* Summary Cards */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: 3 }}>
           <Grid item xs={12} sm={6} md={3}>
             <Card>
               <CardContent>
@@ -249,7 +244,7 @@ const InvoicesPage = () => {
                       ₹{totalPaidAmount.toLocaleString()}
                     </Typography>
                   </Box>
-                  <CheckCircleIcon color="success" sx={{ fontSize: 40 }} />
+                  <CheckCircleIcon color="success" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>
@@ -266,7 +261,7 @@ const InvoicesPage = () => {
                       {pendingCount}
                     </Typography>
                   </Box>
-                  <ScheduleIcon color="warning" sx={{ fontSize: 40 }} />
+                  <ScheduleIcon color="warning" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>
@@ -283,7 +278,7 @@ const InvoicesPage = () => {
                       {overdueCount}
                     </Typography>
                   </Box>
-                  <WarningIcon color="error" sx={{ fontSize: 40 }} />
+                  <WarningIcon color="error" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>
@@ -300,7 +295,7 @@ const InvoicesPage = () => {
                       {invoices.length}
                     </Typography>
                   </Box>
-                  <ReceiptIcon color="primary" sx={{ fontSize: 40 }} />
+                  <ReceiptIcon color="primary" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>

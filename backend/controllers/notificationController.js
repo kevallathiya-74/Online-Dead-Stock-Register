@@ -1,5 +1,6 @@
 const Notification = require('../models/notification');
 const User = require('../models/user');
+const logger = require('../utils/logger');
 
 // Get user notifications with pagination
 exports.getUserNotifications = async (req, res) => {
@@ -40,7 +41,6 @@ exports.getUserNotifications = async (req, res) => {
       }
     });
   } catch (error) {
-    const logger = require('../utils/logger');
     logger.error('Error fetching notifications:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch notifications' });
   }
@@ -57,7 +57,6 @@ exports.getUnreadCount = async (req, res) => {
 
     res.json({ success: true, data: { unread_count: unreadCount } });
   } catch (error) {
-    const logger = require('../utils/logger');
     logger.error('Error fetching unread count:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch unread count' });
   }
@@ -88,7 +87,6 @@ exports.markAsRead = async (req, res) => {
       message: 'Notification marked as read'
     });
   } catch (error) {
-    const logger = require('../utils/logger');
     logger.error('Error marking notification as read:', error);
     res.status(500).json({ success: false, message: 'Failed to mark notification as read' });
   }
@@ -109,7 +107,7 @@ exports.markAllAsRead = async (req, res) => {
 
     res.json({ message: 'All notifications marked as read' });
   } catch (error) {
-    console.error('Error marking all notifications as read:', error);
+    logger.error('Error marking all notifications as read:', error);
     res.status(500).json({ message: 'Failed to mark all notifications as read' });
   }
 };
@@ -131,7 +129,7 @@ exports.deleteNotification = async (req, res) => {
 
     res.json({ message: 'Notification deleted successfully' });
   } catch (error) {
-    console.error('Error deleting notification:', error);
+    logger.error('Error deleting notification:', error);
     res.status(500).json({ message: 'Failed to delete notification' });
   }
 };
@@ -148,7 +146,7 @@ exports.deleteAllRead = async (req, res) => {
 
     res.json({ message: 'All read notifications deleted successfully' });
   } catch (error) {
-    console.error('Error deleting read notifications:', error);
+    logger.error('Error deleting read notifications:', error);
     res.status(500).json({ message: 'Failed to delete read notifications' });
   }
 };
@@ -196,7 +194,7 @@ exports.createNotification = async (req, res) => {
       notification
     });
   } catch (error) {
-    console.error('Error creating notification:', error);
+    logger.error('Error creating notification:', error);
     res.status(500).json({ message: 'Failed to create notification' });
   }
 };
@@ -248,7 +246,7 @@ exports.createSystemNotification = async (req, res) => {
       count: recipients.length
     });
   } catch (error) {
-    console.error('Error creating system notification:', error);
+    logger.error('Error creating system notification:', error);
     res.status(500).json({ message: 'Failed to create system notification' });
   }
 };
@@ -272,7 +270,7 @@ exports.getNotificationTypes = async (req, res) => {
 
     res.json({ types });
   } catch (error) {
-    console.error('Error fetching notification types:', error);
+    logger.error('Error fetching notification types:', error);
     res.status(500).json({ message: 'Failed to fetch notification types' });
   }
 };

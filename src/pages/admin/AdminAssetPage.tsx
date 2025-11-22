@@ -146,10 +146,7 @@ const AdminAssetPage: React.FC = () => {
         _id: asset._id
       }));
       setAssets(mappedAssets);
-    } catch (error) {
-      console.error('Failed to load assets:', error);
-      toast.error('Failed to load assets');
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setLoading(false);
     }
   };
@@ -203,13 +200,10 @@ const AdminAssetPage: React.FC = () => {
         condition: newAsset.condition,
         status: 'Active'
       };
-
-      console.log('Creating asset via API:', assetData);
       
   // Call API to create asset
   const response = await api.post('/assets', assetData);
   const createdAsset = response.data.data || response.data;
-  console.log('Asset created successfully:', createdAsset);
 
   // Reload assets from server
   await loadAssets();
@@ -221,7 +215,6 @@ const AdminAssetPage: React.FC = () => {
   setQrCodeDialogOpen(true);
   toast.success(`Asset created successfully! ID: ${createdAsset?.unique_asset_id || ''}`);
     } catch (error: any) {
-      console.error('Failed to create asset:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to create asset';
       toast.error(errorMsg);
     }
@@ -239,7 +232,6 @@ const AdminAssetPage: React.FC = () => {
     if (!selectedAsset) return;
     
     try {
-      console.log('Deleting asset via API:', selectedAsset._id);
       
       // Call API to delete asset
       await api.delete(`/assets/${selectedAsset._id}`);
@@ -251,7 +243,6 @@ const AdminAssetPage: React.FC = () => {
       setDeleteConfirmOpen(false);
       setSelectedAsset(null);
     } catch (error: any) {
-      console.error('Failed to delete asset:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to delete asset';
       toast.error(errorMsg);
       setDeleteConfirmOpen(false);
@@ -289,8 +280,6 @@ const AdminAssetPage: React.FC = () => {
         condition: editAsset.condition,
         status: editAsset.status
       };
-
-      console.log('Updating asset via API:', selectedAsset.id, assetData);
       
       // Call API to update asset
       await api.put(`/assets/${selectedAsset.id}`, assetData);
@@ -302,7 +291,6 @@ const AdminAssetPage: React.FC = () => {
       setSelectedAsset(null);
       toast.success('Asset updated successfully');
     } catch (error: any) {
-      console.error('Failed to update asset:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to update asset';
       toast.error(errorMsg);
     }
@@ -333,7 +321,6 @@ const AdminAssetPage: React.FC = () => {
       case 'delete':
         if (window.confirm(`Are you sure you want to delete ${bulkSelected.length} assets?`)) {
           try {
-            console.log('Bulk deleting assets via API:', bulkSelected);
             
             // Call API to bulk delete assets
             await api.post('/assets/bulk-delete', { assetIds: bulkSelected });
@@ -344,7 +331,6 @@ const AdminAssetPage: React.FC = () => {
             setBulkSelected([]);
             toast.success(`${bulkSelected.length} assets deleted`);
           } catch (error: any) {
-            console.error('Failed to bulk delete assets:', error);
             const errorMsg = error.response?.data?.message || error.message || 'Failed to delete assets';
             toast.error(errorMsg);
           }
@@ -441,7 +427,7 @@ const AdminAssetPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ flexGrow: 1, p: 3 }}>
+      <Box sx={{ flexGrow: 1, p: { xs: 1, sm: 2, md: 3 } }}>
         {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box>

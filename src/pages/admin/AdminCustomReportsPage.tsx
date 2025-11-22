@@ -138,7 +138,6 @@ const AdminCustomReportsPage: React.FC = () => {
         setSavedReports(reports);
       }
     } catch (error) {
-      console.error('Error loading saved reports:', error);
       toast.error('Failed to load saved reports');
       setSavedReports([]);
     }
@@ -383,7 +382,7 @@ const AdminCustomReportsPage: React.FC = () => {
                 
                 <Card sx={{ maxHeight: 400, overflow: 'auto' }}>
                   {filters.length === 0 ? (
-                    <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <Box sx={{ p: { xs: 2, sm: 3 }, textAlign: 'center' }}>
                       <Typography variant="body2" color="text.secondary">
                         No filters added yet
                       </Typography>

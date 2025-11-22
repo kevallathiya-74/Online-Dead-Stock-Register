@@ -177,7 +177,6 @@ const BulkImportForm: React.FC<BulkImportFormProps> = ({ open, onClose, onSubmit
 
       toast.success(`Import completed: ${successCount} successful, ${warningCount} warnings, ${errorCount} errors`);
     } catch (error) {
-      console.error('Import failed:', error);
       setImporting(false);
       setImportStatus('error');
       toast.error('Failed to import assets');
@@ -230,7 +229,7 @@ const BulkImportForm: React.FC<BulkImportFormProps> = ({ open, onClose, onSubmit
       maxWidth="lg" 
       fullWidth
       PaperProps={{
-        sx: { minHeight: '700px' }
+        sx: { minHeight: { xs: '500px', sm: '600px', md: '700px' } }
       }}
     >
       <DialogTitle>

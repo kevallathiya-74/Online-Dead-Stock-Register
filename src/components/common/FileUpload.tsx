@@ -90,7 +90,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         sx={{
           border: '2px dashed #ccc',
           borderRadius: 2,
-          p: 3,
+          p: { xs: 2, sm: 3 },
           textAlign: 'center',
           cursor: 'pointer',
           mb: 2,

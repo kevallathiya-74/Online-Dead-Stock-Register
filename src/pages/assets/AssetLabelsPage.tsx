@@ -67,7 +67,6 @@ const AssetLabelsPage: React.FC = () => {
         toast.info('No assets found. Add assets first to generate labels.');
       }
     } catch (error: any) {
-      console.error('Failed to load assets:', error);
       toast.error(error.response?.data?.message || 'Failed to load assets');
       setAssets([]);
     } finally {
@@ -136,10 +135,7 @@ const AssetLabelsPage: React.FC = () => {
 
         toast.success(`${labelType.toUpperCase()} label generated and downloaded for: ${selectedAssetData.name || selectedAssetData.unique_asset_id}`);
       });
-    } catch (error) {
-      console.error('Failed to generate label:', error);
-      toast.error('Failed to generate label');
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setGenerating(false);
     }
   };
@@ -209,7 +205,6 @@ const AssetLabelsPage: React.FC = () => {
             
             QRCode.toCanvas(qrData, { width: qrSize, margin: 1 }, function (error, canvas) {
               if (error) {
-                console.error(error);
                 document.getElementById('qr-container').innerHTML = '<p>Failed to generate QR code</p>';
               } else {
                 document.getElementById('qr-container').appendChild(canvas);
@@ -326,10 +321,7 @@ const AssetLabelsPage: React.FC = () => {
       toast.success(`Successfully generated labels for ${activeAssets.length} assets. Print dialog will open automatically.`, {
         autoClose: 4000
       });
-    } catch (error) {
-      console.error('Failed to generate bulk labels:', error);
-      toast.error('Failed to generate bulk labels. Please try again.');
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setGenerating(false);
     }
   };
@@ -484,7 +476,7 @@ const AssetLabelsPage: React.FC = () => {
                     minHeight: 300,
                     bgcolor: 'grey.100',
                     borderRadius: 1,
-                    p: 3,
+                    p: { xs: 2, sm: 3 },
                   }}
                 >
                   {selectedAssetData ? (

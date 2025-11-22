@@ -87,7 +87,6 @@ const LabelsForm: React.FC<LabelsFormProps> = ({ open, onClose, onSubmit }) => {
         model: asset.model,
       })));
     } catch (error) {
-      console.error('Failed to load assets:', error);
       toast.error('Failed to load assets');
       setAvailableAssets([]);
     } finally {
@@ -115,7 +114,7 @@ const LabelsForm: React.FC<LabelsFormProps> = ({ open, onClose, onSubmit }) => {
     { value: 'custom', label: 'Custom Size', dimensions: 'Custom' },
   ];
 
-  const handleOptionChange = (field: string, value: any) => {
+  const handleOptionChange = (field: string, value: unknown) => {
     setLabelOptions(prev => ({
       ...prev,
       [field]: value
@@ -176,7 +175,7 @@ const LabelsForm: React.FC<LabelsFormProps> = ({ open, onClose, onSubmit }) => {
       maxWidth="lg" 
       fullWidth
       PaperProps={{
-        sx: { minHeight: '700px' }
+        sx: { minHeight: { xs: '500px', sm: '600px', md: '700px' } }
       }}
     >
       <DialogTitle>

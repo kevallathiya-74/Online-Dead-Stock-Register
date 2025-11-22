@@ -1,4 +1,5 @@
 const fs = require('fs');
+const logger = require('../utils/logger');
 const path = require('path');
 const Document = require('../models/document');
 const AuditLog = require('../models/auditLog');
@@ -55,7 +56,7 @@ exports.uploadDocuments = async (req, res) => {
       documents: uploadedFiles
     });
   } catch (error) {
-    console.error('Error uploading documents:', error);
+    logger.error('Error uploading documents:', error);
     // Clean up uploaded files if database save fails
     if (req.files) {
       req.files.forEach(file => {
@@ -130,7 +131,7 @@ exports.uploadAssetImages = async (req, res) => {
       images: uploadedImages
     });
   } catch (error) {
-    console.error('Error uploading asset images:', error);
+    logger.error('Error uploading asset images:', error);
     // Clean up uploaded files if database save fails
     if (req.files) {
       req.files.forEach(file => {
@@ -179,7 +180,7 @@ exports.downloadDocument = async (req, res) => {
     });
     await auditLog.save();
   } catch (error) {
-    console.error('Error downloading document:', error);
+    logger.error('Error downloading document:', error);
     res.status(500).json({ message: 'Failed to download document' });
   }
 };
@@ -227,7 +228,7 @@ exports.deleteDocument = async (req, res) => {
 
     res.json({ message: 'Document deleted successfully' });
   } catch (error) {
-    console.error('Error deleting document:', error);
+    logger.error('Error deleting document:', error);
     res.status(500).json({ message: 'Failed to delete document' });
   }
 };
@@ -259,7 +260,7 @@ exports.getAssetDocuments = async (req, res) => {
       }))
     });
   } catch (error) {
-    console.error('Error fetching asset documents:', error);
+    logger.error('Error fetching asset documents:', error);
     res.status(500).json({ message: 'Failed to fetch asset documents' });
   }
 };
@@ -303,7 +304,7 @@ exports.getUserDocuments = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching user documents:', error);
+    logger.error('Error fetching user documents:', error);
     res.status(500).json({ message: 'Failed to fetch user documents' });
   }
 };
@@ -325,7 +326,7 @@ exports.getDocumentTypes = async (req, res) => {
 
     res.json({ types });
   } catch (error) {
-    console.error('Error fetching document types:', error);
+    logger.error('Error fetching document types:', error);
     res.status(500).json({ message: 'Failed to fetch document types' });
   }
 };

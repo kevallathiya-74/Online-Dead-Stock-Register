@@ -112,11 +112,7 @@ const AdminSystemSettingsPage: React.FC = () => {
       const data = await settingsService.getSettings();
       setSettings(data);
       setLastUpdated(new Date());
-      if (!silent) {
-        toast.success('Settings loaded successfully');
-      }
     } catch (error) {
-      console.error('Failed to load system settings:', error);
       if (!silent) {
         toast.error('Failed to load system settings');
       }
@@ -130,7 +126,6 @@ const AdminSystemSettingsPage: React.FC = () => {
       const categories = await settingsService.getAccessibleCategories();
       setAccessibleCategories(categories);
     } catch (error) {
-      console.error('Failed to load accessible categories:', error);
       // Default to empty if error
       setAccessibleCategories([]);
     }
@@ -170,7 +165,6 @@ const AdminSystemSettingsPage: React.FC = () => {
       // Reload to ensure consistency
       await loadSystemConfiguration(true);
     } catch (error: any) {
-      console.error('Failed to update setting:', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.errors?.[0]?.message || 'Failed to update setting';
       toast.error(errorMessage);
     } finally {
@@ -198,7 +192,6 @@ const AdminSystemSettingsPage: React.FC = () => {
       
       toast.success(`${label} ${newValue ? 'enabled' : 'disabled'}`);
     } catch (error: any) {
-      console.error('Failed to update setting:', error);
       const errorMessage = error.response?.data?.message || error.response?.data?.errors?.[0]?.message || 'Failed to update setting';
       toast.error(errorMessage);
     } finally {

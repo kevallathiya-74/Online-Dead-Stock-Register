@@ -32,7 +32,6 @@ const FilterPresets: React.FC<FilterPresetsProps> = ({ onApplyPreset }) => {
       });
       setPresets(response.data.presets);
     } catch (error) {
-      console.error('Error fetching presets:', error);
     } finally {
       setIsLoading(false);
     }

@@ -116,10 +116,7 @@ const AdminReportsPage: React.FC = () => {
       const response = await api.get('/reports');
       const reportsData = response.data.data || response.data;
       setReports(reportsData);
-    } catch (error) {
-      console.error('Failed to load reports:', error);
-      toast.error('Failed to load reports');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const getReportIcon = (type: string) => {
@@ -180,7 +177,6 @@ const AdminReportsPage: React.FC = () => {
       // Reload reports to get updated lastRun timestamp
       loadReports();
     } catch (error) {
-      console.error('Failed to run report:', error);
       setIsRunning(false);
       setSelectedReport(null);
       toast.error('Failed to generate report');

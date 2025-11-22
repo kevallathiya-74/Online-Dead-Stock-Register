@@ -153,9 +153,8 @@ const InventoryManagerDashboard = () => {
         } else {
           throw new Error('Failed to fetch dashboard data');
         }
-      } catch (err: any) {
-        console.error('Error fetching inventory dashboard:', err);
-        setError(err.response?.data?.error || 'Failed to load dashboard data');
+      } catch (err: unknown) {
+        setError((err as any).response?.data?.error || 'Failed to load dashboard data');
         toast.error('Failed to load dashboard data');
       } finally {
         setLoading(false);
@@ -434,7 +433,7 @@ const InventoryManagerDashboard = () => {
                       <ListItemText
                         primary={
                           <Box display="flex" alignItems="center" gap={1}>
-                            <Typography variant="body2">{approval.type}</Typography>
+                            <Typography variant="body2" component="div">{approval.type}</Typography>
                             <Chip 
                               label={approval.priority} 
                               size="small" 
@@ -444,15 +443,17 @@ const InventoryManagerDashboard = () => {
                         }
                         secondary={
                           <Box>
-                            <Typography variant="caption" display="block">
+                            <Typography variant="caption" display="block" component="div">
                               {approval.description || 'No description'} 
                               {approval.amount ? ` • ₹${approval.amount.toLocaleString('en-IN')}` : ''}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" color="text.secondary" component="div">
                               by {approval.requestor} • {approval.daysAgo} days ago
                             </Typography>
                           </Box>
                         }
+                        primaryTypographyProps={{ component: 'div' }}
+                        secondaryTypographyProps={{ component: 'div' }}
                       />
                     </ListItem>
                   ))}
@@ -495,14 +496,16 @@ const InventoryManagerDashboard = () => {
                         primary={vendor.name}
                         secondary={
                           <Box>
-                            <Typography variant="caption" display="block">
+                            <Typography variant="caption" display="block" component="div">
                               Orders: {vendor.orders} • Value: ₹{typeof vendor.value === 'number' ? vendor.value.toLocaleString('en-IN') : '0'}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" color="text.secondary" component="div">
                               Rating: {vendor.rating}/5 ⭐
                             </Typography>
                           </Box>
                         }
+                        primaryTypographyProps={{ component: 'div' }}
+                        secondaryTypographyProps={{ component: 'div' }}
                       />
                     </ListItem>
                   ))}
@@ -602,7 +605,7 @@ const InventoryManagerDashboard = () => {
                       <ListItemText
                         primary={
                           <Box display="flex" alignItems="center" gap={1}>
-                            <Typography variant="body2">{item.asset}</Typography>
+                            <Typography variant="body2" component="div">{item.asset}</Typography>
                             <Chip 
                               label={item.type} 
                               size="small" 
@@ -612,14 +615,16 @@ const InventoryManagerDashboard = () => {
                         }
                         secondary={
                           <Box>
-                            <Typography variant="caption" display="block">
+                            <Typography variant="caption" display="block" component="div">
                               Scheduled: {new Date(item.scheduledDate).toLocaleDateString('en-IN')}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" color="text.secondary" component="div">
                               Technician: {item.technician}
                             </Typography>
                           </Box>
                         }
+                        primaryTypographyProps={{ component: 'div' }}
+                        secondaryTypographyProps={{ component: 'div' }}
                       />
                     </ListItem>
                   ))}

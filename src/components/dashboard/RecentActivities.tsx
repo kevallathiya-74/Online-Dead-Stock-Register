@@ -106,13 +106,14 @@ const RecentActivities = ({ activities }: RecentActivitiesProps) => {
               </ListItemAvatar>
               <ListItemText
                 primary={
-                  <Typography variant="subtitle2">{activity.title}</Typography>
+                  <Typography variant="subtitle2" component="div">{activity.title}</Typography>
                 }
                 secondary={
                   <Box>
                     <Typography
                       variant="body2"
                       color="text.secondary"
+                      component="div"
                       sx={{ mb: 0.5 }}
                     >
                       {activity.description}
@@ -124,10 +125,10 @@ const RecentActivities = ({ activities }: RecentActivitiesProps) => {
                         gap: 1,
                       }}
                     >
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary" component="span">
                         by {activity.user}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary" component="span">
                         •
                       </Typography>
                       <Tooltip
@@ -136,13 +137,15 @@ const RecentActivities = ({ activities }: RecentActivitiesProps) => {
                           'MMM d, yyyy HH:mm'
                         )}
                       >
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" color="text.secondary" component="span">
                           {format(new Date(activity.timestamp), 'MMM d, HH:mm')}
                         </Typography>
                       </Tooltip>
                     </Box>
                   </Box>
                 }
+                primaryTypographyProps={{ component: 'div' }}
+                secondaryTypographyProps={{ component: 'div' }}
               />
             </ListItem>
           ))}

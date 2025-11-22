@@ -61,9 +61,8 @@ const CompliancePage: React.FC = () => {
       setError(null);
       const data = await auditorService.getComplianceMetrics();
       setMetrics(data);
-    } catch (err: any) {
-      console.error('Error fetching compliance metrics:', err);
-      setError(err.response?.data?.message || 'Failed to load compliance metrics');
+    } catch (err: unknown) {
+      setError((err as any).response?.data?.message || 'Failed to load compliance metrics');
     } finally {
       setLoading(false);
     }
@@ -173,7 +172,7 @@ const CompliancePage: React.FC = () => {
         </Box>
 
         {/* Overall Score Card */}
-        <Paper sx={{ p: 4, mb: 4, textAlign: 'center' }}>
+        <Paper sx={{ p: { xs: 2, sm: 3, md: 4 }, mb: { xs: 2, sm: 3, md: 4 }, textAlign: 'center' }}>
           <Grid container spacing={3} alignItems="center">
             <Grid item xs={12} md={4}>
               <Box>
@@ -259,7 +258,7 @@ const CompliancePage: React.FC = () => {
         <Divider sx={{ my: 4 }} />
 
         {/* Trend Chart */}
-        <Paper sx={{ p: 3 }}>
+        <Paper sx={{ p: { xs: 2, sm: 3 } }}>
           <Typography variant="h6" gutterBottom fontWeight="bold">
             Compliance Trend (Last 12 Months)
           </Typography>
@@ -272,7 +271,7 @@ const CompliancePage: React.FC = () => {
         </Paper>
 
         {/* Recommendations */}
-        <Paper sx={{ p: 3, mt: 4, bgcolor: 'info.light' }}>
+        <Paper sx={{ p: { xs: 2, sm: 3 }, mt: { xs: 2, sm: 3, md: 4 }, bgcolor: 'info.light' }}>
           <Typography variant="h6" gutterBottom fontWeight="bold">
             Recommendations
           </Typography>

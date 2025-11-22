@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../middleware/authMiddleware');
 const assetRequestController = require('../controllers/assetRequestController');
+const { validateObjectId } = require('../middleware/objectIdValidator');
 
 // Apply auth middleware to all routes
 router.use(authMiddleware);
@@ -17,13 +18,13 @@ router.get('/my-stats', assetRequestController.getAssetRequestStats);
 router.post('/', assetRequestController.createAssetRequest);
 
 // Get specific asset request by ID
-router.get('/:id', assetRequestController.getAssetRequestById);
+router.get('/:id', validateObjectId('id'), assetRequestController.getAssetRequestById);
 
 // Update asset request (only for pending requests)
-router.put('/:id', assetRequestController.updateAssetRequest);
+router.put('/:id', validateObjectId('id'), assetRequestController.updateAssetRequest);
 
 // Cancel asset request
-router.put('/:id/cancel', assetRequestController.cancelAssetRequest);
+router.put('/:id/cancel', validateObjectId('id'), assetRequestController.cancelAssetRequest);
 
 // Admin/Inventory Manager routes
 // Get all asset requests (requires elevated permissions)

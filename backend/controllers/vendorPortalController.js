@@ -1,4 +1,5 @@
 const PurchaseOrder = require('../models/purchaseOrder');
+const logger = require('../utils/logger');
 const Asset = require('../models/asset');
 const Vendor = require('../models/vendor');
 const mongoose = require('mongoose');
@@ -93,7 +94,7 @@ const getVendorStats = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching vendor stats:', error);
+    logger.error('Error fetching vendor stats:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Failed to fetch vendor statistics',
@@ -139,7 +140,7 @@ const getRecentOrders = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching recent orders:', error);
+    logger.error('Error fetching recent orders:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Failed to fetch recent orders',
@@ -238,7 +239,7 @@ const getAllOrders = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching all orders:', error);
+    logger.error('Error fetching all orders:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Failed to fetch orders',
@@ -284,7 +285,7 @@ const getOrderById = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching order details:', error);
+    logger.error('Error fetching order details:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Failed to fetch order details',
@@ -376,7 +377,7 @@ const getProducts = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching products:', error);
+    logger.error('Error fetching products:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Failed to fetch products',
@@ -463,7 +464,7 @@ const getInvoices = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching invoices:', error);
+    logger.error('Error fetching invoices:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Failed to fetch invoices',
@@ -529,7 +530,7 @@ const getProfile = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching vendor profile:', error);
+    logger.error('Error fetching vendor profile:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Failed to fetch vendor profile',
@@ -578,7 +579,7 @@ const updateProfile = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error updating vendor profile:', error);
+    logger.error('Error updating vendor profile:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Failed to update vendor profile',

@@ -56,7 +56,6 @@ const FilterResultsPreview: React.FC<FilterResultsPreviewProps> = ({
       setTotalCount(response.data.pagination.total);
       setTotalPages(response.data.pagination.pages);
     } catch (error) {
-      console.error('Error fetching filtered results:', error);
     } finally {
       setIsLoading(false);
     }
@@ -85,7 +84,6 @@ const FilterResultsPreview: React.FC<FilterResultsPreviewProps> = ({
         onExport(format);
       }
     } catch (error) {
-      console.error('Error exporting data:', error);
       alert('Failed to export data');
     }
   };

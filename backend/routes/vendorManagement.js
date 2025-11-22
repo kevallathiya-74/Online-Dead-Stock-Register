@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../middleware/authMiddleware');
 const vendorManagementController = require('../controllers/vendorManagementController');
+const { validateObjectId } = require('../middleware/objectIdValidator');
 
 // Apply auth middleware to all routes
 router.use(authMiddleware);
@@ -26,21 +27,21 @@ router.get('/dashboard/stats', requireInventoryAccess, vendorManagementControlle
 router.get('/category/:category', vendorManagementController.getVendorsByCategory);
 
 // Get vendor performance metrics - specific route before generic :id
-router.get('/:id/performance', vendorManagementController.getVendorPerformance);
+router.get('/:id/performance', validateObjectId('id'), vendorManagementController.getVendorPerformance);
 
 // Get vendor by ID with performance metrics - MUST be last among GET routes
-router.get('/:id', vendorManagementController.getVendorById);
+router.get('/:id', validateObjectId('id'), vendorManagementController.getVendorById);
 
 // Create new vendor
 router.post('/', requireInventoryAccess, vendorManagementController.createVendor);
 
 // Update vendor
-router.put('/:id', requireInventoryAccess, vendorManagementController.updateVendor);
+router.put('/:id', requireInventoryAccess, validateObjectId('id'), vendorManagementController.updateVendor);
 
 // Update vendor performance rating
-router.put('/:id/rating', requireInventoryAccess, vendorManagementController.updateVendorRating);
+router.put('/:id/rating', requireInventoryAccess, validateObjectId('id'), vendorManagementController.updateVendorRating);
 
 // Delete vendor (soft delete)
-router.delete('/:id', requireInventoryAccess, vendorManagementController.deleteVendor);
+router.delete('/:id', requireInventoryAccess, validateObjectId('id'), vendorManagementController.deleteVendor);
 
 module.exports = router;

@@ -3,7 +3,7 @@
  * Manages real-time asset updates and notifications across components
  */
 
-type AssetUpdateListener = (assetId: string, updateData?: any) => void;
+type AssetUpdateListener = (assetId: string, updateData?: Record<string, unknown>) => void;
 
 class AssetUpdateService {
   private listeners: Map<string, Set<AssetUpdateListener>> = new Map();
@@ -19,8 +19,6 @@ class AssetUpdateService {
     
     this.listeners.get(assetId)!.add(callback);
     
-    console.log(`🔔 Subscribed to asset updates: ${assetId}`);
-    
     // Return unsubscribe function
     return () => {
       const listeners = this.listeners.get(assetId);
@@ -30,7 +28,6 @@ class AssetUpdateService {
           this.listeners.delete(assetId);
         }
       }
-      console.log(`🔕 Unsubscribed from asset updates: ${assetId}`);
     };
   }
 
@@ -39,20 +36,17 @@ class AssetUpdateService {
    */
   subscribeGlobal(callback: AssetUpdateListener): () => void {
     this.globalListeners.add(callback);
-    console.log('🔔 Subscribed to all asset updates');
     
     // Return unsubscribe function
     return () => {
       this.globalListeners.delete(callback);
-      console.log('🔕 Unsubscribed from all asset updates');
     };
   }
 
   /**
    * Notify that an asset has been updated
    */
-  notifyUpdate(assetId: string, updateData?: any): void {
-    console.log(`📢 Asset update notification: ${assetId}`, updateData);
+  notifyUpdate(assetId: string, updateData?: Record<string, unknown>): void {
     
     // Notify specific asset listeners
     const assetListeners = this.listeners.get(assetId);
@@ -61,7 +55,6 @@ class AssetUpdateService {
         try {
           callback(assetId, updateData);
         } catch (error) {
-          console.error('Error in asset update listener:', error);
         }
       });
     }
@@ -71,7 +64,6 @@ class AssetUpdateService {
       try {
         callback(assetId, updateData);
       } catch (error) {
-        console.error('Error in global update listener:', error);
       }
     });
 
@@ -85,8 +77,7 @@ class AssetUpdateService {
   /**
    * Notify after audit completion
    */
-  notifyAuditComplete(assetId: string, auditData: any): void {
-    console.log(`✅ Audit completed for asset: ${assetId}`, auditData);
+  notifyAuditComplete(assetId: string, auditData: Record<string, unknown>): void {
     this.notifyUpdate(assetId, {
       type: 'audit_completed',
       audit: auditData,

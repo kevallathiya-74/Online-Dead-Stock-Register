@@ -81,9 +81,8 @@ const AuditListPage: React.FC = () => {
       const data = await auditorService.getAuditItems();
       setAuditItems(data);
       setFilteredItems(data);
-    } catch (err: any) {
-      console.error('Error fetching audit items:', err);
-      setError(err.response?.data?.message || 'Failed to load audit items');
+    } catch (err: unknown) {
+      setError((err as any).response?.data?.message || 'Failed to load audit items');
     } finally {
       setLoading(false);
     }
@@ -164,9 +163,8 @@ const AuditListPage: React.FC = () => {
       toast.success('Audit status updated successfully');
       handleEditClose();
       fetchAuditItems();
-    } catch (err: any) {
-      console.error('Error updating audit status:', err);
-      toast.error(err.response?.data?.message || 'Failed to update audit status');
+    } catch (err: unknown) {
+      toast.error((err as any).response?.data?.message || 'Failed to update audit status');
     }
   };
 
@@ -184,7 +182,6 @@ const AuditListPage: React.FC = () => {
       URL.revokeObjectURL(url);
       toast.success('Audit report exported successfully as CSV');
     } catch (err) {
-      console.error('Export error:', err);
       toast.error('Failed to export audit report');
     }
   };
@@ -256,9 +253,8 @@ const AuditListPage: React.FC = () => {
           handleImportClose();
         }, 2000);
       }
-    } catch (err: any) {
-      console.error('Import error:', err);
-      const errorMsg = err.response?.data?.message || 'Failed to import data';
+    } catch (err: unknown) {
+      const errorMsg = (err as any).response?.data?.message || 'Failed to import data';
       setImportErrors([errorMsg]);
       toast.error(errorMsg);
     } finally {
@@ -543,7 +539,7 @@ const AuditListPage: React.FC = () => {
                   border: '2px dashed',
                   borderColor: importFile ? 'primary.main' : 'grey.300',
                   borderRadius: 2,
-                  p: 3,
+                  p: { xs: 2, sm: 3 },
                   textAlign: 'center',
                   backgroundColor: importFile ? 'primary.50' : 'grey.50',
                   cursor: 'pointer',

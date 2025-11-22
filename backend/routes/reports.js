@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
 const reportsController = require('../controllers/reportsController');
+const { validateObjectId } = require('../middleware/objectIdValidator');
 
 // ========================================
 // REPORT ROUTES
@@ -49,6 +50,7 @@ router.post(
 router.get(
   '/:id/download',
   requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR']),
+  validateObjectId('id'),
   reportsController.downloadReport
 );
 

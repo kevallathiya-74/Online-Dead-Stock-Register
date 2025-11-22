@@ -95,7 +95,7 @@ class ScrapService {
   /**
    * Approve a scrap item
    */
-  async approveScrapItem(id: string): Promise<{ success: boolean; message: string; data: any }> {
+  async approveScrapItem(id: string): Promise<{ success: boolean; message: string; data: ScrapItem }> {
     const response = await api.post(API_ENDPOINTS.INVENTORY.SCRAP_APPROVE(id));
     return response.data;
   }

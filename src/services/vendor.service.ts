@@ -77,7 +77,6 @@ class VendorService {
       }
       throw new Error(response.data.error || 'Failed to fetch vendors');
     } catch (error) {
-      console.error('Error fetching vendors:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch vendors';
       throw new Error(errorMessage);
     }
@@ -92,7 +91,6 @@ class VendorService {
       }
       throw new Error(response.data.error || 'Failed to fetch vendor');
     } catch (error) {
-      console.error('Error fetching vendor:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch vendor';
       throw new Error(errorMessage);
     }
@@ -107,7 +105,6 @@ class VendorService {
       }
       throw new Error(response.data.error || 'Failed to create vendor');
     } catch (error) {
-      console.error('Error creating vendor:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to create vendor';
       throw new Error(errorMessage);
     }
@@ -122,7 +119,6 @@ class VendorService {
       }
       throw new Error(response.data.error || 'Failed to update vendor');
     } catch (error) {
-      console.error('Error updating vendor:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to update vendor';
       throw new Error(errorMessage);
     }
@@ -136,7 +132,6 @@ class VendorService {
         throw new Error(response.data.error || 'Failed to delete vendor');
       }
     } catch (error) {
-      console.error('Error deleting vendor:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to delete vendor';
       throw new Error(errorMessage);
     }
@@ -151,7 +146,6 @@ class VendorService {
       }
       throw new Error(response.data.error || 'Failed to fetch vendor statistics');
     } catch (error) {
-      console.error('Error fetching vendor statistics:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch vendor statistics';
       throw new Error(errorMessage);
     }
@@ -168,7 +162,6 @@ class VendorService {
         throw new Error(response.data.error || 'Failed to update vendor status');
       }
     } catch (error) {
-      console.error('Error updating vendor status:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to update vendor status';
       throw new Error(errorMessage);
     }

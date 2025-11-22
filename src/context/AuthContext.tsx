@@ -48,7 +48,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(null);
         }
       } catch (error) {
-        console.error('Auth check failed:', error);
         localStorage.removeItem('token');
         setUser(null);
       } finally {
@@ -114,7 +113,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(null);
       toast.success('Logged out successfully');
     } catch (error: any) {
-      console.error('Logout error:', error);
       toast.error('Logout failed');
       throw error;
     } finally {
@@ -150,7 +148,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(userData);
       }
     } catch (error) {
-      console.error('Error refreshing user:', error);
     }
   };
 

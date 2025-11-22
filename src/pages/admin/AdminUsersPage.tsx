@@ -122,15 +122,12 @@ const AdminUsersPage: React.FC = () => {
     try {
       const response = await api.get('/users');
       const userData = response.data.data || response.data;
-      const mappedUsers = userData.map((user: any) => ({
+      const mappedUsers = userData.map((user: Record<string, unknown>) => ({
         ...user,
         _id: user._id
       }));
       setUsers(mappedUsers);
-    } catch (error) {
-      console.error('Failed to load users:', error);
-      toast.error('Failed to load users');
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setLoading(false);
     }
   };
@@ -181,12 +178,9 @@ const AdminUsersPage: React.FC = () => {
         is_active: true,
         password: 'Password@123' // Default password
       };
-
-      console.log('Creating user via API:', userData);
       
       // Call API to create user
       const response = await api.post('/users', userData);
-      console.log('User created successfully:', response.data);
       
       // Reload users from server
       await loadUsers();
@@ -204,7 +198,6 @@ const AdminUsersPage: React.FC = () => {
       
       toast.success(`User added successfully! Employee ID: ${response.data.data.employee_id}`);
     } catch (error: any) {
-      console.error('Failed to add user:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to add user';
       toast.error(errorMsg);
     }
@@ -240,8 +233,6 @@ const AdminUsersPage: React.FC = () => {
         location: newUser.location,
         manager: newUser.manager
       };
-
-      console.log('Updating user via API:', selectedUser._id, userData);
       
       // Call API to update user
       await api.put(`/users/${selectedUser._id}`, userData);
@@ -253,7 +244,6 @@ const AdminUsersPage: React.FC = () => {
       setSelectedUser(null);
       toast.success('User updated successfully');
     } catch (error: any) {
-      console.error('Failed to update user:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to update user';
       toast.error(errorMsg);
     }
@@ -262,7 +252,6 @@ const AdminUsersPage: React.FC = () => {
   const handleDeleteUser = async (userId: string) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
-        console.log('Deleting user via API:', userId);
         
         // Call API to delete user
         await api.delete(`/users/${userId}`);
@@ -272,7 +261,6 @@ const AdminUsersPage: React.FC = () => {
         
         toast.success('User deleted successfully');
       } catch (error: any) {
-        console.error('Failed to delete user:', error);
         const errorMsg = error.response?.data?.message || error.message || 'Failed to delete user';
         toast.error(errorMsg);
       }
@@ -283,8 +271,6 @@ const AdminUsersPage: React.FC = () => {
     try {
       const user = users.find(u => u._id === userId);
       if (!user) return;
-
-      console.log('Toggling user status via API:', userId);
       
       // Call API to update user status
       await api.put(`/users/${userId}`, {
@@ -296,7 +282,6 @@ const AdminUsersPage: React.FC = () => {
       
       toast.success('User status updated');
     } catch (error: any) {
-      console.error('Failed to update user status:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to update user status';
       toast.error(errorMsg);
     }

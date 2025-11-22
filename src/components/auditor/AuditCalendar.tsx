@@ -45,7 +45,6 @@ const AuditCalendar: React.FC<AuditCalendarProps> = ({ onSelectAudit, onCreateNe
       });
       setAudits(response.data.scheduled_audits);
     } catch (error) {
-      console.error('Error fetching audits:', error);
     } finally {
       setIsLoading(false);
     }

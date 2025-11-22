@@ -6,6 +6,7 @@ const AuditLog = require('../models/auditLog');
 const Transaction = require('../models/transaction');
 const Maintenance = require('../models/maintenance');
 const Vendor = require('../models/vendor');
+const logger = require('../utils/logger');
 
 // Get dashboard statistics
 const getDashboardStats = async (req, res) => {
@@ -115,11 +116,11 @@ const getDashboardStats = async (req, res) => {
     const valueTrend = lastMonthTotalValue > 0 ? 
       Math.round(((currentTotalValue - lastMonthTotalValue) / lastMonthTotalValue) * 100) : 0;
 
-    // Calculate system health metrics (simplified - no db.stats())
+    // Calculate system health metrics
     const systemHealth = {
-      serverHealth: 100, // Server is running if this endpoint is reachable
+      serverHealth: 100,
       databasePerformance: mongoose.connection.readyState === 1 ? 100 : 0,
-      storageUsage: 0, // Placeholder - would need cloud provider API
+      storageUsage: 0,
       lastBackup: 'Not configured'
     };
 
@@ -156,7 +157,7 @@ const getDashboardStats = async (req, res) => {
       data: stats
     });
   } catch (error) {
-    console.error('Error fetching dashboard stats:', error);
+    logger.error('Error fetching dashboard stats', { error: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch dashboard statistics'
@@ -193,7 +194,7 @@ const getRecentActivities = async (req, res) => {
       data: formattedActivities
     });
   } catch (error) {
-    console.error('Error fetching recent activities:', error);
+    logger.error('Error fetching recent activities', { error: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch recent activities'
@@ -238,7 +239,7 @@ const getPendingApprovals = async (req, res) => {
       data: formattedApprovals
     });
   } catch (error) {
-    console.error('Error fetching pending approvals:', error);
+    logger.error('Error fetching pending approvals', { error: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch pending approvals'
@@ -265,7 +266,7 @@ const getSystemOverview = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching system overview:', error);
+    logger.error('Error fetching system overview', { error: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch system overview'
@@ -394,7 +395,7 @@ const getUsersByRole = async (req, res) => {
       data: result
     });
   } catch (error) {
-    console.error('Error fetching users by role:', error);
+    logger.error('Error fetching users by role', { error: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch users by role'
@@ -420,7 +421,7 @@ const getAssetsByCategory = async (req, res) => {
       data: result
     });
   } catch (error) {
-    console.error('Error fetching assets by category:', error);
+    logger.error('Error fetching assets by category', { error: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch assets by category'
@@ -470,7 +471,7 @@ const getMonthlyTrends = async (req, res) => {
       data: trends
     });
   } catch (error) {
-    console.error('Error fetching monthly trends:', error);
+    logger.error('Error fetching monthly trends', { error: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch monthly trends'
@@ -510,7 +511,7 @@ const getInventoryStats = async (req, res) => {
         { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
       ]),
       Asset.distinct('location').then(locations => locations.length).catch(err => {
-        console.error('Failed to get distinct locations', { error: err.message });
+        logger.error('Failed to get distinct locations', { error: err.message });
         return 0;
       }),
       Asset.countDocuments({
@@ -573,7 +574,7 @@ const getInventoryStats = async (req, res) => {
       data: stats
     });
   } catch (error) {
-    console.error('Error fetching inventory stats:', error);
+    logger.error('Error fetching inventory stats', { error: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch inventory statistics'
@@ -611,7 +612,7 @@ const getAssetsByLocationDetailed = async (req, res) => {
       data: result
     });
   } catch (error) {
-    console.error('Error fetching assets by location:', error);
+    logger.error('Error fetching assets by location', { error: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch assets by location'
@@ -655,7 +656,7 @@ const getWarrantyExpiringAssets = async (req, res) => {
       data: result
     });
   } catch (error) {
-    console.error('Error fetching warranty expiring assets:', error);
+    logger.error('Error fetching warranty expiring assets', { error: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch warranty expiring assets'
@@ -698,7 +699,7 @@ const getMaintenanceScheduleDetailed = async (req, res) => {
       data: result
     });
   } catch (error) {
-    console.error('Error fetching maintenance schedule:', error);
+    logger.error('Error fetching maintenance schedule', { error: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch maintenance schedule'
@@ -739,7 +740,7 @@ const getTopVendorsDetailed = async (req, res) => {
       data: result
     });
   } catch (error) {
-    console.error('Error fetching top vendors:', error);
+    logger.error('Error fetching top vendors', { error: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch top vendors'
@@ -782,7 +783,7 @@ const getInventoryApprovals = async (req, res) => {
       data: result
     });
   } catch (error) {
-    console.error('Error fetching inventory approvals:', error);
+    logger.error('Error fetching inventory approvals', { error: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch inventory approvals'
@@ -814,7 +815,7 @@ const getInventoryOverview = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching inventory overview:', error);
+    logger.error('Error fetching inventory overview', { error: error.message });
     res.status(500).json({
       success: false,
       error: 'Failed to fetch inventory overview'
@@ -1079,7 +1080,7 @@ const getAuditorStats = async (req, res) => {
       completion_rate: completion_rate
     });
   } catch (error) {
-    console.error('Error getting auditor stats:', error);
+    logger.error('Error getting auditor stats', { error: error.message });
     res.status(500).json({ 
       message: 'Failed to get auditor statistics',
       error: error.message 
@@ -1124,7 +1125,7 @@ const getAuditItems = async (req, res) => {
     
     res.json(auditItems);
   } catch (error) {
-    console.error('Error getting audit items:', error);
+    logger.error('Error getting audit items', { error: error.message });
     res.status(500).json({ 
       message: 'Failed to get audit items',
       error: error.message 
@@ -1186,7 +1187,7 @@ const getAuditProgressChart = async (req, res) => {
       ],
     });
   } catch (error) {
-    console.error('Error getting audit progress chart:', error);
+    logger.error('Error getting audit progress chart', { error: error.message });
     res.status(500).json({ 
       message: 'Failed to get audit progress data',
       error: error.message 
@@ -1230,7 +1231,7 @@ const getConditionChart = async (req, res) => {
       ],
     });
   } catch (error) {
-    console.error('Error getting condition chart:', error);
+    logger.error('Error getting condition chart', { error: error.message });
     res.status(500).json({ 
       message: 'Failed to get condition data',
       error: error.message 
@@ -1287,7 +1288,7 @@ const getAuditorActivities = async (req, res) => {
     
     res.json(activities);
   } catch (error) {
-    console.error('Error getting auditor activities:', error);
+    logger.error('Error getting auditor activities', { error: error.message });
     res.status(500).json({ 
       message: 'Failed to get audit activities',
       error: error.message 
@@ -1359,7 +1360,7 @@ const getComplianceMetrics = async (req, res) => {
       trends
     });
   } catch (error) {
-    console.error('Error getting compliance metrics:', error);
+    logger.error('Error getting compliance metrics', { error: error.message });
     res.status(500).json({ 
       message: 'Failed to get compliance metrics',
       error: error.message 

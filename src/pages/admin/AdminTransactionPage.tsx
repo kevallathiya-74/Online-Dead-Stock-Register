@@ -156,10 +156,7 @@ const AdminTransactionPage: React.FC = () => {
       const response = await api.get('/transactions');
       const transactionData = response.data.data || response.data;
       setTransactions(transactionData);
-    } catch (error) {
-      console.error('Failed to load transactions:', error);
-      toast.error('Failed to load transactions');
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setLoading(false);
     }
   };
@@ -251,12 +248,9 @@ const AdminTransactionPage: React.FC = () => {
         priority: newTransaction.priority,
         notes: `${newTransaction.description}. ${newTransaction.notes}`.trim()
       };
-
-      console.log('Creating transaction via API:', transactionData);
       
       // Call API to create transaction
       const response = await api.post('/transactions', transactionData);
-      console.log('Transaction created successfully:', response.data);
       
       // Reload transactions from server
       await loadTransactions();
@@ -273,7 +267,6 @@ const AdminTransactionPage: React.FC = () => {
       });
       toast.success('Transaction created successfully');
     } catch (error: any) {
-      console.error('Failed to create transaction:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to create transaction';
       toast.error(errorMsg);
     }
@@ -284,7 +277,6 @@ const AdminTransactionPage: React.FC = () => {
     switch (action) {
       case 'complete':
         try {
-          console.log('Bulk completing transactions via API:', bulkSelected);
           
           // Call API to bulk update transaction status
           await api.post('/transactions/bulk-update', { 
@@ -297,14 +289,12 @@ const AdminTransactionPage: React.FC = () => {
           
           toast.success(`${bulkSelected.length} transactions completed`);
         } catch (error: any) {
-          console.error('Failed to complete transactions:', error);
           const errorMsg = error.response?.data?.message || error.message || 'Failed to complete transactions';
           toast.error(errorMsg);
         }
         break;
       case 'cancel':
         try {
-          console.log('Bulk cancelling transactions via API:', bulkSelected);
           
           // Call API to bulk update transaction status
           await api.post('/transactions/bulk-update', { 
@@ -317,7 +307,6 @@ const AdminTransactionPage: React.FC = () => {
           
           toast.success(`${bulkSelected.length} transactions cancelled`);
         } catch (error: any) {
-          console.error('Failed to cancel transactions:', error);
           const errorMsg = error.response?.data?.message || error.message || 'Failed to cancel transactions';
           toast.error(errorMsg);
         }
@@ -328,7 +317,6 @@ const AdminTransactionPage: React.FC = () => {
       case 'delete':
         if (window.confirm(`Are you sure you want to delete ${bulkSelected.length} transactions?`)) {
           try {
-            console.log('Bulk deleting transactions via API:', bulkSelected);
             
             // Call API to bulk delete transactions
             await api.post('/transactions/bulk-delete', { transactionIds: bulkSelected });
@@ -338,7 +326,6 @@ const AdminTransactionPage: React.FC = () => {
             
             toast.success(`${bulkSelected.length} transactions deleted`);
           } catch (error: any) {
-            console.error('Failed to delete transactions:', error);
             const errorMsg = error.response?.data?.message || error.message || 'Failed to delete transactions';
             toast.error(errorMsg);
           }

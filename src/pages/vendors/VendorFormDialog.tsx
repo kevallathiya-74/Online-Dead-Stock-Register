@@ -125,7 +125,7 @@ const VendorFormDialog: React.FC<VendorFormDialogProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: unknown) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -161,7 +161,6 @@ const VendorFormDialog: React.FC<VendorFormDialogProps> = ({
       await onSubmit(formData);
       handleClose();
     } catch (error) {
-      console.error('Form submission error:', error);
     } finally {
       setSubmitting(false);
     }
@@ -195,7 +194,7 @@ const VendorFormDialog: React.FC<VendorFormDialogProps> = ({
         </Typography>
       </DialogTitle>
       <DialogContent dividers>
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
           {/* Basic Information */}
           <Grid item xs={12}>
             <Typography variant="h6" gutterBottom color="primary">

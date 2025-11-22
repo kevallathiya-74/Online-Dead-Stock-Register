@@ -4,6 +4,7 @@ const Vendor = require('../models/vendor');
 const User = require('../models/user');
 const AuditLog = require('../models/auditLog');
 const Notification = require('../models/notification');
+const logger = require('../utils/logger');
 
 // PURCHASE ORDERS
 // Get all purchase orders with filtering
@@ -65,7 +66,7 @@ exports.getAllPurchaseOrders = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching purchase orders:', error);
+    logger.error('Error fetching purchase orders:', error);
     res.status(500).json({ message: 'Failed to fetch purchase orders' });
   }
 };
@@ -88,7 +89,7 @@ exports.getPurchaseOrderById = async (req, res) => {
 
     res.json(purchaseOrder);
   } catch (error) {
-    console.error('Error fetching purchase order:', error);
+    logger.error('Error fetching purchase order:', error);
     res.status(500).json({ message: 'Failed to fetch purchase order' });
   }
 };
@@ -170,7 +171,7 @@ exports.createPurchaseOrder = async (req, res) => {
       purchase_order: purchaseOrder
     });
   } catch (error) {
-    console.error('Error creating purchase order:', error);
+    logger.error('Error creating purchase order:', error);
     res.status(500).json({ message: 'Failed to create purchase order' });
   }
 };
@@ -243,7 +244,7 @@ exports.updatePurchaseOrderStatus = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error updating purchase order status:', error);
+    logger.error('Error updating purchase order status:', error);
     res.status(500).json({ message: 'Failed to update purchase order status' });
   }
 };
@@ -300,7 +301,7 @@ exports.getAllPurchaseRequests = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching purchase requests:', error);
+    logger.error('Error fetching purchase requests:', error);
     res.status(500).json({ message: 'Failed to fetch purchase requests' });
   }
 };
@@ -343,7 +344,7 @@ exports.createPurchaseRequest = async (req, res) => {
       purchase_request: purchaseRequest
     });
   } catch (error) {
-    console.error('Error creating purchase request:', error);
+    logger.error('Error creating purchase request:', error);
     res.status(500).json({ message: 'Failed to create purchase request' });
   }
 };
@@ -435,7 +436,7 @@ exports.getPurchaseStats = async (req, res) => {
       top_vendors: topVendors
     });
   } catch (error) {
-    console.error('Error fetching purchase stats:', error);
+    logger.error('Error fetching purchase stats:', error);
     res.status(500).json({ message: 'Failed to fetch purchase statistics' });
   }
 };

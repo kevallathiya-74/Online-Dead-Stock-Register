@@ -206,6 +206,29 @@ const loginLimiter = rateLimit({
   }
 });
 
+// Strict limiter for password reset to prevent abuse
+const passwordResetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // Only 5 password reset requests per hour
+  skipSuccessfulRequests: false, // Count all requests
+  message: {
+    success: false,
+    error: 'Too many password reset requests. Please try again in 1 hour.'
+  },
+  handler: (req, res) => {
+    logger.warn('Password reset rate limit exceeded - possible abuse', { 
+      ip: req.ip,
+      url: req.originalUrl,
+      email: req.body.email
+    });
+    res.status(429).json({
+      success: false,
+      error: 'Too many password reset requests. Please try again later.',
+      retryAfter: Math.ceil(req.rateLimit.resetTime / 1000)
+    });
+  }
+});
+
 app.use('/api/', generalLimiter);
 
 // Static folder
@@ -276,8 +299,8 @@ const v1Router = express.Router();
 // Auth routes with strict rate limiting
 v1Router.use('/auth/login', loginLimiter);
 v1Router.use('/auth/register', authLimiter);
-v1Router.use('/auth/forgot-password', authLimiter);
-v1Router.use('/auth/reset-password', authLimiter);
+v1Router.use('/auth/forgot-password', passwordResetLimiter);
+v1Router.use('/auth/reset-password', passwordResetLimiter);
 v1Router.use('/auth', authRoutes);
 
 // Protected routes
@@ -315,9 +338,6 @@ v1Router.use('/dev', seedRoutes);  // Development only - seed database
 
 // Mount v1 router
 app.use('/api/v1', v1Router);
-
-// Backward compatibility - keep /api routes (will be deprecated)
-app.use('/api', v1Router);
 
 // Health check endpoint - Comprehensive monitoring
 app.get('/health', async (req, res) => {

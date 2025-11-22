@@ -42,7 +42,7 @@ const AuditRunDashboard: React.FC<AuditRunDashboardProps> = ({ onSelectRun }) =>
     setIsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const params: any = { limit: 100 };
+      const params: Record<string, string> = { limit: '100' };
       if (filter !== 'all') {
         params.status = filter;
       }
@@ -64,7 +64,6 @@ const AuditRunDashboard: React.FC<AuditRunDashboardProps> = ({ onSelectRun }) =>
         overdue: runs.filter((r: AuditRun) => r.status === 'overdue').length
       });
     } catch (error) {
-      console.error('Error fetching audit runs:', error);
     } finally {
       setIsLoading(false);
     }

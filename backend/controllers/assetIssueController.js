@@ -68,7 +68,7 @@ const createAssetIssue = async (req, res) => {
       data: newIssue
     });
   } catch (error) {
-    console.error('Error creating asset issue:', error);
+    logger.error('Error creating asset issue', { error: error.message, assetId: req.params.id });
     res.status(500).json({
       success: false,
       message: 'Failed to create asset issue',
@@ -115,7 +115,7 @@ const getAssetIssues = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching asset issues:', error);
+    logger.error('Error fetching asset issues', { error: error.message, assetId: req.params.id });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch asset issues',
@@ -153,7 +153,7 @@ const getLatestAssetIssue = async (req, res) => {
       data: latestIssue
     });
   } catch (error) {
-    console.error('Error fetching latest asset issue:', error);
+    logger.error('Error fetching latest asset issue', { error: error.message, assetId: req.params.id });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch latest asset issue',
@@ -234,7 +234,7 @@ const updateAssetIssue = async (req, res) => {
       data: issue
     });
   } catch (error) {
-    console.error('Error updating asset issue:', error);
+    logger.error('Error updating asset issue', { error: error.message, issueId: req.params.issueId });
     res.status(500).json({
       success: false,
       message: 'Failed to update asset issue',
@@ -289,7 +289,7 @@ const deleteAssetIssue = async (req, res) => {
       message: 'Asset issue deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting asset issue:', error);
+    logger.error('Error deleting asset issue', { error: error.message, issueId: req.params.issueId });
     res.status(500).json({
       success: false,
       message: 'Failed to delete asset issue',
@@ -333,7 +333,7 @@ const getAllOpenIssues = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching open issues:', error);
+    logger.error('Error fetching open issues', { error: error.message });
     res.status(500).json({
       success: false,
       message: 'Failed to fetch open issues',

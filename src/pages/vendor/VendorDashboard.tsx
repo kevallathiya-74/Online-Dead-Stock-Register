@@ -114,9 +114,8 @@ const VendorDashboard: React.FC = () => {
       
       setStats(statsData);
       setRecentOrders(ordersData);
-    } catch (err: any) {
-      console.error('Error loading dashboard data:', err);
-      const errorMessage = err.response?.data?.message || 'Failed to load dashboard data';
+    } catch (err: unknown) {
+      const errorMessage = (err as any).response?.data?.message || 'Failed to load dashboard data';
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -183,7 +182,7 @@ const VendorDashboard: React.FC = () => {
   if (error) {
     return (
       <DashboardLayout>
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: { xs: 2, sm: 3 } }}>
           <Alert 
             severity="error"
             action={
@@ -201,14 +200,14 @@ const VendorDashboard: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
         {/* Header */}
-        <Box mb={3} display="flex" justifyContent="space-between" alignItems="center">
+        <Box mb={{ xs: 2, sm: 3 }} display="flex" flexDirection={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} gap={{ xs: 2, sm: 0 }}>
           <Box>
-            <Typography variant="h4" gutterBottom fontWeight="bold">
+            <Typography variant="h4" gutterBottom fontWeight="bold" sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}>
               Vendor Dashboard
             </Typography>
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
               Welcome back! Here's an overview of your business with us.
             </Typography>
           </Box>
@@ -223,7 +222,7 @@ const VendorDashboard: React.FC = () => {
         </Box>
 
         {/* Stats Cards */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: { xs: 2, sm: 3 } }}>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
               title="Total Orders"
@@ -264,75 +263,76 @@ const VendorDashboard: React.FC = () => {
         </Grid>
 
         {/* Quick Stats Cards */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={12} md={4}>
+        <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: { xs: 2, sm: 3 } }}>
+          <Grid item xs={12} sm={6} md={4}>
             <Paper
-              sx={{ p: 3, cursor: 'pointer', transition: 'all 0.2s', '&:hover': { bgcolor: 'action.hover' } }}
+              sx={{ p: { xs: 2, sm: 3 }, cursor: 'pointer', transition: 'all 0.2s', '&:hover': { bgcolor: 'action.hover' } }}
               onClick={() => navigate('/vendor/products')}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Box>
-                  <Typography variant="h6">Active Products</Typography>
-                  <Typography variant="h3" color="primary">
+                  <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Active Products</Typography>
+                  <Typography variant="h3" color="primary" sx={{ fontSize: { xs: '2rem', sm: '3rem' } }}>
                     {stats?.activeProducts || 0}
                   </Typography>
                 </Box>
-                <Inventory sx={{ fontSize: 60, color: 'primary.main', opacity: 0.2 }} />
+                <Inventory sx={{ fontSize: { xs: 40, sm: 60 }, color: 'primary.main', opacity: 0.2 }} />
               </Box>
             </Paper>
           </Grid>
 
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} sm={6} md={4}>
             <Paper
-              sx={{ p: 3, cursor: 'pointer', transition: 'all 0.2s', '&:hover': { bgcolor: 'action.hover' } }}
+              sx={{ p: { xs: 2, sm: 3 }, cursor: 'pointer', transition: 'all 0.2s', '&:hover': { bgcolor: 'action.hover' } }}
               onClick={() => navigate('/vendor/orders?status=completed')}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Box>
-                  <Typography variant="h6">Completed Orders</Typography>
-                  <Typography variant="h3" color="success.main">
+                  <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Completed Orders</Typography>
+                  <Typography variant="h3" color="success.main" sx={{ fontSize: { xs: '2rem', sm: '3rem' } }}>
                     {stats?.completedOrders || 0}
                   </Typography>
                 </Box>
-                <ShoppingCart sx={{ fontSize: 60, color: 'success.main', opacity: 0.2 }} />
+                <ShoppingCart sx={{ fontSize: { xs: 40, sm: 60 }, color: 'success.main', opacity: 0.2 }} />
               </Box>
             </Paper>
           </Grid>
 
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} sm={12} md={4}>
             <Paper
-              sx={{ p: 3, cursor: 'pointer', transition: 'all 0.2s', '&:hover': { bgcolor: 'action.hover' } }}
+              sx={{ p: { xs: 2, sm: 3 }, cursor: 'pointer', transition: 'all 0.2s', '&:hover': { bgcolor: 'action.hover' } }}
               onClick={() => navigate('/vendor/invoices')}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Box>
-                  <Typography variant="h6">Pending Invoices</Typography>
-                  <Typography variant="h3" color="warning.main">
+                  <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>Pending Invoices</Typography>
+                  <Typography variant="h3" color="warning.main" sx={{ fontSize: { xs: '2rem', sm: '3rem' } }}>
                     {stats?.pendingInvoices || 0}
                   </Typography>
                 </Box>
-                <AttachMoney sx={{ fontSize: 60, color: 'warning.main', opacity: 0.2 }} />
+                <AttachMoney sx={{ fontSize: { xs: 40, sm: 60 }, color: 'warning.main', opacity: 0.2 }} />
               </Box>
             </Paper>
           </Grid>
         </Grid>
 
         {/* Recent Orders Table */}
-        <Paper sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6">
+        <Paper sx={{ p: { xs: 2, sm: 3 } }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, mb: 2, gap: { xs: 1, sm: 0 } }}>
+            <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
               Recent Orders
             </Typography>
             <Button
               variant="text"
               onClick={() => navigate('/vendor/orders')}
+              size="small"
             >
               View All Orders →
             </Button>
           </Box>
 
-          <TableContainer>
-            <Table>
+          <TableContainer sx={{ overflowX: 'auto' }}>
+            <Table sx={{ minWidth: { xs: 600, sm: 750 } }}>
               <TableHead>
                 <TableRow>
                   <TableCell>Order Number</TableCell>

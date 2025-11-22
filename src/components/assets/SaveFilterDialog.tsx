@@ -64,8 +64,8 @@ const SaveFilterDialog: React.FC<SaveFilterDialogProps> = ({
 
       onSave();
       onClose();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save filter');
+    } catch (err: unknown) {
+      setError((err as any).response?.data?.message || 'Failed to save filter');
     } finally {
       setIsSaving(false);
     }

@@ -81,13 +81,13 @@ export const authService = {
         token,
         error: null
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         user: null,
         token: null,
         error: createAuthError(
-          error.response?.data?.message || 'Registration failed',
-          error.response?.status || 500
+          (error as any).response?.error.response?.data?.message || 'Registration failed',
+          (error as any).response?.error.response?.status || 500
         )
       };
     }
@@ -110,19 +110,14 @@ export const authService = {
         token,
         error: null
       };
-    } catch (error: any) {
-      console.error('❌ Login failed:', {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data
-      });
+    } catch (error: unknown) {
       
       return {
         user: null,
         token: null,
         error: createAuthError(
-          error.response?.data?.message || 'Login failed',
-          error.response?.status || 401
+          (error as any).response?.error.response?.data?.message || 'Login failed',
+          (error as any).response?.error.response?.status || 401
         )
       };
     }
@@ -132,7 +127,7 @@ export const authService = {
     try {
       removeToken();
       return { error: null };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return { error: createAuthError('Sign out failed', 500) };
     }
   },
@@ -141,11 +136,11 @@ export const authService = {
     try {
       await axios.post(`${API_BASE_URL}${API_ENDPOINTS.FORGOT_PASSWORD}`, { email });
       return { error: null };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         error: createAuthError(
-          error.response?.data?.message || 'Password reset request failed',
-          error.response?.status || 500
+          (error as any).response?.error.response?.data?.message || 'Password reset request failed',
+          (error as any).response?.error.response?.status || 500
         )
       };
     }
@@ -159,11 +154,11 @@ export const authService = {
         token: resetToken
       });
       return { error: null };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         error: createAuthError(
-          error.response?.data?.message || 'Password update failed',
-          error.response?.status || 500
+          (error as any).response?.error.response?.data?.message || 'Password update failed',
+          (error as any).response?.error.response?.status || 500
         )
       };
     }

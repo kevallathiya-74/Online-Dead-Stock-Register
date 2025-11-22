@@ -55,7 +55,7 @@ class WarrantyService {
     
     // Map backend 'id' field to '_id' for frontend consistency
     if (response.data.data) {
-      response.data.data = response.data.data.map((warranty: any) => ({
+      response.data.data = response.data.data.map((warranty: Partial<WarrantyItem> & { id?: string }) => ({
         ...warranty,
         _id: warranty.id || warranty._id,
       }));
@@ -75,7 +75,7 @@ class WarrantyService {
   /**
    * File a warranty claim
    */
-  async fileWarrantyClaim(claim: WarrantyClaim): Promise<{ success: boolean; message: string; data: any }> {
+  async fileWarrantyClaim(claim: WarrantyClaim): Promise<{ success: boolean; message: string; data: WarrantyItem }> {
     const response = await api.post(API_ENDPOINTS.MAINTENANCE.WARRANTY_CLAIM, claim);
     return response.data;
   }

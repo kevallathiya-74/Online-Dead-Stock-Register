@@ -153,7 +153,6 @@ const AssetsPage = () => {
         setCategories(categoryNames as string[]);
       }
     } catch (error) {
-      console.error('Failed to load categories:', error);
       // Fallback to some basic categories if API fails
       setCategories(['Computer', 'Laptop', 'Monitor', 'Printer', 'Scanner', 'Other']);
     }
@@ -161,10 +160,8 @@ const AssetsPage = () => {
 
   // Subscribe to global asset updates (any asset changes)
   useEffect(() => {
-    console.log('📡 AssetsPage: Subscribing to global asset updates');
     
     const unsubscribe = assetUpdateService.subscribeGlobal((assetId, updateData) => {
-      console.log('🔔 AssetsPage: Received global update for asset:', assetId, updateData);
       
       // Refresh the entire assets list to get latest data
       loadAssets();
@@ -179,7 +176,6 @@ const AssetsPage = () => {
     });
 
     return () => {
-      console.log('📡 AssetsPage: Unsubscribing from global updates');
       unsubscribe();
     };
   }, []);
@@ -251,7 +247,6 @@ const AssetsPage = () => {
         });
       }
     } catch (error) {
-      console.error('Failed to load assets:', error);
       const errorMsg = error instanceof Error ? error.message : 'Failed to load assets';
       toast.error(errorMsg);
       setAssets([]); // Set to empty array on error
@@ -262,7 +257,6 @@ const AssetsPage = () => {
 
   // Handler functions for asset actions
   const handleViewAsset = async (asset: Asset) => {
-    console.log('Viewing asset:', asset);
     setViewDialogOpen(true);
     
     // Show loading state with current asset data
@@ -277,11 +271,9 @@ const AssetsPage = () => {
     try {
       const response = await api.get(`/assets/${asset._id}`);
       if (response.data.success) {
-        console.log('Fetched latest asset data:', response.data.data);
         setSelectedAsset(response.data.data);
       }
     } catch (error) {
-      console.error('Failed to fetch latest asset data:', error);
       // Keep using the cached data if fetch fails
       toast.warning('Showing cached data. Failed to fetch latest updates.');
     }
@@ -386,7 +378,6 @@ const AssetsPage = () => {
       
       await loadAssets();
     } catch (error: any) {
-      console.error('Failed to add asset:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to add asset';
       toast.error(errorMsg);
     }
@@ -439,7 +430,6 @@ const AssetsPage = () => {
       resetForm();
       await loadAssets();
     } catch (error: any) {
-      console.error('Failed to update asset:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to update asset';
       toast.error(errorMsg);
     }
@@ -515,7 +505,6 @@ const AssetsPage = () => {
         await loadAssets();
       }
     } catch (error: any) {
-      console.error('Failed to import assets:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to import assets';
       toast.error(errorMsg);
     } finally {
@@ -550,7 +539,6 @@ const AssetsPage = () => {
   const handleDeleteAsset = async (asset: Asset) => {
     if (window.confirm(`Are you sure you want to delete asset: ${asset.name}?`)) {
       try {
-        console.log('Deleting asset via API:', asset.id);
         
         // Call API to delete asset
         await api.delete(`/assets/${asset.id}`);
@@ -568,7 +556,6 @@ const AssetsPage = () => {
         // Reload assets to ensure consistency with backend
         await loadAssets();
       } catch (error: any) {
-        console.error('Failed to delete asset:', error);
         const errorMsg = error.response?.data?.message || error.message || 'Failed to delete asset';
         toast.error(errorMsg);
       }
@@ -577,7 +564,6 @@ const AssetsPage = () => {
   };
 
   const handleTransferAsset = (asset: Asset) => {
-    console.log('Transfer asset:', asset);
     setSelectedAsset(asset);
     setTransferDialogOpen(true);
 
@@ -587,8 +573,6 @@ const AssetsPage = () => {
   };
 
   const handleTransferSubmit = async () => {
-    console.log('Transfer submit - selectedAsset:', selectedAsset);
-    console.log('Transfer submit - transferData:', transferData);
     
     if (!selectedAsset || !transferData.to_location) {
       toast.error('Please fill in required fields');
@@ -606,8 +590,6 @@ const AssetsPage = () => {
         updatePayload.assigned_user = transferData.to_user;
       }
       
-      console.log('Update payload:', updatePayload);
-      
       // Update asset location directly
       const response = await api.put(`/assets/${selectedAsset.id}`, updatePayload);
       
@@ -615,8 +597,6 @@ const AssetsPage = () => {
       if (selectedAsset.id) {
         assetUpdateService.notifyUpdate(selectedAsset.id, { type: 'transferred', asset: response.data, transferData });
       }
-      
-      console.log('Transfer successful:', response.data);
 
       // Build success message
       let successMsg = ` Asset transferred to ${transferData.to_location}`;
@@ -629,9 +609,6 @@ const AssetsPage = () => {
       handleCloseTransferDialog();
       loadAssets(); // Reload assets to show updated location
     } catch (error: any) {
-      console.error('Failed to transfer asset:', error);
-      console.error('Error response:', error.response?.data);
-      console.error('Error status:', error.response?.status);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to transfer asset';
       toast.error(errorMessage);
     }
@@ -639,7 +616,6 @@ const AssetsPage = () => {
 
   const handleGenerateQR = async (asset: Asset) => {
     try {
-      console.log('Generating QR for asset:', asset);
       // Ensure asset has a name (fallback to manufacturer + model if needed)
       const assetName = asset.name || `${asset.manufacturer} ${asset.model}`;
       
@@ -663,10 +639,7 @@ const AssetsPage = () => {
       }
       
       toast.success(`QR Code generated for: ${assetName}`);
-    } catch (error) {
-      console.error('Failed to generate QR code:', error);
-      toast.error('Failed to generate QR code');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const handlePrintLabel = async (asset: Asset) => {
@@ -864,7 +837,6 @@ const AssetsPage = () => {
                       }, 500);
                     }, 500);
                   } catch (err) {
-                    console.error('QR code generation failed:', err);
                     window.print();
                     setTimeout(function() {
                       window.close();
@@ -878,10 +850,7 @@ const AssetsPage = () => {
         printWindow.document.close();
       }
       toast.success(`✓ Label sent to printer: ${asset.name || asset.unique_asset_id}`);
-    } catch (error) {
-      console.error('Failed to print label:', error);
-      toast.error('Failed to print label');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
     if (anchorEl) {
       setAnchorEl(null);
     }
@@ -939,10 +908,7 @@ const AssetsPage = () => {
       setSelectedAssets([]);
       setBulkDeleteDialogOpen(false);
       await loadAssets();
-    } catch (error: any) {
-      console.error('Failed to delete assets:', error);
-      toast.error(error.response?.data?.message || 'Failed to delete assets');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>, asset: Asset) => {
@@ -1665,7 +1631,7 @@ const AssetsPage = () => {
                   border: '2px dashed',
                   borderColor: importFile ? 'primary.main' : 'divider',
                   borderRadius: 2,
-                  p: 3,
+                  p: { xs: 2, sm: 3 },
                   textAlign: 'center',
                   bgcolor: importFile ? 'action.hover' : 'background.paper',
                   cursor: 'pointer',
@@ -1908,9 +1874,6 @@ const AssetsPage = () => {
           <DialogContent>
             <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minHeight: 400 }}>
               {(() => {
-                console.log('QR Dialog - selectedAsset:', selectedAsset);
-                console.log('QR Dialog - qrCodeUrl:', qrCodeUrl);
-                console.log('QR Dialog - qrDialogOpen:', qrDialogOpen);
                 return null;
               })()}
               {selectedAsset && qrCodeUrl ? (

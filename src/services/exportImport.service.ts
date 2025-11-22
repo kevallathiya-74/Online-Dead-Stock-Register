@@ -1,7 +1,6 @@
 import api from './api';
 import { ApiResponse } from '../types';
 
-// Export/Import Service - Placeholder for future implementation
 export interface ExportOptions {
   format: 'csv' | 'excel' | 'pdf';
   data_type: 'assets' | 'users' | 'transactions' | 'vendors' | 'maintenance' | 'reports';
@@ -39,14 +38,13 @@ class ExportImportService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to export data');
-    } catch (error: any) {
-      console.error('Error exporting data:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to export data');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to export data');
     }
   }
 
   // Import data
-  async importData(file: File, dataType: string, options?: any): Promise<ImportResult> {
+  async importData(file: File, dataType: string, options?: Record<string, unknown>): Promise<ImportResult> {
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -65,9 +63,8 @@ class ExportImportService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to import data');
-    } catch (error: any) {
-      console.error('Error importing data:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to import data');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to import data');
     }
   }
 
@@ -78,9 +75,8 @@ class ExportImportService {
         responseType: 'blob',
       });
       return response.data;
-    } catch (error: any) {
-      console.error('Error downloading import template:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to download import template');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to download import template');
     }
   }
 
@@ -106,9 +102,8 @@ class ExportImportService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to validate import file');
-    } catch (error: any) {
-      console.error('Error validating import file:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to validate import file');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to validate import file');
     }
   }
 
@@ -120,9 +115,8 @@ class ExportImportService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch export history');
-    } catch (error: any) {
-      console.error('Error fetching export history:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch export history');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch export history');
     }
   }
 
@@ -133,9 +127,8 @@ class ExportImportService {
         responseType: 'blob',
       });
       return response.data;
-    } catch (error: any) {
-      console.error('Error downloading exported file:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to download exported file');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to download exported file');
     }
   }
 }

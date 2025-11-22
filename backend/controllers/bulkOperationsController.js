@@ -1,4 +1,5 @@
 const Asset = require('../models/asset');
+const logger = require('../utils/logger');
 const User = require('../models/user');
 const Maintenance = require('../models/maintenance');
 const AuditLog = require('../models/auditLog');
@@ -110,7 +111,7 @@ exports.bulkUpdateStatus = async (req, res) => {
       notifications_sent: notificationsToCreate.length
     });
   } catch (error) {
-    console.error('Error in bulk status update:', error);
+    logger.error('Error in bulk status update:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update asset statuses',
@@ -224,7 +225,7 @@ exports.bulkAssign = async (req, res) => {
       reassigned_count: alreadyAssigned.length
     });
   } catch (error) {
-    console.error('Error in bulk assign:', error);
+    logger.error('Error in bulk assign:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to assign assets',
@@ -339,7 +340,7 @@ exports.bulkDelete = async (req, res) => {
       notifications_sent: affectedUsers.length
     });
   } catch (error) {
-    console.error('Error in bulk delete:', error);
+    logger.error('Error in bulk delete:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to delete assets',
@@ -487,7 +488,7 @@ exports.bulkScheduleMaintenance = async (req, res) => {
       notifications_sent: (technician ? 1 : 0) + assetOwners.length
     });
   } catch (error) {
-    console.error('Error in bulk schedule maintenance:', error);
+    logger.error('Error in bulk schedule maintenance:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to schedule maintenance',
@@ -552,7 +553,7 @@ exports.bulkUpdateLocation = async (req, res) => {
       missing_ids: missingIds
     });
   } catch (error) {
-    console.error('Error in bulk location update:', error);
+    logger.error('Error in bulk location update:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update asset locations',
@@ -627,7 +628,7 @@ exports.bulkUpdateCondition = async (req, res) => {
       missing_ids: missingIds
     });
   } catch (error) {
-    console.error('Error in bulk condition update:', error);
+    logger.error('Error in bulk condition update:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update asset conditions',
@@ -708,7 +709,7 @@ exports.getBulkOperationHistory = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching bulk operation history:', error);
+    logger.error('Error fetching bulk operation history:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch operation history',
@@ -771,7 +772,7 @@ exports.validateBulkOperation = async (req, res) => {
 
     res.json(validation);
   } catch (error) {
-    console.error('Error validating bulk operation:', error);
+    logger.error('Error validating bulk operation:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to validate operation',
@@ -946,7 +947,7 @@ exports.importAssets = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error importing assets:', error);
+    logger.error('Error importing assets:', error);
     
     // Clean up file if it exists
     if (req.file && fs.existsSync(req.file.path)) {
@@ -1065,7 +1066,7 @@ exports.generateImportTemplate = async (req, res) => {
       res.send(csvContent);
     }
   } catch (error) {
-    console.error('Error generating template:', error);
+    logger.error('Error generating template:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to generate template',

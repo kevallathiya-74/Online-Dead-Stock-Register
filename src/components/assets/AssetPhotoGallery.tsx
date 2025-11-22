@@ -49,7 +49,6 @@ const AssetPhotoGallery: React.FC<AssetPhotoGalleryProps> = ({
 
       setPhotos(response.data.photos || []);
     } catch (error) {
-      console.error('Error fetching photos:', error);
     } finally {
       setLoading(false);
     }
@@ -81,7 +80,6 @@ const AssetPhotoGallery: React.FC<AssetPhotoGalleryProps> = ({
 
       alert('Photo deleted successfully');
     } catch (error: any) {
-      console.error('Error deleting photo:', error);
       alert(error.response?.data?.message || 'Failed to delete photo');
     } finally {
       setIsDeleting(false);

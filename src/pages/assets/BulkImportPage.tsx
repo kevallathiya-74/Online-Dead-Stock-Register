@@ -64,10 +64,7 @@ const BulkImportPage: React.FC = () => {
 
       toast.success(`Template downloaded successfully (${format.toUpperCase()})`);
       setActiveStep(1);
-    } catch (error: any) {
-      console.error('Failed to download template:', error);
-      toast.error('Failed to download template');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -153,10 +150,7 @@ const BulkImportPage: React.FC = () => {
         const validRows = preview.filter(p => p.status === 'Valid').length;
         toast.success(`File "${file.name}" loaded successfully (${validRows}/${preview.length} rows valid in preview)`);
         setActiveStep(2);
-      } catch (error) {
-        console.error('Error parsing file:', error);
-        toast.error('Failed to parse file. Please ensure it is a valid CSV format.');
-      }
+      } catch (error) { /* Error handled by API interceptor */ }
     }
   };
 
@@ -194,7 +188,6 @@ const BulkImportPage: React.FC = () => {
         toast.warning('Import completed but no assets were created');
       }
     } catch (error: any) {
-      console.error('Import failed:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Import failed';
       toast.error(errorMsg);
     } finally {

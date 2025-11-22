@@ -151,17 +151,12 @@ const AdminAddUserPage: React.FC = () => {
         is_active: newUser.is_active,
         password: 'Password@123' // Default password
       };
-
-      console.log('Creating user via API:', userData);
       
       // Call API to create user
       const response = await api.post('/users', userData);
-      
-      console.log('User created successfully:', response.data);
       toast.success(`User created successfully! Employee ID: ${response.data.data.employee_id}`);
       navigate('/users');
     } catch (error: any) {
-      console.error('Failed to create user:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to create user';
       toast.error(errorMsg);
     }
@@ -476,7 +471,7 @@ const AdminAddUserPage: React.FC = () => {
           </Button>
         </Box>
 
-        <Paper sx={{ p: 4 }}>
+        <Paper sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
           {/* Stepper */}
           <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
             {steps.map((label, index) => (

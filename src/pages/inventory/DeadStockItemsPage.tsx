@@ -70,10 +70,8 @@ const DeadStockItemsPage: React.FC = () => {
 
   // Subscribe to global asset updates for real-time refresh
   useEffect(() => {
-    console.log('📡 DeadStockItems: Subscribing to global asset updates');
     
     const unsubscribe = assetUpdateService.subscribeGlobal((assetId, updateData) => {
-      console.log('🔔 DeadStockItems: Received update for asset:', assetId, updateData);
       
       // Refresh dead stock list if any asset is updated
       fetchDeadStockAssets();
@@ -81,7 +79,6 @@ const DeadStockItemsPage: React.FC = () => {
     });
 
     return () => {
-      console.log('📡 DeadStockItems: Unsubscribing from global updates');
       unsubscribe();
     };
   }, []);
@@ -112,7 +109,6 @@ const DeadStockItemsPage: React.FC = () => {
       if (error.name === 'AbortError' || error.name === 'CanceledError') {
         return; // Request was cancelled, don't show error
       }
-      console.error('Error fetching dead stock assets:', error);
       setAssets([]);
       setTotalItems(0);
       if (error.response?.status === 404) {
@@ -129,14 +125,11 @@ const DeadStockItemsPage: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      console.log('📊 Fetching dead stock stats...');
       const response = await api.get('/inventory/dead-stock/stats');
       if (response.data?.success && response.data?.data) {
-        console.log('📊 Stats received:', response.data.data);
         setStats(response.data.data);
       }
     } catch (error) {
-      console.error('Error fetching dead stock stats:', error);
     }
   };
 
@@ -191,13 +184,10 @@ const DeadStockItemsPage: React.FC = () => {
         remarks: asset.reason_for_dead_stock || 'Marked from dead stock items page'
       };
 
-      console.log('Creating disposal record with payload:', disposalPayload);
-
       // Create disposal record
       const disposalResponse = await api.post('/inventory/disposal-records', disposalPayload);
 
       if (disposalResponse.data.success) {
-        console.log('Disposal record created:', disposalResponse.data.data);
 
         // Optimistic UI update - immediately decrease counter before API refresh
         setStats(prevStats => ({
@@ -214,9 +204,7 @@ const DeadStockItemsPage: React.FC = () => {
             status: 'Disposed', // Changed to "Disposed" to exclude from dead stock query
             notes: `Marked for disposal on ${new Date().toLocaleDateString()}. Disposal Record: ${disposalResponse.data.data.document_reference || 'N/A'}. ${asset.reason_for_dead_stock || ''}`
           });
-          console.log('Asset status updated to Disposed');
         } catch (updateError) {
-          console.warn('Asset status update failed, but disposal record created:', updateError);
         }
 
         // Notify the update service for real-time synchronization
@@ -228,19 +216,14 @@ const DeadStockItemsPage: React.FC = () => {
 
         toast.success(`Asset ${asset.unique_asset_id} marked for disposal successfully and removed from dead stock`);
         
-        console.log('🔄 Refreshing dead stock list and stats after disposal...');
-        
         // Refresh the data to show updated status (asset should now be removed from list)
         // This will correct any discrepancy from the optimistic update
         await Promise.all([
           fetchDeadStockAssets(),
           fetchStats()
         ]);
-        
-        console.log('✅ Dead stock list and stats refreshed successfully');
       }
     } catch (error: any) {
-      console.error('Error marking asset for disposal:', error);
       
       // Extract detailed error message
       let errorMsg = 'Failed to mark asset for disposal';
@@ -265,7 +248,7 @@ const DeadStockItemsPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h4" component="h1" fontWeight="bold">
             Dead Stock Items

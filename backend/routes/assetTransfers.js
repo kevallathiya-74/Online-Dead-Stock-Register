@@ -8,6 +8,7 @@ const {
   getAssetTransferStats
 } = require('../controllers/assetTransferController');
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
+const { validateObjectId } = require('../middleware/objectIdValidator');
 
 // GET /api/asset-transfers - Get all asset transfers (Role-based filtering applied in controller)
 router.get('/', 
@@ -25,6 +26,7 @@ router.get('/stats',
 // GET /api/asset-transfers/:id - Get asset transfer by ID (Role-based access in controller)
 router.get('/:id', 
   authenticateToken, 
+  validateObjectId('id'),
   getAssetTransferById
 );
 
@@ -38,6 +40,7 @@ router.post('/',
 router.patch('/:id/status', 
   authenticateToken, 
   requireRole(['ADMIN', 'INVENTORY_MANAGER']), 
+  validateObjectId('id'),
   updateAssetTransferStatus
 );
 

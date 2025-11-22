@@ -56,9 +56,8 @@ class AssetTransferService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to create asset transfer request');
-    } catch (error: any) {
-      console.error('Error creating asset transfer request:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to create asset transfer request');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to create asset transfer request');
     }
   }
 
@@ -70,9 +69,8 @@ class AssetTransferService {
         return response.data.data.transfers;
       }
       throw new Error(response.data.error || 'Failed to fetch asset transfers');
-    } catch (error: any) {
-      console.error('Error fetching asset transfers:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch asset transfers');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch asset transfers');
     }
   }
 
@@ -84,9 +82,8 @@ class AssetTransferService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch asset transfer details');
-    } catch (error: any) {
-      console.error('Error fetching asset transfer details:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch asset transfer details');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch asset transfer details');
     }
   }
 }

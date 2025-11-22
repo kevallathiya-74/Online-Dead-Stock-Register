@@ -20,8 +20,8 @@
     "paths": {
       "@/*": ["*"]
     },
-    "noImplicitAny": false,
-    "useUnknownInCatchVariables": false,
+    "noImplicitAny": true,
+    "useUnknownInCatchVariables": true,
     "types": ["node"]
   },
   "exclude": [

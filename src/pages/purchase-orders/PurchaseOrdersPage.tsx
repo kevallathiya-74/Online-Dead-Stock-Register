@@ -118,10 +118,7 @@ const PurchaseOrdersPage = () => {
       const response = await api.get('/purchase-management/orders');
       const poData = response.data.purchase_orders || response.data.data || response.data || [];
       setPurchaseOrders(Array.isArray(poData) ? poData : []);
-    } catch (error: any) {
-      console.error('Failed to load purchase orders:', error);
-      toast.error(error.response?.data?.message || 'Failed to load purchase orders');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   useEffect(() => {
@@ -251,7 +248,7 @@ const PurchaseOrdersPage = () => {
         </Box>
 
         {/* Statistics Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={6} md={2}>
             <Card>
               <CardContent>
@@ -382,12 +379,12 @@ const PurchaseOrdersPage = () => {
           </Grid>
         </Grid>
 
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
           <Grid item xs={12} lg={8}>
             {/* Filters */}
             <Card sx={{ mb: 3 }}>
               <CardContent>
-                <Grid container spacing={3} alignItems="center">
+                <Grid container spacing={{ xs: 2, sm: 3 }} alignItems="center">
                   <Grid item xs={12} md={4}>
                     <TextField
                       fullWidth
@@ -627,8 +624,8 @@ const PurchaseOrdersPage = () => {
                     </Box>
                   ))
                 ) : recentOrders.length === 0 ? (
-                  <Box sx={{ p: 3, textAlign: 'center' }}>
-                    <OrderIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+                  <Box sx={{ p: { xs: 2, sm: 3 }, textAlign: 'center' }}>
+                    <OrderIcon sx={{ fontSize: { xs: 40, sm: 48 }, color: 'text.secondary', mb: 1 }} />
                     <Typography variant="body2" color="text.secondary">
                       No recent orders
                     </Typography>
@@ -736,7 +733,7 @@ const PurchaseOrdersPage = () => {
           </DialogTitle>
           <DialogContent>
             {selectedPO && (
-              <Grid container spacing={3} sx={{ mt: 1 }}>
+              <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mt: 1 }}>
                 <Grid item xs={12} md={6}>
                   <Typography variant="h6" gutterBottom>Order Information</Typography>
                   <Typography variant="body2"><strong>Vendor:</strong> {selectedPO.vendor?.name || 'N/A'}</Typography>

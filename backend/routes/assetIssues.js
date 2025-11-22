@@ -9,6 +9,7 @@ const {
   deleteAssetIssue,
   getAllOpenIssues
 } = require('../controllers/assetIssueController');
+const { validateObjectId, validateObjectIds } = require('../middleware/objectIdValidator');
 
 // Apply authentication to all routes
 router.use(authMiddleware);
@@ -21,16 +22,18 @@ router.get(
 );
 
 // Asset-specific issue routes
-router.post('/assets/:id/issues', createAssetIssue); // All authenticated users can report issues
-router.get('/assets/:id/issues', getAssetIssues);
-router.get('/assets/:id/issues/latest', getLatestAssetIssue);
+router.post('/assets/:id/issues', validateObjectId('id'), createAssetIssue); // All authenticated users can report issues
+router.get('/assets/:id/issues', validateObjectId('id'), getAssetIssues);
+router.get('/assets/:id/issues/latest', validateObjectId('id'), getLatestAssetIssue);
 router.put(
   '/assets/:id/issues/:issueId',
+  validateObjectIds(['id', 'issueId']),
   updateAssetIssue
 ); // Reporter or Admin/Inventory Manager
 router.delete(
   '/assets/:id/issues/:issueId',
   requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']),
+  validateObjectIds(['id', 'issueId']),
   deleteAssetIssue
 );
 

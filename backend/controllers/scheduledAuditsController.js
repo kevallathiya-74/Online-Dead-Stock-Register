@@ -1,4 +1,5 @@
 const ScheduledAudit = require('../models/scheduledAudit');
+const logger = require('../utils/logger');
 const ScheduledAuditRun = require('../models/scheduledAuditRun');
 const Asset = require('../models/asset');
 const User = require('../models/user');
@@ -157,7 +158,7 @@ exports.createScheduledAudit = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error creating scheduled audit:', error);
+    logger.error('Error creating scheduled audit:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to create scheduled audit',
@@ -213,7 +214,7 @@ exports.getScheduledAudits = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching scheduled audits:', error);
+    logger.error('Error fetching scheduled audits:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch scheduled audits',
@@ -261,7 +262,7 @@ exports.getScheduledAuditById = async (req, res) => {
       recent_runs: runs
     });
   } catch (error) {
-    console.error('Error fetching scheduled audit:', error);
+    logger.error('Error fetching scheduled audit:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch scheduled audit',
@@ -336,7 +337,7 @@ exports.updateScheduledAudit = async (req, res) => {
       scheduled_audit: scheduledAudit
     });
   } catch (error) {
-    console.error('Error updating scheduled audit:', error);
+    logger.error('Error updating scheduled audit:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update scheduled audit',
@@ -385,7 +386,7 @@ exports.deleteScheduledAudit = async (req, res) => {
       message: 'Scheduled audit deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting scheduled audit:', error);
+    logger.error('Error deleting scheduled audit:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to delete scheduled audit',
@@ -488,7 +489,7 @@ exports.triggerAuditRun = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error triggering audit run:', error);
+    logger.error('Error triggering audit run:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to trigger audit run',
@@ -530,7 +531,7 @@ exports.getAuditRuns = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching audit runs:', error);
+    logger.error('Error fetching audit runs:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch audit runs',
@@ -622,7 +623,7 @@ exports.updateAuditRunProgress = async (req, res) => {
       is_complete: auditRun.status === 'completed'
     });
   } catch (error) {
-    console.error('Error updating audit progress:', error);
+    logger.error('Error updating audit progress:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update audit progress',
@@ -666,7 +667,7 @@ exports.sendAuditReminders = async (req, res) => {
             });
             remindersSent++;
           } catch (error) {
-            console.error(`Failed to send reminder for audit ${audit._id}:`, error);
+            logger.error(`Failed to send reminder for audit ${audit._id}:`, error);
           }
         }
 
@@ -698,7 +699,7 @@ exports.sendAuditReminders = async (req, res) => {
       reminders_sent: remindersSent
     });
   } catch (error) {
-    console.error('Error sending audit reminders:', error);
+    logger.error('Error sending audit reminders:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to send audit reminders',

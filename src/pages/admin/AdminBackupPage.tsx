@@ -106,10 +106,7 @@ const AdminBackupPage: React.FC = () => {
       
       setBackups(backupsData);
       setBackupJobs(jobsData);
-    } catch (error) {
-      console.error('Failed to load backup data:', error);
-      toast.error('Failed to load backup data');
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setLoading(false);
     }
   };
@@ -144,10 +141,7 @@ const AdminBackupPage: React.FC = () => {
       setBackupName('');
       setBackupDescription('');
       toast.success('Backup created successfully!');
-    } catch (error) {
-      console.error('Failed to create backup:', error);
-      toast.error('Failed to create backup');
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setBackupInProgress(false);
       setProgress(0);
     }
@@ -172,10 +166,7 @@ const AdminBackupPage: React.FC = () => {
       setRestoreBackupOpen(false);
       setSelectedBackup(null);
       toast.success('System restored successfully!');
-    } catch (error) {
-      console.error('Failed to restore backup:', error);
-      toast.error('Failed to restore backup');
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setRestoreInProgress(false);
       setProgress(0);
     }
@@ -200,10 +191,7 @@ const AdminBackupPage: React.FC = () => {
       document.body.removeChild(a);
       
       toast.success('Backup downloaded successfully');
-    } catch (error) {
-      console.error('Failed to download backup:', error);
-      toast.error('Failed to download backup');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const handleUploadToCloud = () => {
@@ -227,7 +215,6 @@ const AdminBackupPage: React.FC = () => {
   const handleDeleteBackup = async (backupId: string) => {
     if (window.confirm('Are you sure you want to delete this backup?')) {
       try {
-        console.log('Deleting backup via API:', backupId);
         
         // Call API to delete backup
         await api.delete(`/backups/${backupId}`);
@@ -239,7 +226,6 @@ const AdminBackupPage: React.FC = () => {
         
         toast.success('Backup deleted successfully');
       } catch (error: any) {
-        console.error('Failed to delete backup:', error);
         const errorMsg = error.response?.data?.message || error.message || 'Failed to delete backup';
         toast.error(errorMsg);
       }
@@ -284,7 +270,7 @@ const AdminBackupPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h4" component="h1">
             System Backups

@@ -88,7 +88,6 @@ interface EnhancedQRScannerProps {
   mode?: "audit" | "lookup" | "checkout";
   enableBatchScan?: boolean;
   enableHistory?: boolean;
-  enableOfflineCache?: boolean;
 }
 
 const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
@@ -98,7 +97,6 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
   mode = "lookup",
   enableBatchScan = true,
   enableHistory = true,
-  enableOfflineCache = false,
 }) => {
   // Scanning state
   const [scanning, setScanning] = useState(false);
@@ -148,25 +146,19 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
         setLoading(true);
         setError(null);
 
-        console.log("Processing QR code:", qrText);
-
         // Parse QR code data if it's JSON
         let assetIdentifier = qrText;
         try {
           const parsed = JSON.parse(qrText);
           if (parsed.asset_id) {
             assetIdentifier = parsed.asset_id;
-            console.log("Parsed JSON QR code, using asset_id:", assetIdentifier);
           } else if (parsed.unique_asset_id) {
             assetIdentifier = parsed.unique_asset_id;
-            console.log("Parsed JSON QR code, using unique_asset_id:", assetIdentifier);
           } else if (parsed.serial) {
             assetIdentifier = parsed.serial;
-            console.log("Parsed JSON QR code, using serial:", assetIdentifier);
           }
         } catch (parseError) {
           // Not JSON, use as-is
-          console.log("QR code is plain text, using directly");
         }
 
         // Call API to get asset details
@@ -179,8 +171,6 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
             },
           }
         );
-
-        console.log("API response:", response.data);
 
         if (response.data.success) {
           const asset = response.data.asset;
@@ -206,7 +196,6 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
             
             // Legacy: Try global refresh function if available
             if ((window as any).refreshAssetDetails) {
-              console.log('Triggering global asset details refresh from QR scanner');
               (window as any).refreshAssetDetails();
             }
           }
@@ -231,11 +220,6 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
             scanningRef.current = false;
           }
 
-          // Cache offline if enabled
-          if (enableOfflineCache) {
-            cacheAssetOffline(asset);
-          }
-
           // Auto-close after successful scan in lookup mode
           if (mode === "lookup" && !isBatchScanning) {
             setTimeout(() => {
@@ -243,10 +227,10 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
             }, 2000);
           }
         }
-      } catch (err: any) {
-        console.error("Asset lookup error:", err);
+      } catch (err: unknown) {
+        const apiError = err as { response?: { data?: { message?: string } } };
         const errorMessage =
-          err.response?.data?.message || "Asset not found or lookup failed";
+          apiError.response?.data?.message || "Asset not found or lookup failed";
         setError(errorMessage);
 
         // Vibrate on error
@@ -278,7 +262,6 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
       mode,
       enableHistory,
       enableBatchScan,
-      enableOfflineCache,
       isBatchScanning,
     ]
   );
@@ -288,39 +271,12 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
     handleQRCodeDetectedRef.current = handleQRCodeDetected;
   }, [handleQRCodeDetected]);
 
-  // Cache asset offline
-  const cacheAssetOffline = (asset: Asset) => {
-    try {
-      const cachedAssets = JSON.parse(
-        localStorage.getItem("cached_assets") || "[]"
-      );
-      const exists = cachedAssets.find((a: Asset) => a.id === asset.id);
-
-      if (!exists) {
-        cachedAssets.push({
-          ...asset,
-          cached_at: new Date().toISOString(),
-        });
-
-        // Keep only last 50 cached assets
-        if (cachedAssets.length > 50) {
-          cachedAssets.shift();
-        }
-
-        localStorage.setItem("cached_assets", JSON.stringify(cachedAssets));
-      }
-    } catch (error) {
-      console.error("Error caching asset:", error);
-    }
-  };
-
   // Start scanning
   const startScanning = useCallback(
     async (deviceId?: string) => {
       try {
         // Prevent multiple simultaneous scan attempts
         if (scanningRef.current) {
-          console.log("Scanning already in progress");
           return;
         }
 
@@ -343,13 +299,10 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
           return;
         }
 
-        console.log("Starting camera initialization...");
-
         // Wait for video element to be ready
         await new Promise((resolve) => setTimeout(resolve, 100));
 
         if (!videoRef.current) {
-          console.error("Video element not ready");
           throw new Error("Video element not available");
         }
 
@@ -364,7 +317,6 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
 
         // Request camera permission and enumerate devices if not provided
         if (!deviceId) {
-          console.log("Requesting camera permission...");
           const permissionStream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: facingMode },
           });
@@ -377,7 +329,6 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
           const cameras = devices.filter(
             (device) => device.kind === "videoinput"
           );
-          console.log("Available cameras:", cameras.length, cameras);
           setAvailableCameras(cameras);
 
           // Determine which camera to use
@@ -404,15 +355,11 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
               deviceId = preferredCamera
                 ? preferredCamera.deviceId
                 : cameras[currentCameraIndex]?.deviceId;
-              console.log("Selected camera:", preferredCamera?.label || deviceId);
             } else {
               deviceId = cameras[0].deviceId;
-              console.log("Using only available camera:", cameras[0].label);
             }
           }
         }
-
-        console.log("Starting QR code reader with device:", deviceId);
 
         // Start decoding
         await codeReaderRef.current.decodeFromVideoDevice(
@@ -421,19 +368,14 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
           (result, error) => {
             if (result && scanningRef.current) {
               const qrText = result.getText();
-              console.log("✓ QR Code detected:", qrText);
-              console.log("Invoking handler via ref...");
               // Call handler via ref to always get the latest version
               if (handleQRCodeDetectedRef.current) {
-                console.log("Handler ref exists, calling it now");
                 handleQRCodeDetectedRef.current(qrText);
               } else {
-                console.error("Handler ref is null!");
               }
             }
             // Only log actual errors, not NotFoundException which is normal
             if (error && !(error instanceof NotFoundException)) {
-              console.warn("QR Scan error:", error);
             }
           }
         );
@@ -466,30 +408,29 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
         if (videoRef.current && videoRef.current.srcObject) {
           const mediaStream = videoRef.current.srcObject as MediaStream;
           setStream(mediaStream);
-          console.log("✓ Camera stream attached successfully");
         }
-      } catch (err: any) {
-        console.error("Scanning start error:", err);
+      } catch (err: unknown) {
         scanningRef.current = false;
         setScanning(false);
 
         let errorMessage = "Failed to start camera. Please try again.";
+        const error = err as { name?: string };
 
         if (
-          err.name === "NotAllowedError" ||
-          err.name === "PermissionDeniedError"
+          error.name === "NotAllowedError" ||
+          error.name === "PermissionDeniedError"
         ) {
           errorMessage =
             "Camera permission denied. Please grant camera access.";
         } else if (
-          err.name === "NotFoundError" ||
-          err.name === "DevicesNotFoundError"
+          error.name === "NotFoundError" ||
+          error.name === "DevicesNotFoundError"
         ) {
           errorMessage = "No camera found on this device.";
-        } else if (err.name === "NotReadableError") {
+        } else if (error.name === "NotReadableError") {
           errorMessage =
             "Camera is in use by another application.";
-        } else if (err.name === "OverconstrainedError") {
+        } else if (error.name === "OverconstrainedError") {
           errorMessage =
             "Could not start camera with requested settings.";
           // Try again with opposite facing mode
@@ -510,8 +451,6 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
       setLoading(true);
       setError(null);
 
-      console.log("Initializing scanner...");
-
       // Initialize QR code reader
       if (!codeReaderRef.current) {
         codeReaderRef.current = new BrowserQRCodeReader();
@@ -519,8 +458,7 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
 
       // Start scanning
       await startScanning();
-    } catch (err: any) {
-      console.error("Scanner initialization error:", err);
+    } catch (err: unknown) {
       setError(
         "Failed to initialize camera. Please check permissions and try again."
       );
@@ -531,14 +469,12 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
 
   // Stop scanning
   const stopScanning = useCallback(() => {
-    console.log("Stopping scanner...");
     scanningRef.current = false;
 
     // Stop all video tracks
     if (stream) {
       stream.getTracks().forEach((track) => {
         track.stop();
-        console.log("Stopped track:", track.kind);
       });
       setStream(null);
     }
@@ -547,9 +483,7 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
     if (codeReaderRef.current) {
       try {
         codeReaderRef.current.reset();
-        console.log("Code reader reset");
       } catch (err) {
-        console.warn("Error resetting code reader:", err);
       }
     }
 
@@ -583,7 +517,6 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
         setFlashEnabled(!flashEnabled);
       }
     } catch (err) {
-      console.error("Flash toggle error:", err);
     }
   };
 
@@ -605,7 +538,6 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
     }
 
     try {
-      console.log("Switching camera...");
       stopScanning();
 
       // Wait for cleanup
@@ -621,8 +553,7 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
 
       // Restart with new camera
       await startScanning();
-    } catch (err: any) {
-      console.error("Camera switch error:", err);
+    } catch (err: unknown) {
       setError("Failed to switch camera");
       setScanning(false);
       scanningRef.current = false;
@@ -662,7 +593,6 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
       setBatchScans([]);
       setIsBatchScanning(false);
     } catch (error) {
-      console.error("Error submitting batch scan:", error);
       setError("Failed to submit batch scan");
     } finally {
       setLoading(false);
@@ -684,7 +614,6 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
         setScanHistory(response.data.scans);
       }
     } catch (error) {
-      console.error("Error loading scan history:", error);
     } finally {
       setLoadingHistory(false);
     }

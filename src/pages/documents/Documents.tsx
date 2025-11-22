@@ -99,10 +99,7 @@ const Documents: React.FC<DocumentsProps> = ({ embedded = false }) => {
       if (response.data.success) {
         setDocuments(response.data.data);
       }
-    } catch (error: any) {
-      console.error('Failed to fetch documents:', error);
-      toast.error(error.response?.data?.message || 'Failed to load documents');
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setLoading(false);
     }
   };
@@ -122,7 +119,6 @@ const Documents: React.FC<DocumentsProps> = ({ embedded = false }) => {
     if (!selectedDocument) return;
     
     try {
-      console.log('Deleting document via API:', selectedDocument._id);
       
       // Call API to delete document
       await api.delete(`/documents/${selectedDocument._id}`);
@@ -136,7 +132,6 @@ const Documents: React.FC<DocumentsProps> = ({ embedded = false }) => {
       // Hide success message after 3 seconds
       setTimeout(() => setDeleteSuccess(false), 3000);
     } catch (error: any) {
-      console.error('Failed to delete document:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to delete document';
       toast.error(errorMsg);
       setDeleteDialogOpen(false);
@@ -210,7 +205,6 @@ const Documents: React.FC<DocumentsProps> = ({ embedded = false }) => {
       // Refresh documents list
       await fetchDocuments();
     } catch (error: any) {
-      console.error('Failed to upload document:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to upload document';
       toast.error(errorMsg);
     } finally {
@@ -490,7 +484,7 @@ const Documents: React.FC<DocumentsProps> = ({ embedded = false }) => {
                   border: '2px dashed',
                   borderColor: uploadFile ? 'primary.main' : 'divider',
                   borderRadius: 2,
-                  p: 3,
+                  p: { xs: 2, sm: 3 },
                   textAlign: 'center',
                   bgcolor: uploadFile ? 'action.hover' : 'background.paper',
                   cursor: 'pointer',

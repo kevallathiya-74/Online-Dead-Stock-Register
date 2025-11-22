@@ -146,7 +146,7 @@ const Landing = () => {
             sx={{
               mb: 4,
               opacity: 0.9,
-              maxWidth: 600,
+              maxWidth: { xs: '100%', sm: 500, md: 600 },
               mx: 'auto',
               lineHeight: 1.6,
             }}

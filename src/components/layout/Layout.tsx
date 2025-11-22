@@ -78,7 +78,7 @@ const Layout = ({ children, title }: LayoutProps) => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: { xs: 1, sm: 2, md: 3 },
           transition: 'margin 0.3s ease',
           marginLeft: isMobile ? 0 : `-${drawerWidth}px`,
           ...((!isMobile) && {

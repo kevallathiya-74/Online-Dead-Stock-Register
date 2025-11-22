@@ -88,7 +88,7 @@ exports.createAssetRequest = async (req, res) => {
       request: assetRequest
     });
   } catch (error) {
-    console.error('Error creating asset request:', error);
+    logger.error('Error creating asset request', { error: error.message, userId: req.user.id });
     res.status(500).json({ message: 'Failed to create asset request' });
   }
 };
@@ -124,7 +124,7 @@ exports.getUserAssetRequests = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching asset requests:', error);
+    logger.error('Error fetching asset requests', { error: error.message, userId: req.user.id });
     res.status(500).json({ message: 'Failed to fetch asset requests' });
   }
 };
@@ -156,7 +156,7 @@ exports.getAssetRequestById = async (req, res) => {
 
     res.json(request);
   } catch (error) {
-    console.error('Error fetching asset request:', error);
+    logger.error('Error fetching asset request', { error: error.message, requestId: req.params.id });
     res.status(500).json({ message: 'Failed to fetch asset request' });
   }
 };
@@ -229,7 +229,7 @@ exports.updateAssetRequest = async (req, res) => {
       request: updatedRequest
     });
   } catch (error) {
-    console.error('Error updating asset request:', error);
+    logger.error('Error updating asset request', { error: error.message, requestId: req.params.id });
     res.status(500).json({ message: 'Failed to update asset request' });
   }
 };
@@ -280,7 +280,7 @@ exports.cancelAssetRequest = async (req, res) => {
       request
     });
   } catch (error) {
-    console.error('Error cancelling asset request:', error);
+    logger.error('Error cancelling asset request', { error: error.message, requestId: req.params.id });
     res.status(500).json({ message: 'Failed to cancel asset request' });
   }
 };
@@ -320,7 +320,7 @@ exports.getAssetRequestStats = async (req, res) => {
       status_breakdown: statusCounts
     });
   } catch (error) {
-    console.error('Error fetching asset request stats:', error);
+    logger.error('Error fetching asset request stats', { error: error.message, userId: req.user.id });
     res.status(500).json({ message: 'Failed to fetch asset request statistics' });
   }
 };
@@ -360,7 +360,7 @@ exports.getAllAssetRequests = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching all asset requests:', error);
+    logger.error('Error fetching all asset requests', { error: error.message });
     res.status(500).json({ message: 'Failed to fetch asset requests' });
   }
 };

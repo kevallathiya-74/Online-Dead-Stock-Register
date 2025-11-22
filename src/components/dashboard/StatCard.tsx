@@ -32,7 +32,7 @@ const StatCard = ({
   const themeColor = color || progressColor;
   return (
     <Card>
-      <CardContent>
+      <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 3 } }}>
         <Box
           sx={{
             display: 'flex',
@@ -46,6 +46,7 @@ const StatCard = ({
             sx={{
               color: 'text.secondary',
               fontWeight: 500,
+              fontSize: { xs: '0.75rem', sm: '0.875rem' },
             }}
           >
             {title}
@@ -56,12 +57,15 @@ const StatCard = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: 40,
-                height: 40,
+                width: { xs: 32, sm: 40 },
+                height: { xs: 32, sm: 40 },
                 borderRadius: '50%',
                 backgroundColor: (theme) =>
                   theme.palette[themeColor].light + '20',
                 color: (theme) => theme.palette[themeColor].main,
+                '& .MuiSvgIcon-root': {
+                  fontSize: { xs: 20, sm: 24 },
+                },
               }}
             >
               {icon}
@@ -69,8 +73,8 @@ const StatCard = ({
           )}
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: subtitle ? 1 : 2 }}>
-          <Typography variant="h4" component="div">
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: subtitle ? 1 : 2, flexWrap: 'wrap' }}>
+          <Typography variant="h4" component="div" sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}>
             {value}
           </Typography>
           {trend && trend.value > 0 && (

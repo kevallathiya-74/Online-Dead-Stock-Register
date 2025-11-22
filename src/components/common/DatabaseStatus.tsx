@@ -50,7 +50,6 @@ const DatabaseStatus: React.FC<DatabaseStatusProps> = ({ onDataSeeded }) => {
         setIsEmpty(totalAssets === 0);
       }
     } catch (error) {
-      console.error('Failed to check database status:', error);
     } finally {
       setChecking(false);
     }
@@ -75,7 +74,6 @@ const DatabaseStatus: React.FC<DatabaseStatusProps> = ({ onDataSeeded }) => {
         }, 1000);
       }
     } catch (error: any) {
-      console.error('Failed to seed database:', error);
       const message = error.response?.data?.message || 'Failed to seed database';
       toast.error(message);
     } finally {

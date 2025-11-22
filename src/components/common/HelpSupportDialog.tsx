@@ -252,7 +252,7 @@ const HelpSupportDialog: React.FC<HelpSupportDialogProps> = ({ open, onClose }) 
           </IconButton>
         </DialogTitle>
 
-        <DialogContent sx={{ p: 3 }}>
+        <DialogContent sx={{ p: { xs: 2, sm: 3 } }}>
           {/* Quick Help Topics */}
           <Box sx={{ mb: 4 }}>
             <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>

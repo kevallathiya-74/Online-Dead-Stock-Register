@@ -61,7 +61,7 @@ const VendorOrdersPage: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const params: any = {
+      const params: Record<string, string | number> = {
         page: page + 1,
         limit: rowsPerPage
       };
@@ -74,9 +74,8 @@ const VendorOrdersPage: React.FC = () => {
 
       setOrders(ordersData);
       setTotalOrders(pagination.total);
-    } catch (err: any) {
-      console.error('Error loading orders:', err);
-      setError(err.response?.data?.message || 'Failed to load orders');
+    } catch (err: unknown) {
+      setError((err as any).response?.data?.message || 'Failed to load orders');
     } finally {
       setLoading(false);
     }
@@ -88,9 +87,8 @@ const VendorOrdersPage: React.FC = () => {
       setDetailsOpen(true);
       const orderDetails = await getOrderById(orderId);
       setSelectedOrder(orderDetails);
-    } catch (err: any) {
-      console.error('Error loading order details:', err);
-      setError(err.response?.data?.message || 'Failed to load order details');
+    } catch (err: unknown) {
+      setError((err as any).response?.data?.message || 'Failed to load order details');
     } finally {
       setDetailsLoading(false);
     }
@@ -143,7 +141,7 @@ const VendorOrdersPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
         <Typography variant="h4" gutterBottom>
           My Orders
         </Typography>
@@ -218,7 +216,7 @@ const VendorOrdersPage: React.FC = () => {
       {/* Orders Table */}
       <Paper>
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: { xs: 2, sm: 3, md: 4 } }}>
             <CircularProgress />
           </Box>
         ) : (
@@ -380,16 +378,16 @@ const VendorOrdersPage: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {selectedOrder.items?.map((item: any, index: number) => (
+                    {selectedOrder.items?.map((item: Record<string, unknown>, index: number) => (
                       <TableRow key={index}>
-                        <TableCell>{item.description}</TableCell>
-                        <TableCell>{item.category}</TableCell>
-                        <TableCell align="right">{item.quantity}</TableCell>
+                        <TableCell>{String(item.description || '')}</TableCell>
+                        <TableCell>{String(item.category || '')}</TableCell>
+                        <TableCell align="right">{String(item.quantity || 0)}</TableCell>
                         <TableCell align="right">
-                          {formatCurrency(item.unit_price)}
+                          {formatCurrency(Number(item.unit_price || 0))}
                         </TableCell>
                         <TableCell align="right">
-                          {formatCurrency(item.total_price)}
+                          {formatCurrency(Number(item.total_price || 0))}
                         </TableCell>
                       </TableRow>
                     ))}

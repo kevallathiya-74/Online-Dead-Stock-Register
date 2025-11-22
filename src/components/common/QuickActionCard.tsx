@@ -66,7 +66,7 @@ const QuickActionCard: React.FC<QuickActionCardProps> = ({
           },
         }}
       >
-        <CardContent sx={{ width: '100%', p: 3 }}>
+        <CardContent sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
           {badge !== undefined && (
             <Chip
               label={badge}

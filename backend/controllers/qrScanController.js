@@ -1,4 +1,5 @@
 const Asset = require('../models/asset');
+const logger = require('../utils/logger');
 const AuditLog = require('../models/auditLog');
 const User = require('../models/user');
 
@@ -13,12 +14,12 @@ exports.scanAsset = async (req, res) => {
     const { qrCode } = req.params;
     const { mode = 'lookup', include_history = false } = req.query;
 
-    console.log('📱 QR Scan Request:');
-    console.log('  - QR Code:', qrCode);
-    console.log('  - Mode:', mode);
-    console.log('  - User:', req.user?.id, req.user?.name);
-    console.log('  - Include History:', include_history);
-    console.log('  - IP:', req.ip || req.connection.remoteAddress);
+    logger.debug('📱 QR Scan Request:');
+    logger.debug('  - QR Code:', qrCode);
+    logger.debug('  - Mode:', mode);
+    logger.debug('  - User:', req.user?.id, req.user?.name);
+    logger.debug('  - Include History:', include_history);
+    logger.debug('  - IP:', req.ip || req.connection.remoteAddress);
 
     // Find asset by unique ID or serial number
     const asset = await Asset.findOne({
@@ -30,14 +31,14 @@ exports.scanAsset = async (req, res) => {
     }).populate('assigned_user', 'name email department')
       .populate('vendor', 'vendor_name email phone');
 
-    console.log('  - Asset found:', !!asset);
+    logger.debug('  - Asset found:', !!asset);
     if (asset) {
-      console.log('  - Asset ID:', asset._id);
-      console.log('  - Asset Name:', asset.name || `${asset.manufacturer} ${asset.model}`);
+      logger.debug('  - Asset ID:', asset._id);
+      logger.debug('  - Asset Name:', asset.name || `${asset.manufacturer} ${asset.model}`);
     }
 
     if (!asset) {
-      console.log('❌ Asset not found for QR code:', qrCode);
+      logger.debug('❌ Asset not found for QR code:', qrCode);
       
       // Log failed scan attempt
       await AuditLog.create({
@@ -152,13 +153,13 @@ exports.scanAsset = async (req, res) => {
       }
     };
 
-    console.log('✅ QR Scan successful, returning asset data');
+    logger.debug('✅ QR Scan successful, returning asset data');
     res.json(response);
   } catch (error) {
-    console.error('❌ Error scanning asset:', error);
-    console.error('  - Error name:', error.name);
-    console.error('  - Error message:', error.message);
-    console.error('  - Stack:', error.stack);
+    logger.error('❌ Error scanning asset:', error);
+    logger.error('  - Error name:', error.name);
+    logger.error('  - Error message:', error.message);
+    logger.error('  - Stack:', error.stack);
     
     res.status(500).json({
       success: false,
@@ -267,7 +268,7 @@ exports.batchScan = async (req, res) => {
 
     res.json(results);
   } catch (error) {
-    console.error('Error in batch scan:', error);
+    logger.error('Error in batch scan:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to process batch scan',
@@ -335,7 +336,7 @@ exports.getScanHistory = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching scan history:', error);
+    logger.error('Error fetching scan history:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch scan history',
@@ -434,7 +435,7 @@ exports.getScanStats = async (req, res) => {
       }))
     });
   } catch (error) {
-    console.error('Error fetching scan stats:', error);
+    logger.error('Error fetching scan stats:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch scan statistics',
@@ -527,7 +528,7 @@ exports.quickAuditScan = async (req, res) => {
       updated_at: new Date()
     });
   } catch (error) {
-    console.error('Error in quick audit scan:', error);
+    logger.error('Error in quick audit scan:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to complete quick audit',

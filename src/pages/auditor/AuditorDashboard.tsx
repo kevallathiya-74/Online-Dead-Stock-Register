@@ -115,9 +115,8 @@ const AuditorDashboard: React.FC = () => {
 
       setStats(statsData);
       setAuditItems(Array.isArray(itemsData) ? itemsData.slice(0, 10) : []);
-    } catch (err: any) {
-      console.error('Error fetching dashboard data:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to load dashboard data';
+    } catch (err: unknown) {
+      const errorMessage = (err as any).response?.data?.message || (err as any).message || 'Failed to load dashboard data';
       setError(errorMessage);
       
       if (!errorMessage.includes('token') && !errorMessage.includes('Authentication')) {
@@ -169,7 +168,7 @@ const AuditorDashboard: React.FC = () => {
   if (error) {
     return (
       <DashboardLayout>
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: { xs: 2, sm: 3 } }}>
           <Alert 
             severity="error" 
             action={
@@ -262,7 +261,7 @@ const AuditorDashboard: React.FC = () => {
         </Grid>
 
         {/* Audit Items Table */}
-        <Paper sx={{ p: 3 }}>
+        <Paper sx={{ p: { xs: 2, sm: 3 } }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6">
               Recent Audit Items

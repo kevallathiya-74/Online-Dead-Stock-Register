@@ -38,8 +38,8 @@ const DatabaseSeeder = () => {
       } else {
         throw new Error(response.data.error || 'Failed to seed database');
       }
-    } catch (err: any) {
-      const errorMsg = err.response?.data?.error || err.message || 'Failed to seed database';
+    } catch (err: unknown) {
+      const errorMsg = (err as any).response?.data?.error || (err as any).message || 'Failed to seed database';
       setError(errorMsg);
       toast.error(errorMsg);
     } finally {

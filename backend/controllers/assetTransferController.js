@@ -81,7 +81,7 @@ exports.getAllAssetTransfers = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching asset transfers:', error);
+    logger.error('Error fetching asset transfers:', error);
     res.status(500).json({ message: 'Failed to fetch asset transfers' });
   }
 };
@@ -220,7 +220,7 @@ exports.createAssetTransfer = async (req, res) => {
       transfer
     });
   } catch (error) {
-    console.error('Error creating asset transfer:', error);
+    logger.error('Error creating asset transfer:', error);
     res.status(500).json({ message: 'Failed to create asset transfer' });
   }
 };
@@ -347,7 +347,7 @@ exports.updateAssetTransferStatus = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error updating asset transfer status:', error);
+    logger.error('Error updating asset transfer status:', error);
     res.status(500).json({ message: 'Failed to update asset transfer status' });
   }
 };
@@ -444,7 +444,7 @@ exports.getAssetTransferStats = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching asset transfer statistics:', error);
+    logger.error('Error fetching asset transfer statistics:', error);
     res.status(500).json({ message: 'Failed to fetch asset transfer statistics' });
   }
 };

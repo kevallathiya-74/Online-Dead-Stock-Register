@@ -92,7 +92,6 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({ open, onClose, onSu
       setAssets(Array.isArray(assetsData) ? assetsData : []);
       setTechnicians(Array.isArray(techniciansData) ? techniciansData : []);
     } catch (error) {
-      console.error('Failed to load form data:', error);
       toast.error('Failed to load assets and technicians');
     } finally {
       setLoadingData(false);
@@ -118,7 +117,7 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({ open, onClose, onSu
 
   const downtimeImpacts = ['Low', 'Medium', 'High'];
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: unknown) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -183,7 +182,6 @@ const MaintenanceModal: React.FC<MaintenanceModalProps> = ({ open, onClose, onSu
       });
       onClose();
     } catch (error: any) {
-      console.error('Failed to schedule maintenance:', error);
       const errorMessage = error.response?.data?.message || 'Failed to schedule maintenance';
       toast.error(errorMessage);
     } finally {

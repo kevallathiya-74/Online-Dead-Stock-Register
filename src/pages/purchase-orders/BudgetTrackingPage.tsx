@@ -83,7 +83,7 @@ function TabPanel(props: TabPanelProps) {
       {...other}
     >
       {value === index && (
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: { xs: 2, sm: 3 } }}>
           {children}
         </Box>
       )}
@@ -117,10 +117,7 @@ const BudgetTrackingPage = () => {
       
       setCategories(categories);
       setTransactions(transactions);
-    } catch (error) {
-      console.error('Error loading budget data:', error);
-      toast.error('Failed to load budget data');
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setLoading(false);
     }
   };
@@ -202,7 +199,7 @@ const BudgetTrackingPage = () => {
         </Box>
 
         {/* Summary Cards */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: 3 }}>
           <Grid item xs={12} sm={6} md={3}>
             <Card>
               <CardContent>
@@ -215,7 +212,7 @@ const BudgetTrackingPage = () => {
                       ₹{Number(totalAllocated || 0).toLocaleString('en-IN')}
                     </Typography>
                   </Box>
-                  <BudgetIcon color="primary" sx={{ fontSize: 40 }} />
+                  <BudgetIcon color="primary" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>
@@ -235,7 +232,7 @@ const BudgetTrackingPage = () => {
                       {((totalSpent / totalAllocated) * 100).toFixed(1)}% utilized
                     </Typography>
                   </Box>
-                  <SpendIcon color="error" sx={{ fontSize: 40 }} />
+                  <SpendIcon color="error" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>
@@ -252,7 +249,7 @@ const BudgetTrackingPage = () => {
                       ₹{Number(totalCommitted || 0).toLocaleString('en-IN')}
                     </Typography>
                   </Box>
-                  <CheckCircleIcon color="warning" sx={{ fontSize: 40 }} />
+                  <CheckCircleIcon color="warning" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>
@@ -273,9 +270,9 @@ const BudgetTrackingPage = () => {
                     </Typography>
                   </Box>
                   {totalAvailable >= 0 ? (
-                    <TrendingUpIcon color="success" sx={{ fontSize: 40 }} />
+                    <TrendingUpIcon color="success" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                   ) : (
-                    <TrendingDownIcon color="error" sx={{ fontSize: 40 }} />
+                    <TrendingDownIcon color="error" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                   )}
                 </Box>
               </CardContent>
@@ -356,7 +353,7 @@ const BudgetTrackingPage = () => {
             </Grid>
 
             {/* Budget Categories */}
-            <Grid container spacing={3}>
+            <Grid container spacing={{ xs: 2, sm: 3 }}>
               {loading ? (
                 <Grid item xs={12}>
                   <Typography align="center">Loading budget data...</Typography>

@@ -63,9 +63,7 @@ const ResetPassword = () => {
       });
       toast.success('Password has been reset successfully');
       navigate('/login');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to reset password');
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setIsLoading(false);
     }
   };
@@ -81,8 +79,8 @@ const ResetPassword = () => {
         p: 2,
       }}
     >
-      <Card sx={{ maxWidth: 400, width: '100%' }}>
-        <CardContent sx={{ p: 4 }}>
+      <Card sx={{ maxWidth: { xs: '100%', sm: 450 }, width: '100%' }}>
+        <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
           <Box sx={{ mb: 4, textAlign: 'center' }}>
             <Typography variant="h4" component="h1" gutterBottom>
               Reset Password

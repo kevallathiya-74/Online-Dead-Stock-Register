@@ -1,4 +1,5 @@
 const User = require('../models/user');
+const logger = require('../utils/logger');
 const AuditLog = require('../models/auditLog');
 const bcrypt = require('bcryptjs');
 
@@ -39,7 +40,7 @@ exports.getAllUsers = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching users:', error);
+    logger.error('Error fetching users:', error);
     res.status(500).json({ message: 'Failed to fetch users' });
   }
 };
@@ -56,7 +57,7 @@ exports.getUserById = async (req, res) => {
 
     res.json(user);
   } catch (error) {
-    console.error('Error fetching user:', error);
+    logger.error('Error fetching user:', error);
     res.status(500).json({ message: 'Failed to fetch user' });
   }
 };
@@ -118,7 +119,7 @@ exports.createUser = async (req, res) => {
       user: userResponse
     });
   } catch (error) {
-    console.error('Error creating user:', error);
+    logger.error('Error creating user:', error);
     res.status(500).json({ message: 'Failed to create user' });
   }
 };
@@ -187,7 +188,7 @@ exports.updateUser = async (req, res) => {
       user: updatedUser
     });
   } catch (error) {
-    console.error('Error updating user:', error);
+    logger.error('Error updating user:', error);
     res.status(500).json({ message: 'Failed to update user' });
   }
 };
@@ -231,7 +232,7 @@ exports.changeUserRole = async (req, res) => {
       user: { id: id, role: role }
     });
   } catch (error) {
-    console.error('Error changing user role:', error);
+    logger.error('Error changing user role:', error);
     res.status(500).json({ message: 'Failed to change user role' });
   }
 };
@@ -275,7 +276,7 @@ exports.changeUserStatus = async (req, res) => {
       user: { id: id, status: status }
     });
   } catch (error) {
-    console.error('Error changing user status:', error);
+    logger.error('Error changing user status:', error);
     res.status(500).json({ message: 'Failed to change user status' });
   }
 };
@@ -314,7 +315,7 @@ exports.deleteUser = async (req, res) => {
 
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
-    console.error('Error deleting user:', error);
+    logger.error('Error deleting user:', error);
     res.status(500).json({ message: 'Failed to delete user' });
   }
 };
@@ -344,7 +345,7 @@ exports.getUserStats = async (req, res) => {
       department_distribution: departmentStats
     });
   } catch (error) {
-    console.error('Error fetching user stats:', error);
+    logger.error('Error fetching user stats:', error);
     res.status(500).json({ message: 'Failed to fetch user statistics' });
   }
 };
@@ -382,7 +383,7 @@ exports.resetUserPassword = async (req, res) => {
 
     res.json({ message: 'Password reset successfully' });
   } catch (error) {
-    console.error('Error resetting password:', error);
+    logger.error('Error resetting password:', error);
     res.status(500).json({ message: 'Failed to reset password' });
   }
 };

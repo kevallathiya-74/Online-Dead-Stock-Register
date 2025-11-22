@@ -32,10 +32,82 @@ exports.getProfile = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Error fetching user profile:', err);
+    logger.error('Error fetching user profile', { error: err.message });
     res.status(500).json({ 
       success: false,
       message: 'Error fetching user profile',
+      error: err.message 
+    });
+  }
+};
+
+// PUT update current user profile
+exports.updateProfile = async (req, res) => {
+  try {
+    const { name, phone, department, employee_id } = req.body;
+    
+    // Find the current user
+    const user = await User.findById(req.user.id);
+    
+    if (!user) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      });
+    }
+
+    // Update allowed fields for all users
+    if (name) user.name = name;
+    if (phone !== undefined) user.phone = phone;
+    
+    // Only ADMIN can update department and employee_id
+    const isAdmin = req.user.role === 'ADMIN';
+    
+    if (department !== undefined) {
+      if (!isAdmin) {
+        return res.status(403).json({ 
+          success: false,
+          message: 'Only administrators can update department' 
+        });
+      }
+      user.department = department;
+    }
+    
+    if (employee_id !== undefined) {
+      if (!isAdmin) {
+        return res.status(403).json({ 
+          success: false,
+          message: 'Only administrators can update employee ID' 
+        });
+      }
+      user.employee_id = employee_id;
+    }
+
+    await user.save();
+
+    logger.info('User profile updated', { userId: user._id, email: user.email });
+
+    res.json({ 
+      success: true,
+      message: 'Profile updated successfully',
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        department: user.department,
+        employee_id: user.employee_id,
+        phone: user.phone,
+        is_active: user.is_active,
+        created_at: user.created_at,
+        last_login: user.last_login
+      }
+    });
+  } catch (err) {
+    logger.error('Error updating user profile', { error: err.message });
+    res.status(500).json({ 
+      success: false,
+      message: 'Error updating user profile',
       error: err.message 
     });
   }
@@ -64,7 +136,7 @@ exports.getUsers = async (req, res) => {
       count: mappedUsers.length
     });
   } catch (err) {
-    console.error('Error fetching users:', err);
+    logger.error('Error fetching users', { error: err.message });
     res.status(500).json({ 
       success: false,
       message: err.message 
@@ -92,7 +164,7 @@ exports.getUserById = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Error fetching user:', err);
+    logger.error('Error fetching user', { error: err.message });
     res.status(500).json({ 
       success: false,
       message: err.message 
@@ -188,7 +260,7 @@ exports.createUser = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('❌ Error creating user:', err);
+    logger.error('Error creating user', { error: err.message });
     res.status(400).json({ 
       success: false,
       message: err.message 
@@ -247,7 +319,7 @@ exports.changePassword = async (req, res) => {
       message: 'Password changed successfully'
     });
   } catch (err) {
-    console.error('Error changing password:', err);
+    logger.error('Error changing password', { error: err.message });
     res.status(500).json({
       success: false,
       message: 'Error changing password',
@@ -259,9 +331,7 @@ exports.changePassword = async (req, res) => {
 // UPDATE user
 exports.updateUser = async (req, res) => {
   try {
-    console.log('=== Updating user ===');
-    console.log('User ID:', req.params.id);
-    console.log('Update data:', JSON.stringify(req.body, null, 2));
+    logger.debug('Updating user', { userId: req.params.id, updateData: req.body });
     
     const { name, email, role, department, employee_id, phone, is_active, password } = req.body;
     
@@ -303,7 +373,7 @@ exports.updateUser = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('❌ Error updating user:', err);
+    logger.error('Error updating user', { error: err.message });
     res.status(400).json({ 
       success: false,
       message: err.message 
@@ -333,7 +403,7 @@ exports.deleteUser = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('❌ Error deleting user:', err);
+    logger.error('Error deleting user', { error: err.message });
     res.status(500).json({ 
       success: false,
       message: err.message 

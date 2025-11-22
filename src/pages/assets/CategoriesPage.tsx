@@ -53,7 +53,6 @@ const CategoriesPage: React.FC = () => {
     try {
       setLoading(true);
       const response = await api.get('/assets/categories');
-      console.log('Categories API response:', response.data);
 
       if (response.data?.success && Array.isArray(response.data?.data)) {
         setCategories(response.data.data);
@@ -61,7 +60,6 @@ const CategoriesPage: React.FC = () => {
         setCategories([]);
       }
     } catch (error: any) {
-      console.error('Error fetching categories:', error);
       setCategories([]);
       toast.error(error?.response?.data?.message || 'Failed to load categories');
     } finally {
@@ -105,17 +103,13 @@ const CategoriesPage: React.FC = () => {
         color: currentCategory.color || '#1976d2',
       };
 
-      console.log('Saving category with payload:', payload);
-
       if (editMode && currentCategory._id) {
         const response = await api.put(`/assets/categories/${currentCategory._id}`, payload);
-        console.log('Update response:', response.data);
         if (response.data?.success) {
           toast.success('Category updated successfully');
         }
       } else {
         const response = await api.post('/assets/categories', payload);
-        console.log('Create response:', response.data);
         if (response.data?.success) {
           toast.success('Category created successfully');
         }
@@ -123,8 +117,6 @@ const CategoriesPage: React.FC = () => {
       await fetchCategories();
       handleCloseDialog();
     } catch (error: any) {
-      console.error('Error saving category:', error);
-      console.error('Error response:', error?.response?.data);
       const errorMsg = error?.response?.data?.message || error?.message || 'Failed to save category';
       toast.error(errorMsg);
     }
@@ -148,7 +140,6 @@ const CategoriesPage: React.FC = () => {
         await fetchCategories();
       }
     } catch (error: any) {
-      console.error('Error deleting category:', error);
       const errorMsg = error?.response?.data?.message || 'Failed to delete category';
       toast.error(errorMsg);
     }
@@ -158,7 +149,7 @@ const CategoriesPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box>
             <Typography variant="h4" component="h1" fontWeight="bold">
@@ -178,7 +169,7 @@ const CategoriesPage: React.FC = () => {
       </Box>
 
       {/* Summary Card */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: { xs: 2, sm: 3 }, mb: { xs: 2, sm: 3 } }}>
         <Grid container spacing={3}>
           <Grid item xs={12} md={4}>
             <Box sx={{ textAlign: 'center' }}>

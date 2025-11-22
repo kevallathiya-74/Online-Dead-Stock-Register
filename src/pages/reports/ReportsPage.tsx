@@ -86,13 +86,11 @@ const ReportsPage = () => {
       // Fetch templates and asset summary from real APIs
       const [templatesRes, summaryRes] = await Promise.all([
         api.get('/reports/templates').catch(err => {
-          console.error('Failed to fetch report templates:', err);
-          toast.error('Failed to load report templates');
+          // Error handled by API interceptor
           return { data: { data: [] } };
         }),
         api.get('/reports/asset-summary').catch(err => {
-          console.error('Failed to fetch asset summary:', err);
-          toast.error('Failed to load asset summary');
+          // Error handled by API interceptor
           return { data: { data: null } };
         })
       ]);
@@ -106,7 +104,6 @@ const ReportsPage = () => {
       }
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message || 'Failed to load report data';
-      console.error('Error loading reports:', error);
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -176,7 +173,6 @@ const ReportsPage = () => {
             toast.dismiss(loadingToast);
             toast.success(`Report "${template.name}" generated and downloaded successfully!`);
           } catch (downloadError: any) {
-            console.error('Download error:', downloadError);
             toast.dismiss(loadingToast);
             toast.error(downloadError.response?.data?.message || 'Failed to download report');
           }
@@ -189,7 +185,6 @@ const ReportsPage = () => {
         toast.error('Report generation failed');
       }
     } catch (error: any) {
-      console.error('Failed to generate report:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to generate report';
       toast.error(errorMessage);
     }
@@ -242,7 +237,7 @@ const ReportsPage = () => {
           </Alert>
         )}
         
-        <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={6} md={3}>
             <Card>
               <CardContent>
@@ -334,7 +329,7 @@ const ReportsPage = () => {
         {/* Category Filter */}
         <Card sx={{ mb: 3 }}>
           <CardContent>
-            <Grid container spacing={3} alignItems="center">
+            <Grid container spacing={{ xs: 2, sm: 3 }} alignItems="center">
               <Grid item xs={12} md={3}>
                 <FormControl fullWidth>
                   <InputLabel>Category</InputLabel>
@@ -474,7 +469,7 @@ const ReportsPage = () => {
             <Typography variant="h5" gutterBottom sx={{ mb: 3 }}>
               Asset Summary
             </Typography>
-            <Grid container spacing={3}>
+            <Grid container spacing={{ xs: 2, sm: 3 }}>
               <Grid item xs={12} md={6}>
                 <Card>
                   <CardContent>

@@ -1,4 +1,5 @@
 const Asset = require('../models/asset');
+const logger = require('../utils/logger');
 const User = require('../models/user');
 const SavedFilter = require('../models/savedFilter');
 const AuditLog = require('../models/auditLog');
@@ -226,7 +227,7 @@ exports.filterAssets = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error filtering assets:', error);
+    logger.error('Error filtering assets:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to filter assets',
@@ -299,7 +300,7 @@ exports.saveFilter = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error saving filter:', error);
+    logger.error('Error saving filter:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to save filter',
@@ -355,7 +356,7 @@ exports.getSavedFilters = async (req, res) => {
       }))
     });
   } catch (error) {
-    console.error('Error fetching saved filters:', error);
+    logger.error('Error fetching saved filters:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch filters',
@@ -414,7 +415,7 @@ exports.getFilterById = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching filter:', error);
+    logger.error('Error fetching filter:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch filter',
@@ -480,7 +481,7 @@ exports.updateFilter = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error updating filter:', error);
+    logger.error('Error updating filter:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update filter',
@@ -537,7 +538,7 @@ exports.deleteFilter = async (req, res) => {
       message: 'Filter deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting filter:', error);
+    logger.error('Error deleting filter:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to delete filter',
@@ -624,7 +625,7 @@ exports.getFilterPresets = async (req, res) => {
       presets
     });
   } catch (error) {
-    console.error('Error fetching filter presets:', error);
+    logger.error('Error fetching filter presets:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch filter presets',
@@ -677,7 +678,7 @@ exports.getFilterFields = async (req, res) => {
       fields
     });
   } catch (error) {
-    console.error('Error fetching filter fields:', error);
+    logger.error('Error fetching filter fields:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch filter fields',

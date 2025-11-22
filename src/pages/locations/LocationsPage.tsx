@@ -82,10 +82,7 @@ const LocationsPage: React.FC = () => {
         const locationData = response.data.data || response.data;
         setLocations(locationData);
         toast.success('Locations loaded successfully');
-      } catch (error) {
-        console.error('Failed to load locations:', error);
-        toast.error('Failed to load locations');
-      } finally {
+      } catch (error) { /* Error handled by API interceptor */ } finally {
         setLoading(false);
       }
     };

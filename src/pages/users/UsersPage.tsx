@@ -105,27 +105,19 @@ const UsersPage = () => {
         params: { _t: Date.now() }
       });
       
-      console.log('Users response:', response.data);
-      
       const userData = response.data.data || response.data;
       
       if (!Array.isArray(userData)) {
-        console.error('Invalid user data format:', userData);
         throw new Error('Invalid data format received from server');
       }
       
-      const mappedUsers = userData.map((user: any) => ({
+      const mappedUsers = userData.map((user: Record<string, unknown>) => ({
         ...user,
         _id: user._id,
         status: user.is_active ? 'Active' : 'Inactive'
-      }));
-      
-      console.log('Mapped users:', mappedUsers.length, 'users loaded');
+      })) as AdminUser[];
       setUsers(mappedUsers);
-    } catch (error) {
-      console.error('Failed to load users:', error);
-      toast.error('Failed to load users');
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setLoading(false);
     }
   };
@@ -155,7 +147,6 @@ const UsersPage = () => {
     }
 
     try {
-      console.log('Creating user:', newUser);
       const response = await api.post('/users', {
         name: newUser.name,
         email: newUser.email,
@@ -168,17 +159,12 @@ const UsersPage = () => {
         manager: newUser.manager,
         password: 'defaultPassword123' 
       });
-
-      console.log('User created:', response.data);
       await loadUsers();
       
       setAddUserDialogOpen(false);
       resetNewUser();
       toast.success('User created successfully');
-    } catch (error: any) {
-      console.error('Failed to create user:', error);
-      toast.error(error?.response?.data?.message || 'Failed to create user');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const handleToggleUserStatus = async (userId: string) => {
@@ -200,10 +186,7 @@ const UsersPage = () => {
         )
       );
       toast.success('User status updated');
-    } catch (error) {
-      console.error('Failed to update user status:', error);
-      toast.error('Failed to update user status');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const handleDeleteUser = async (userId: string) => {
@@ -215,10 +198,7 @@ const UsersPage = () => {
         // Update local state
         setUsers(prev => prev.filter(user => user._id !== userId));
         toast.success('User deleted successfully');
-      } catch (error) {
-        console.error('Failed to delete user:', error);
-        toast.error('Failed to delete user');
-      }
+      } catch (error) { /* Error handled by API interceptor */ }
     }
   };
 
@@ -309,7 +289,7 @@ const UsersPage = () => {
       'AUDITOR': users.filter(u => u.role === 'AUDITOR').length,
       'VENDOR': users.filter(u => u.role === 'VENDOR').length,
     },
-    byDepartment: users.reduce((acc: any, user) => {
+    byDepartment: users.reduce((acc: Record<string, number>, user) => {
       if (user.department) {
         acc[user.department] = (acc[user.department] || 0) + 1;
       }
@@ -374,7 +354,7 @@ const UsersPage = () => {
         </Box>
 
         {/* Statistics Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={6} md={3}>
             <Card sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
               <CardContent>
@@ -388,7 +368,7 @@ const UsersPage = () => {
                       {stats.recentLogins} logged in this week
                     </Typography>
                   </Box>
-                  <PersonIcon sx={{ fontSize: 40, opacity: 0.8 }} />
+                  <PersonIcon sx={{ fontSize: { xs: 32, sm: 40 }, opacity: 0.8 }} />
                 </Box>
               </CardContent>
             </Card>
@@ -406,7 +386,7 @@ const UsersPage = () => {
                       {((stats.active / stats.total) * 100).toFixed(1)}% of total
                     </Typography>
                   </Box>
-                  <CheckCircleIcon sx={{ fontSize: 40, opacity: 0.8 }} />
+                  <CheckCircleIcon sx={{ fontSize: { xs: 32, sm: 40 }, opacity: 0.8 }} />
                 </Box>
               </CardContent>
             </Card>
@@ -419,12 +399,12 @@ const UsersPage = () => {
                     <Typography variant="overline" sx={{ opacity: 0.8 }}>
                       Admin Users
                     </Typography>
-                    <Typography variant="h4">{stats.byRole['Admin'] || 0}</Typography>
+                    <Typography variant="h4">{stats.byRole['ADMIN'] || 0}</Typography>
                     <Typography variant="caption" sx={{ opacity: 0.8 }}>
                       System administrators
                     </Typography>
                   </Box>
-                  <AdminIcon sx={{ fontSize: 40, opacity: 0.8 }} />
+                  <AdminIcon sx={{ fontSize: { xs: 32, sm: 40 }, opacity: 0.8 }} />
                 </Box>
               </CardContent>
             </Card>
@@ -442,7 +422,7 @@ const UsersPage = () => {
                       Active departments
                     </Typography>
                   </Box>
-                  <WorkIcon sx={{ fontSize: 40, opacity: 0.8 }} />
+                  <WorkIcon sx={{ fontSize: { xs: 32, sm: 40 }, opacity: 0.8 }} />
                 </Box>
               </CardContent>
             </Card>
@@ -452,7 +432,7 @@ const UsersPage = () => {
         {/* Enhanced Filters */}
         <Card sx={{ mb: 3 }}>
           <CardContent>
-            <Grid container spacing={3} alignItems="center">
+            <Grid container spacing={{ xs: 2, sm: 3 }} alignItems="center">
               <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
@@ -753,7 +733,7 @@ const UsersPage = () => {
             </Box>
           </DialogTitle>
           <DialogContent>
-            <Grid container spacing={3} sx={{ mt: 0.5 }}>
+            <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mt: 0.5 }}>
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
@@ -901,7 +881,7 @@ const UsersPage = () => {
           <DialogTitle>User Details</DialogTitle>
           <DialogContent dividers>
             {selectedUser && (
-              <Grid container spacing={3}>
+              <Grid container spacing={{ xs: 2, sm: 3 }}>
                 <Grid item xs={12}>
                   <Card variant="outlined">
                     <CardContent>

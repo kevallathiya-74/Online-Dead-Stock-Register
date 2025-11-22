@@ -83,7 +83,6 @@ const ScrapPage = () => {
       });
       setScrapItems(response.data || []);
     } catch (error: any) {
-      console.error('Error loading scrap data:', error);
       if (error.response?.status !== 401) {
         toast.error(error.response?.data?.message || 'Failed to load scrap data');
       }
@@ -175,10 +174,7 @@ const ScrapPage = () => {
       
       // Reload data to get updated information from backend
       await loadScrapData();
-    } catch (error: any) {
-      console.error('Error approving scrap:', error);
-      toast.error(error.response?.data?.message || 'Failed to approve scrap request');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const handleExportReport = async () => {
@@ -200,10 +196,7 @@ const ScrapPage = () => {
       window.URL.revokeObjectURL(url);
       
       toast.success('Scrap report downloaded successfully');
-    } catch (error: any) {
-      console.error('Error exporting report:', error);
-      toast.error('Failed to export scrap report');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const handleNewScrapRequest = () => {
@@ -246,10 +239,7 @@ const ScrapPage = () => {
       toast.success('Scrap request created successfully');
       handleCloseNewRequestModal();
       await loadScrapData();
-    } catch (error: any) {
-      console.error('Error creating scrap request:', error);
-      toast.error(error.response?.data?.message || 'Failed to create scrap request');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const pendingCount = scrapItems.filter(i => i.status === 'Pending Approval').length;
@@ -262,7 +252,7 @@ const ScrapPage = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h4" component="h1">
             Scrap Management
@@ -286,7 +276,7 @@ const ScrapPage = () => {
         </Box>
 
         {/* Summary Cards */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: 3 }}>
           <Grid item xs={12} sm={6} md={3}>
             <Card>
               <CardContent>
@@ -299,7 +289,7 @@ const ScrapPage = () => {
                       {pendingCount}
                     </Typography>
                   </Box>
-                  <ScheduleIcon color="warning" sx={{ fontSize: 40 }} />
+                  <ScheduleIcon color="warning" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>
@@ -316,7 +306,7 @@ const ScrapPage = () => {
                       {approvedCount}
                     </Typography>
                   </Box>
-                  <CheckCircleIcon color="info" sx={{ fontSize: 40 }} />
+                  <CheckCircleIcon color="info" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>
@@ -333,7 +323,7 @@ const ScrapPage = () => {
                       {inProcessCount}
                     </Typography>
                   </Box>
-                  <RecycleIcon color="primary" sx={{ fontSize: 40 }} />
+                  <RecycleIcon color="primary" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>
@@ -353,7 +343,7 @@ const ScrapPage = () => {
                       Value: ₹{totalScrapValue.toLocaleString()}
                     </Typography>
                   </Box>
-                  <AuctionIcon color="success" sx={{ fontSize: 40 }} />
+                  <AuctionIcon color="success" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>

@@ -83,7 +83,10 @@ const Sidebar = () => {
                 <ListItemIcon>
                   <IconComponent />
                 </ListItemIcon>
-                <ListItemText primary={item.title} />
+                <ListItemText 
+                  primary={item.title}
+                  primaryTypographyProps={{ component: 'div' }}
+                />
               </ListItemButton>
             </ListItem>
           );

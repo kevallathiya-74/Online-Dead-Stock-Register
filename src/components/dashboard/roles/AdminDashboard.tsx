@@ -110,9 +110,8 @@ const AdminDashboard = () => {
           setRecentActivities(activitiesResponse.data.data.slice(0, 5));
         }
 
-      } catch (err: any) {
-        console.error('Error fetching admin dashboard:', err);
-        setError(err.response?.data?.error || 'Failed to load dashboard data');
+      } catch (err: unknown) {
+        setError((err as any).response?.data?.error || 'Failed to load dashboard data');
         toast.error('Failed to load dashboard data');
       } finally {
         setLoading(false);
@@ -312,14 +311,16 @@ const AdminDashboard = () => {
                         primary={activity.action}
                         secondary={
                           <Box>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" color="text.secondary" component="div">
                               {activity.description}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
+                            <Typography variant="caption" color="text.secondary" component="div">
                               by {activity.user?.name || 'System'} • {new Date(activity.timestamp).toLocaleString('en-IN')}
                             </Typography>
                           </Box>
                         }
+                        primaryTypographyProps={{ component: 'div' }}
+                        secondaryTypographyProps={{ component: 'div' }}
                       />
                       <Chip
                         label={activity.severity}

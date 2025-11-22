@@ -116,7 +116,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ open, onClose, onSubmit }) =>
     'Vehicle',
   ];
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: unknown) => {
     setFormData(prev => ({
       ...prev,
       [field]: value

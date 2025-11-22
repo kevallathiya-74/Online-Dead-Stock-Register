@@ -61,16 +61,13 @@ const CategoriesModal: React.FC<CategoriesModalProps> = ({ open, onClose }) => {
     try {
       setLoading(true);
       const response = await api.get('/assets/categories');
-      console.log('Categories API response:', response.data);
 
       if (response.data?.success && Array.isArray(response.data?.data)) {
         setCategories(response.data.data);
       } else {
         setCategories([]);
-        console.warn('No categories in response or invalid format');
       }
     } catch (error: any) {
-      console.error('Error fetching categories:', error);
       setCategories([]);
       toast.error(error?.response?.data?.message || 'Failed to load categories');
     } finally {
@@ -128,7 +125,6 @@ const CategoriesModal: React.FC<CategoriesModalProps> = ({ open, onClose }) => {
       await fetchCategories();
       handleCloseCategoryDialog();
     } catch (error: any) {
-      console.error('Error saving category:', error);
       const errorMsg = error?.response?.data?.message || 'Failed to save category';
       toast.error(errorMsg);
     }
@@ -146,7 +142,6 @@ const CategoriesModal: React.FC<CategoriesModalProps> = ({ open, onClose }) => {
         await fetchCategories();
       }
     } catch (error: any) {
-      console.error('Error deleting category:', error);
       const errorMsg = error?.response?.data?.message || 'Failed to delete category';
       toast.error(errorMsg);
     }

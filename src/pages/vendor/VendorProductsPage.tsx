@@ -51,7 +51,7 @@ const VendorProductsPage: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const params: any = {
+      const params: Record<string, string | number> = {
         page: page + 1,
         limit: rowsPerPage
       };
@@ -64,9 +64,8 @@ const VendorProductsPage: React.FC = () => {
 
       setProducts(productsData);
       setTotalProducts(pagination.total);
-    } catch (err: any) {
-      console.error('Error loading products:', err);
-      setError(err.response?.data?.message || 'Failed to load products');
+    } catch (err: unknown) {
+      setError((err as any).response?.data?.message || 'Failed to load products');
     } finally {
       setLoading(false);
     }
@@ -110,7 +109,7 @@ const VendorProductsPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
         <Typography variant="h4" gutterBottom>
           My Products
         </Typography>
@@ -183,7 +182,7 @@ const VendorProductsPage: React.FC = () => {
       {/* Products Table */}
       <Paper>
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: { xs: 2, sm: 3, md: 4 } }}>
             <CircularProgress />
           </Box>
         ) : (

@@ -53,7 +53,6 @@ const SavedFiltersList: React.FC<SavedFiltersListProps> = ({
       });
       setFilters(response.data.filters);
     } catch (error) {
-      console.error('Error fetching saved filters:', error);
     } finally {
       setIsLoading(false);
     }
@@ -68,7 +67,6 @@ const SavedFiltersList: React.FC<SavedFiltersListProps> = ({
       );
       onSelectFilter(response.data.filter.filter_config);
     } catch (error) {
-      console.error('Error loading filter:', error);
     }
   };
 
@@ -85,7 +83,6 @@ const SavedFiltersList: React.FC<SavedFiltersListProps> = ({
       fetchSavedFilters();
       if (onRefresh) onRefresh();
     } catch (error) {
-      console.error('Error deleting filter:', error);
       alert('Failed to delete filter');
     }
   };
@@ -115,7 +112,6 @@ const SavedFiltersList: React.FC<SavedFiltersListProps> = ({
       fetchSavedFilters();
       if (onRefresh) onRefresh();
     } catch (error) {
-      console.error('Error updating filter:', error);
       alert('Failed to update filter');
     }
   };

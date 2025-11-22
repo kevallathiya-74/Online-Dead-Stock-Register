@@ -62,14 +62,14 @@ const StatCard: React.FC<StatCardProps> = ({
   };
 
   const cardContent = (
-    <CardContent>
+    <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 3 } }}>
       <Box display="flex" justifyContent="space-between" alignItems="flex-start">
         <Box flex={1}>
           <Typography
             variant="subtitle2"
             color="text.secondary"
             gutterBottom
-            sx={{ fontWeight: 500 }}
+            sx={{ fontWeight: 500, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
           >
             {title}
           </Typography>
@@ -81,12 +81,13 @@ const StatCard: React.FC<StatCardProps> = ({
               color: getColorValue(color),
               mt: 1,
               mb: subtitle || percentage !== undefined ? 1 : 0,
+              fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' },
             }}
           >
             {loading ? '...' : value}
           </Typography>
           {subtitle && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
               {subtitle}
             </Typography>
           )}
@@ -97,10 +98,10 @@ const StatCard: React.FC<StatCardProps> = ({
                 label={`${percentage > 0 ? '+' : ''}${percentage}%`}
                 size="small"
                 color={getTrendColor()}
-                sx={{ fontWeight: 600 }}
+                sx={{ fontWeight: 600, fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
               />
               {trend && (
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
                   vs last month
                 </Typography>
               )}
@@ -113,13 +114,13 @@ const StatCard: React.FC<StatCardProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: 56,
-              height: 56,
+              width: { xs: 40, sm: 48, md: 56 },
+              height: { xs: 40, sm: 48, md: 56 },
               borderRadius: 2,
               backgroundColor: `${getColorValue(color)}15`,
               color: getColorValue(color),
               '& .MuiSvgIcon-root': {
-                fontSize: 32,
+                fontSize: { xs: 24, sm: 28, md: 32 },
               },
             }}
           >

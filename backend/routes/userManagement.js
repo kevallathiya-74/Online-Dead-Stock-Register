@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../middleware/authMiddleware');
 const userManagementController = require('../controllers/userManagementController');
+const { validateObjectId } = require('../middleware/objectIdValidator');
 
 // Apply auth middleware to all routes
 router.use(authMiddleware);
@@ -24,24 +25,24 @@ router.get('/', userManagementController.getAllUsers);
 router.get('/stats', userManagementController.getUserStats);
 
 // Get specific user by ID
-router.get('/:id', userManagementController.getUserById);
+router.get('/:id', validateObjectId('id'), userManagementController.getUserById);
 
 // Create new user
 router.post('/', userManagementController.createUser);
 
 // Update user details
-router.put('/:id', userManagementController.updateUser);
+router.put('/:id', validateObjectId('id'), userManagementController.updateUser);
 
 // Change user role
-router.put('/:id/role', userManagementController.changeUserRole);
+router.put('/:id/role', validateObjectId('id'), userManagementController.changeUserRole);
 
 // Change user status (activate/deactivate)
-router.put('/:id/status', userManagementController.changeUserStatus);
+router.put('/:id/status', validateObjectId('id'), userManagementController.changeUserStatus);
 
 // Reset user password (admin function)
-router.put('/:id/reset-password', userManagementController.resetUserPassword);
+router.put('/:id/reset-password', validateObjectId('id'), userManagementController.resetUserPassword);
 
 // Delete user (soft delete)
-router.delete('/:id', userManagementController.deleteUser);
+router.delete('/:id', validateObjectId('id'), userManagementController.deleteUser);
 
 module.exports = router;

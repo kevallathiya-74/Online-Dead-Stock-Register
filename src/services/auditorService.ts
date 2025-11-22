@@ -45,7 +45,6 @@ export const getAuditorStats = async (): Promise<AuditorStats> => {
     });
     return response.data;
   } catch (error) {
-    console.error('Error fetching auditor stats:', error);
     throw error;
   }
 };
@@ -60,7 +59,6 @@ export const getAuditItems = async (): Promise<AuditItem[]> => {
     });
     return response.data;
   } catch (error) {
-    console.error('Error fetching audit items:', error);
     throw error;
   }
 };
@@ -75,7 +73,6 @@ export const getAuditProgressChart = async (): Promise<ChartData> => {
     });
     return response.data;
   } catch (error) {
-    console.error('Error fetching audit progress chart:', error);
     throw error;
   }
 };
@@ -90,7 +87,6 @@ export const getConditionChart = async (): Promise<ChartData> => {
     });
     return response.data;
   } catch (error) {
-    console.error('Error fetching condition chart:', error);
     throw error;
   }
 };
@@ -105,7 +101,6 @@ export const getAuditorActivities = async (): Promise<AuditActivity[]> => {
     });
     return response.data;
   } catch (error) {
-    console.error('Error fetching auditor activities:', error);
     throw error;
   }
 };
@@ -120,7 +115,6 @@ export const getComplianceMetrics = async (): Promise<ComplianceMetrics> => {
     });
     return response.data;
   } catch (error) {
-    console.error('Error fetching compliance metrics:', error);
     throw error;
   }
 };
@@ -151,7 +145,6 @@ export const updateAuditStatus = async (
     );
     return response.data;
   } catch (error) {
-    console.error('Error updating audit status:', error);
     throw error;
   }
 };
@@ -194,7 +187,6 @@ export const exportAuditReport = async (format: 'json' | 'csv' = 'json'): Promis
       return response.data;
     }
   } catch (error) {
-    console.error('Error exporting audit report:', error);
     throw error;
   }
 };
@@ -214,7 +206,6 @@ export const importAuditData = async (formData: FormData): Promise<any> => {
     );
     return response.data;
   } catch (error) {
-    console.error('Error importing audit data:', error);
     throw error;
   }
 };

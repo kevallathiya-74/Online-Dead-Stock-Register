@@ -146,9 +146,7 @@ const AdminAnalyticsPage: React.FC = () => {
         systemUptime: 99.8
       });
 
-    } catch (error) {
-      toast.error('Failed to load analytics data');
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setLoading(false);
     }
   };
@@ -181,7 +179,7 @@ const AdminAnalyticsPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ flexGrow: 1, p: 3 }}>
+      <Box sx={{ flexGrow: 1, p: { xs: 1, sm: 2, md: 3 } }}>
         {/* Header */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Box>
@@ -760,7 +758,7 @@ const AdminAnalyticsPage: React.FC = () => {
                         datasets: [
                           {
                             data: departmentStats?.map((item: any) => item.assets) || [],
-                            backgroundColor: departmentStats?.map((item: any, index: number) => {
+                            backgroundColor: departmentStats?.map((item: Record<string, unknown>, index: number) => {
                               const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088fe', '#00c49f'];
                               return colors[index % colors.length];
                             }) || [],

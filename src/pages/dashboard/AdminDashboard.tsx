@@ -269,10 +269,8 @@ const AdminDashboard = () => {
     interval: 30000, // 30 seconds for real-time approvals
     enabled: true,
     onError: (error: any) => {
-      console.error("Error loading approvals:", error);
       if (error.response?.status !== 404) {
         // Only log error, don't show toast for every poll failure
-        console.error("Approvals polling failed:", error.response?.data || error.message);
       }
     }
   });
@@ -294,7 +292,6 @@ const AdminDashboard = () => {
       refreshApprovals();
       loadDashboardData();
     } catch (error: any) {
-      console.error(`Error ${action}ing approval:`, error);
       toast.error(error.response?.data?.message || `Failed to ${action} approval`);
       refreshApprovals(); // Revert optimistic update
     }
@@ -327,10 +324,7 @@ const AdminDashboard = () => {
       // if (dashboardStats.systemHealth) {
       //   setSystemHealth(dashboardStats.systemHealth);
       // }
-    } catch (error) {
-      console.error("Error loading dashboard stats:", error);
-      toast.error("Failed to load dashboard statistics");
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
 
     try {
       // Fetch recent activities from API
@@ -339,7 +333,6 @@ const AdminDashboard = () => {
         activitiesResponse.data.data || activitiesResponse.data;
       setRecentActivities(Array.isArray(activitiesData) ? activitiesData : []);
     } catch (error) {
-      console.error("Error loading activities:", error);
       setRecentActivities([]);
     }
 
@@ -394,10 +387,7 @@ const AdminDashboard = () => {
       window.URL.revokeObjectURL(url);
 
       toast.success("Data exported successfully!");
-    } catch (error) {
-      console.error("Export error:", error);
-      toast.error("Failed to export data");
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const quickActions = [
@@ -564,7 +554,7 @@ const AdminDashboard = () => {
         <Grid container spacing={3}>
           {/* Pending Approvals */}
           <Grid item xs={12}>
-            <Paper sx={{ p: 3 }}>
+            <Paper sx={{ p: { xs: 2, sm: 3 } }}>
               <Typography variant="h6" gutterBottom>
                 Pending Approvals
               </Typography>

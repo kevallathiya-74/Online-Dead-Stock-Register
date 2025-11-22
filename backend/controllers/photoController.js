@@ -1,5 +1,6 @@
 const fs = require('fs').promises;
 const path = require('path');
+const logger = require('../utils/logger');
 const sharp = require('sharp');
 const ExifParser = require('exif-parser');
 const Document = require('../models/document');
@@ -24,7 +25,7 @@ const ensureUploadDirs = async () => {
     try {
       await fs.mkdir(dir, { recursive: true });
     } catch (error) {
-      console.error(`Error creating directory ${dir}:`, error);
+      logger.error(`Error creating directory ${dir}:`, error);
     }
   }
 };
@@ -54,7 +55,7 @@ const extractExifData = async (filePath) => {
       flash: result.tags.Flash || null,
     };
   } catch (error) {
-    console.error('Error extracting EXIF data:', error);
+    logger.error('Error extracting EXIF data:', error);
     return {};
   }
 };
@@ -97,7 +98,7 @@ const processImage = async (inputPath, filename) => {
       thumbnail_size: thumbnailStats.size,
     };
   } catch (error) {
-    console.error('Error processing image:', error);
+    logger.error('Error processing image:', error);
     throw new Error('Failed to process image');
   }
 };
@@ -210,14 +211,14 @@ exports.uploadPhoto = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error uploading photo:', error);
+    logger.error('Error uploading photo:', error);
 
     // Clean up files on error
     if (req.file && req.file.path) {
       try {
         await fs.unlink(req.file.path);
       } catch (cleanupError) {
-        console.error('Error cleaning up file:', cleanupError);
+        logger.error('Error cleaning up file:', cleanupError);
       }
     }
 
@@ -324,7 +325,7 @@ exports.uploadMultiplePhotos = async (req, res) => {
           upload_date: document.upload_date,
         });
       } catch (error) {
-        console.error(`Error processing file ${file.originalname}:`, error);
+        logger.error(`Error processing file ${file.originalname}:`, error);
         errors.push({
           filename: file.originalname,
           error: error.message
@@ -333,7 +334,7 @@ exports.uploadMultiplePhotos = async (req, res) => {
         try {
           await fs.unlink(file.path);
         } catch (cleanupError) {
-          console.error('Error cleaning up file:', cleanupError);
+          logger.error('Error cleaning up file:', cleanupError);
         }
       }
     }
@@ -362,7 +363,7 @@ exports.uploadMultiplePhotos = async (req, res) => {
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error) {
-    console.error('Error in batch photo upload:', error);
+    logger.error('Error in batch photo upload:', error);
 
     // Clean up all files on critical error
     if (req.files) {
@@ -370,7 +371,7 @@ exports.uploadMultiplePhotos = async (req, res) => {
         try {
           await fs.unlink(file.path);
         } catch (cleanupError) {
-          console.error('Error cleaning up file:', cleanupError);
+          logger.error('Error cleaning up file:', cleanupError);
         }
       }
     }
@@ -429,7 +430,7 @@ exports.getAssetPhotos = async (req, res) => {
       photos: photoData,
     });
   } catch (error) {
-    console.error('Error fetching asset photos:', error);
+    logger.error('Error fetching asset photos:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch photos',
@@ -470,7 +471,7 @@ exports.deletePhoto = async (req, res) => {
       try {
         await fs.unlink(filePath);
       } catch (error) {
-        console.error(`Error deleting file ${filePath}:`, error);
+        logger.error(`Error deleting file ${filePath}:`, error);
       }
     }
 
@@ -502,7 +503,7 @@ exports.deletePhoto = async (req, res) => {
       message: 'Photo deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting photo:', error);
+    logger.error('Error deleting photo:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to delete photo',
@@ -560,7 +561,7 @@ exports.getPhotoStats = async (req, res) => {
       })),
     });
   } catch (error) {
-    console.error('Error fetching photo stats:', error);
+    logger.error('Error fetching photo stats:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch photo statistics',

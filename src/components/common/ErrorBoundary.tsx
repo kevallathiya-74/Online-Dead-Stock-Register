@@ -22,7 +22,6 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
     toast.error('An unexpected error occurred');
   }
 
@@ -39,8 +38,8 @@ class ErrorBoundary extends Component<Props, State> {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            minHeight: '400px',
-            p: 3,
+            minHeight: { xs: '300px', sm: '350px', md: '400px' },
+            p: { xs: 2, sm: 3 },
             textAlign: 'center',
           }}
         >

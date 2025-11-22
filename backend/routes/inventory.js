@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
 const inventoryController = require('../controllers/inventoryController');
+const { validateObjectId } = require('../middleware/objectIdValidator');
 
 // Apply authentication to all routes
 router.use(authMiddleware);
@@ -31,12 +32,14 @@ router.post('/dead-stock',
 // PUT /api/v1/inventory/dead-stock/:id - Update dead stock item
 router.put('/dead-stock/:id', 
   requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']),
+  validateObjectId('id'),
   inventoryController.updateDeadStockItem
 );
 
 // DELETE /api/v1/inventory/dead-stock/:id - Remove from dead stock
 router.delete('/dead-stock/:id', 
   requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']),
+  validateObjectId('id'),
   inventoryController.removeFromDeadStock
 );
 
@@ -53,6 +56,7 @@ router.get('/disposal-records',
 // GET /api/v1/inventory/disposal-records/:id - Get disposal record by ID
 router.get('/disposal-records/:id', 
   requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']),
+  validateObjectId('id'),
   inventoryController.getDisposalRecordById
 );
 
@@ -65,12 +69,14 @@ router.post('/disposal-records',
 // PUT /api/v1/inventory/disposal-records/:id - Update disposal record
 router.put('/disposal-records/:id', 
   requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']),
+  validateObjectId('id'),
   inventoryController.updateDisposalRecord
 );
 
 // DELETE /api/v1/inventory/disposal-records/:id - Delete disposal record
 router.delete('/disposal-records/:id', 
   requireRole(['ADMIN']),
+  validateObjectId('id'),
   inventoryController.deleteDisposalRecord
 );
 
@@ -105,24 +111,28 @@ router.get('/scrap/export',
 // GET /api/v1/inventory/scrap/:id - Get scrap item by ID
 router.get('/scrap/:id',
   requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']),
+  validateObjectId('id'),
   inventoryController.getScrapItemById
 );
 
 // PATCH /api/v1/inventory/scrap/:id - Update scrap item
 router.patch('/scrap/:id',
   requireRole(['ADMIN', 'INVENTORY_MANAGER']),
+  validateObjectId('id'),
   inventoryController.updateScrapItem
 );
 
 // DELETE /api/v1/inventory/scrap/:id - Delete scrap item
 router.delete('/scrap/:id',
   requireRole(['ADMIN']),
+  validateObjectId('id'),
   inventoryController.deleteScrapItem
 );
 
 // POST /api/v1/inventory/scrap/:id/approve - Approve scrap item
 router.post('/scrap/:id/approve', 
   requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']),
+  validateObjectId('id'),
   inventoryController.approveScrapItem
 );
 
@@ -144,12 +154,14 @@ router.post('/categories',
 // PUT /api/v1/inventory/categories/:id - Update category
 router.put('/categories/:id', 
   requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']),
+  validateObjectId('id'),
   inventoryController.updateCategory
 );
 
 // DELETE /api/v1/inventory/categories/:id - Delete category
 router.delete('/categories/:id', 
   requireRole(['ADMIN']),
+  validateObjectId('id'),
   inventoryController.deleteCategory
 );
 

@@ -44,9 +44,7 @@ const ForgotPassword = () => {
       });
       setIsEmailSent(true);
       toast.success('Password reset instructions have been sent to your email');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to send reset email');
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setIsLoading(false);
     }
   };
@@ -62,8 +60,8 @@ const ForgotPassword = () => {
         p: 2,
       }}
     >
-      <Card sx={{ maxWidth: 400, width: '100%' }}>
-        <CardContent sx={{ p: 4 }}>
+      <Card sx={{ maxWidth: { xs: '100%', sm: 450 }, width: '100%' }}>
+        <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
           <Box sx={{ mb: 4, textAlign: 'center' }}>
             <Typography variant="h4" component="h1" gutterBottom>
               Forgot Password?

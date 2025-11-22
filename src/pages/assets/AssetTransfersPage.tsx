@@ -115,7 +115,6 @@ const AssetTransfersPage: React.FC = () => {
       const transfersData = response.data.transfers || response.data.data || response.data;
       setTransfers(Array.isArray(transfersData) ? transfersData : []);
     } catch (error: any) {
-      console.error('Failed to load transfers:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to load transfers';
       toast.error(errorMsg);
       setTransfers([]);
@@ -192,10 +191,7 @@ const AssetTransfersPage: React.FC = () => {
       await api.patch(`/asset-transfers/${transferId}/status`, { status: 'approved' });
       toast.success('Transfer approved successfully');
       await loadTransfers();
-    } catch (error: any) {
-      console.error('Failed to approve transfer:', error);
-      toast.error(error.response?.data?.message || 'Failed to approve transfer');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const handleRejectTransfer = async (transferId: string) => {
@@ -209,15 +205,10 @@ const AssetTransfersPage: React.FC = () => {
       });
       toast.success('Transfer rejected');
       await loadTransfers();
-    } catch (error: any) {
-      console.error('Failed to reject transfer:', error);
-      toast.error(error.response?.data?.message || 'Failed to reject transfer');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const handleViewTransfer = (transferId: string) => {
-    // TODO: Navigate to transfer details page or open modal
-    console.log('View transfer:', transferId);
     toast.info('Transfer details view - Coming soon');
   };
 

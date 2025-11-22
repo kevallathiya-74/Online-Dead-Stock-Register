@@ -110,22 +110,13 @@ export class DashboardDataService {
       } else if (userRole === UserRole.AUDITOR) {
         endpoint = API_ENDPOINTS.DASHBOARD.AUDITOR_STATS;
       }
-      
-      console.log('DashboardDataService: Fetching stats from endpoint:', endpoint);
       const response = await api.get(endpoint);
-      console.log('DashboardDataService: Response received:', response.data);
       
       // Extract data from the response (backend returns { success: true, data: {...} })
       const statsData = response.data.data || response.data;
       return this.setCachedData(cacheKey, statsData);
     } catch (error: unknown) {
       const err = error as Error & { response?: { status?: number; data?: { message?: string } }; config?: { url?: string } };
-      console.error('DashboardDataService: Error fetching dashboard stats:', err);
-      console.error('DashboardDataService: Error details:', {
-        status: err.response?.status,
-        message: err.response?.data?.message || err.message,
-        endpoint: err.config?.url
-      });
       throw error;
     }
   }
@@ -141,7 +132,6 @@ export class DashboardDataService {
       const data = response.data.data || response.data || [];
       return this.setCachedData(cacheKey, Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Error fetching assets by location:', error);
       return []; // Return empty array instead of throwing
     }
   }
@@ -157,7 +147,6 @@ export class DashboardDataService {
       const data = response.data.data || response.data || [];
       return this.setCachedData(cacheKey, Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Error fetching warranty expiring assets:', error);
       return []; // Return empty array instead of throwing
     }
   }
@@ -173,7 +162,6 @@ export class DashboardDataService {
       const data = response.data.data || response.data || [];
       return this.setCachedData(cacheKey, Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Error fetching maintenance schedule:', error);
       return []; // Return empty array instead of throwing
     }
   }
@@ -190,7 +178,6 @@ export class DashboardDataService {
       const vendors = response.data.data || response.data || [];
       return this.setCachedData(cacheKey, Array.isArray(vendors) ? vendors : []);
     } catch (error) {
-      console.error('Error fetching vendor performance:', error);
       return []; // Return empty array instead of throwing to prevent dashboard crash
     }
   }
@@ -205,7 +192,6 @@ export class DashboardDataService {
       const response = await api.get(API_ENDPOINTS.DASHBOARD.USER_ASSETS(userId));
       return this.setCachedData(cacheKey, response.data);
     } catch (error) {
-      console.error('Error fetching user assets:', error);
       throw error;
     }
   }
@@ -221,7 +207,6 @@ export class DashboardDataService {
       const data = response.data.data || response.data || [];
       return this.setCachedData(cacheKey, Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Error fetching audit items:', error);
       return [];
     }
   }
@@ -236,7 +221,6 @@ export class DashboardDataService {
       const response = await api.get(API_ENDPOINTS.DASHBOARD.CHART_DATA(chartType));
       return this.setCachedData(cacheKey, response.data);
     } catch (error) {
-      console.error('Error fetching chart data:', error);
       throw error;
     }
   }
@@ -244,7 +228,6 @@ export class DashboardDataService {
   // Refresh all cached data
   refreshCache(): void {
     this.cache.clear();
-    console.log('Dashboard cache refreshed');
   }
 
   // Get real-time updates
@@ -253,7 +236,6 @@ export class DashboardDataService {
       const response = await api.get(API_ENDPOINTS.DASHBOARD.REALTIME_UPDATES);
       return response.data;
     } catch (error) {
-      console.error('Error fetching realtime updates:', error);
       throw error;
     }
   }

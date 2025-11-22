@@ -130,7 +130,7 @@ const AddAssetForm: React.FC<AddAssetFormProps> = ({ open, onClose, onSubmit }) 
       maxWidth="md" 
       fullWidth
       PaperProps={{
-        sx: { minHeight: '600px' }
+        sx: { minHeight: { xs: '400px', sm: '500px', md: '600px' } }
       }}
     >
       <DialogTitle>

@@ -42,16 +42,15 @@ const VendorInvoicesPage: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const params: any = {};
+      const params: Record<string, string> = {};
       if (statusFilter) params.status = statusFilter;
 
       const { invoices: invoicesData, summary: summaryData } = await getInvoices(params);
 
       setInvoices(invoicesData);
       setSummary(summaryData);
-    } catch (err: any) {
-      console.error('Error loading invoices:', err);
-      setError(err.response?.data?.message || 'Failed to load invoices');
+    } catch (err: unknown) {
+      setError((err as any).response?.data?.message || 'Failed to load invoices');
     } finally {
       setLoading(false);
     }
@@ -80,7 +79,7 @@ const VendorInvoicesPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
         <Typography variant="h4" gutterBottom>
           Invoices
         </Typography>
@@ -96,7 +95,7 @@ const VendorInvoicesPage: React.FC = () => {
 
       {/* Summary Cards */}
       {summary && (
-        <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: 3 }}>
           <Grid item xs={12} md={4}>
             <Card>
               <CardContent>
@@ -109,7 +108,7 @@ const VendorInvoicesPage: React.FC = () => {
                       {summary.totalInvoices || 0}
                     </Typography>
                   </Box>
-                  <Receipt sx={{ fontSize: 40, color: 'primary.main', opacity: 0.3 }} />
+                  <Receipt sx={{ fontSize: { xs: 32, sm: 40 }, color: 'primary.main', opacity: 0.3 }} />
                 </Box>
               </CardContent>
             </Card>
@@ -127,7 +126,7 @@ const VendorInvoicesPage: React.FC = () => {
                       {formatCurrency(summary.paidAmount, summary.currency)}
                     </Typography>
                   </Box>
-                  <CheckCircle sx={{ fontSize: 40, color: 'success.main', opacity: 0.3 }} />
+                  <CheckCircle sx={{ fontSize: { xs: 32, sm: 40 }, color: 'success.main', opacity: 0.3 }} />
                 </Box>
               </CardContent>
             </Card>
@@ -145,7 +144,7 @@ const VendorInvoicesPage: React.FC = () => {
                       {formatCurrency(summary.pendingAmount, summary.currency)}
                     </Typography>
                   </Box>
-                  <CurrencyRupee sx={{ fontSize: 40, color: 'warning.main', opacity: 0.3 }} />
+                  <CurrencyRupee sx={{ fontSize: { xs: 32, sm: 40 }, color: 'warning.main', opacity: 0.3 }} />
                 </Box>
               </CardContent>
             </Card>
@@ -176,7 +175,7 @@ const VendorInvoicesPage: React.FC = () => {
       {/* Invoices Table */}
       <Paper>
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: { xs: 2, sm: 3, md: 4 } }}>
             <CircularProgress />
           </Box>
         ) : (

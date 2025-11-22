@@ -76,7 +76,6 @@ class UserManagementService {
       }
       throw new Error(response.data.error || 'Failed to fetch users');
     } catch (error) {
-      console.error('Error fetching users:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch users';
       throw new Error(errorMessage);
     }
@@ -91,7 +90,6 @@ class UserManagementService {
       }
       throw new Error(response.data.error || 'Failed to fetch user');
     } catch (error) {
-      console.error('Error fetching user:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch user';
       throw new Error(errorMessage);
     }
@@ -106,7 +104,6 @@ class UserManagementService {
       }
       throw new Error(response.data.error || 'Failed to create user');
     } catch (error) {
-      console.error('Error creating user:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to create user';
       throw new Error(errorMessage);
     }
@@ -121,7 +118,6 @@ class UserManagementService {
       }
       throw new Error(response.data.error || 'Failed to update user');
     } catch (error) {
-      console.error('Error updating user:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to update user';
       throw new Error(errorMessage);
     }
@@ -135,7 +131,6 @@ class UserManagementService {
         throw new Error(response.data.error || 'Failed to delete user');
       }
     } catch (error) {
-      console.error('Error deleting user:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to delete user';
       throw new Error(errorMessage);
     }
@@ -149,7 +144,6 @@ class UserManagementService {
         throw new Error(response.data.error || 'Failed to update user status');
       }
     } catch (error) {
-      console.error('Error updating user status:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to update user status';
       throw new Error(errorMessage);
     }
@@ -165,7 +159,6 @@ class UserManagementService {
         throw new Error(response.data.error || 'Failed to reset password');
       }
     } catch (error) {
-      console.error('Error resetting password:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to reset password';
       throw new Error(errorMessage);
     }
@@ -180,7 +173,6 @@ class UserManagementService {
       }
       throw new Error(response.data.error || 'Failed to fetch user statistics');
     } catch (error) {
-      console.error('Error fetching user statistics:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch user statistics';
       throw new Error(errorMessage);
     }
@@ -197,7 +189,6 @@ class UserManagementService {
         throw new Error(response.data.error || 'Failed to update user status');
       }
     } catch (error) {
-      console.error('Error updating user status:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to update user status';
       throw new Error(errorMessage);
     }

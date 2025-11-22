@@ -88,7 +88,7 @@ const AddAssetModal: React.FC<AddAssetModalProps> = ({
     "Maintenance Room",
   ];
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: unknown) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -248,8 +248,6 @@ const AddAssetModal: React.FC<AddAssetModalProps> = ({
       const response = await api.post("/assets", newAsset);
       const createdAsset = response.data.data || response.data;
 
-      console.log("Asset created:", createdAsset);
-
       // Pass the created asset to parent component to show QR dialog
       onSubmit(createdAsset);
 
@@ -277,7 +275,6 @@ const AddAssetModal: React.FC<AddAssetModalProps> = ({
       setShowQRCode(false);
       onClose();
     } catch (error: any) {
-      console.error("Asset creation error:", error);
       const errorMessage =
         error.response?.data?.message || error.message || "Failed to add asset";
       toast.error(errorMessage);
@@ -580,7 +577,7 @@ const AddAssetModal: React.FC<AddAssetModalProps> = ({
       maxWidth="md"
       fullWidth
       PaperProps={{
-        sx: { minHeight: "500px" },
+        sx: { minHeight: { xs: '350px', sm: '425px', md: '500px' } },
       }}
     >
       <DialogTitle>

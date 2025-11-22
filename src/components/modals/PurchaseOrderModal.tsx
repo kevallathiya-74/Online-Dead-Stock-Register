@@ -80,7 +80,6 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ open, onClose, 
         const vendorData = response.data?.data || response.data || [];
         setVendors(Array.isArray(vendorData) ? vendorData : []);
       } catch (error) {
-        console.error('Failed to load vendors:', error);
         toast.error('Failed to load vendors');
         setVendors([]);
       } finally {
@@ -110,14 +109,14 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ open, onClose, 
     return `${prefix}-${year}${month}-${random}`;
   };
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: unknown) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
   };
 
-  const handleItemChange = (field: string, value: any) => {
+  const handleItemChange = (field: string, value: unknown) => {
     setNewItem(prev => ({
       ...prev,
       [field]: value
@@ -234,7 +233,6 @@ const PurchaseOrderModal: React.FC<PurchaseOrderModalProps> = ({ open, onClose, 
       setItems([]);
       onClose();
     } catch (error: any) {
-      console.error('Failed to create purchase order:', error);
       toast.error(error.response?.data?.message || 'Failed to create purchase order');
     } finally {
       setLoading(false);

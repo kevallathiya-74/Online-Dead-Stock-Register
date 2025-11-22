@@ -109,7 +109,6 @@ const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, 
         setLocations([]);
       }
     } catch (error) {
-      console.error('Failed to load form data:', error);
       toast.error('Failed to load assets and users');
       setAssets([]);
       setUsers([]);
@@ -137,7 +136,7 @@ const AssetTransferModal: React.FC<AssetTransferModalProps> = ({ open, onClose, 
     { value: 'urgent', label: 'Urgent' },
   ];
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: unknown) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -210,7 +209,6 @@ const handleNext = () => {
       onSubmit();
       onClose();
     } catch (error: any) {
-      console.error('Failed to create transfer:', error);
       toast.error(error.response?.data?.message || 'Failed to process asset transfer. Please try again.');
     } finally {
       setLoading(false);
@@ -517,7 +515,7 @@ const handleNext = () => {
       maxWidth="md" 
       fullWidth
       PaperProps={{
-        sx: { minHeight: '600px' }
+        sx: { minHeight: { xs: '400px', sm: '500px', md: '600px' } }
       }}
     >
       <DialogTitle>

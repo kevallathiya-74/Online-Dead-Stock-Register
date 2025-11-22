@@ -87,7 +87,6 @@ const AssetPhotoCapture: React.FC<AssetPhotoCaptureProps> = ({
 
       setStream(mediaStream);
     } catch (error) {
-      console.error('Error accessing camera:', error);
       alert('Unable to access camera. Please check permissions.');
     }
   };
@@ -260,7 +259,6 @@ const AssetPhotoCapture: React.FC<AssetPhotoCaptureProps> = ({
 
       return response.data;
     } catch (error: any) {
-      console.error('Upload error:', error);
       
       // Update status to error
       setPhotos(prev => prev.map(p =>
@@ -295,7 +293,6 @@ const AssetPhotoCapture: React.FC<AssetPhotoCaptureProps> = ({
         try {
           await uploadPhoto(photo);
         } catch (error) {
-          console.error(`Failed to upload photo ${photo.id}:`, error);
         }
       }
 
@@ -331,7 +328,6 @@ const AssetPhotoCapture: React.FC<AssetPhotoCaptureProps> = ({
         try {
           await uploadPhoto(photo);
         } catch (error) {
-          console.error(`Retry failed for photo ${photo.id}:`, error);
         }
       }
     } finally {

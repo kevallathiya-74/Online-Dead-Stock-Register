@@ -81,9 +81,8 @@ class InventoryManagerService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch inventory stats');
-    } catch (error: any) {
-      console.error('Error fetching inventory stats:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch inventory stats');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch inventory stats');
     }
   }
 
@@ -95,9 +94,8 @@ class InventoryManagerService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch assets by location');
-    } catch (error: any) {
-      console.error('Error fetching assets by location:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch assets by location');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch assets by location');
     }
   }
 
@@ -109,9 +107,8 @@ class InventoryManagerService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch warranty expiring assets');
-    } catch (error: any) {
-      console.error('Error fetching warranty expiring assets:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch warranty expiring assets');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch warranty expiring assets');
     }
   }
 
@@ -123,9 +120,8 @@ class InventoryManagerService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch maintenance schedule');
-    } catch (error: any) {
-      console.error('Error fetching maintenance schedule:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch maintenance schedule');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch maintenance schedule');
     }
   }
 
@@ -137,9 +133,8 @@ class InventoryManagerService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch top vendors');
-    } catch (error: any) {
-      console.error('Error fetching top vendors:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch top vendors');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch top vendors');
     }
   }
 
@@ -151,9 +146,8 @@ class InventoryManagerService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch pending approvals');
-    } catch (error: any) {
-      console.error('Error fetching pending approvals:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch pending approvals');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch pending approvals');
     }
   }
 
@@ -172,9 +166,8 @@ class InventoryManagerService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch inventory overview');
-    } catch (error: any) {
-      console.error('Error fetching inventory overview:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch inventory overview');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch inventory overview');
     }
   }
 
@@ -186,9 +179,8 @@ class InventoryManagerService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch transfer requests');
-    } catch (error: any) {
-      console.error('Error fetching transfer requests:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch transfer requests');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch transfer requests');
     }
   }
 
@@ -206,58 +198,54 @@ class InventoryManagerService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch purchase order stats');
-    } catch (error: any) {
-      console.error('Error fetching purchase order stats:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch purchase order stats');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch purchase order stats');
     }
   }
 
   // Create new asset
-  async createAsset(assetData: any): Promise<any> {
+  async createAsset(assetData: Record<string, unknown>): Promise<Record<string, unknown>> {
     try {
-      const response = await api.post<ApiResponse<any>>(API_ENDPOINTS.ASSETS, assetData);
+      const response = await api.post<ApiResponse<Record<string, unknown>>>(API_ENDPOINTS.ASSETS, assetData);
       if (response.data.success && response.data.data) {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to create asset');
-    } catch (error: any) {
-      console.error('Error creating asset:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to create asset');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to create asset');
     }
   }
 
   // Schedule maintenance
-  async scheduleMaintenance(maintenanceData: any): Promise<any> {
+  async scheduleMaintenance(maintenanceData: Record<string, unknown>): Promise<Record<string, unknown>> {
     try {
-      const response = await api.post<ApiResponse<any>>(API_ENDPOINTS.MAINTENANCE.MAINTENANCE_RECORDS, maintenanceData);
+      const response = await api.post<ApiResponse<Record<string, unknown>>>(API_ENDPOINTS.MAINTENANCE.MAINTENANCE_RECORDS, maintenanceData);
       if (response.data.success && response.data.data) {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to schedule maintenance');
-    } catch (error: any) {
-      console.error('Error scheduling maintenance:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to schedule maintenance');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to schedule maintenance');
     }
   }
 
   // Create purchase order
-  async createPurchaseOrder(orderData: any): Promise<any> {
+  async createPurchaseOrder(orderData: Record<string, unknown>): Promise<Record<string, unknown>> {
     try {
-      const response = await api.post<ApiResponse<any>>('/purchase-orders', orderData);
+      const response = await api.post<ApiResponse<Record<string, unknown>>>('/purchase-orders', orderData);
       if (response.data.success && response.data.data) {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to create purchase order');
-    } catch (error: any) {
-      console.error('Error creating purchase order:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to create purchase order');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to create purchase order');
     }
   }
 
   // Initiate asset transfer
-  async initiateAssetTransfer(transferData: any): Promise<any> {
+  async initiateAssetTransfer(transferData: Record<string, unknown>): Promise<Record<string, unknown>> {
     try {
-      const response = await api.post<ApiResponse<any>>(API_ENDPOINTS.TRANSACTIONS, {
+      const response = await api.post<ApiResponse<Record<string, unknown>>>(API_ENDPOINTS.TRANSACTIONS, {
         ...transferData,
         transaction_type: 'Asset Transfer'
       });
@@ -265,16 +253,15 @@ class InventoryManagerService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to initiate asset transfer');
-    } catch (error: any) {
-      console.error('Error initiating asset transfer:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to initiate asset transfer');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to initiate asset transfer');
     }
   }
 
   // Update asset warranty
-  async updateAssetWarranty(assetId: string, warrantyData: any): Promise<any> {
+  async updateAssetWarranty(assetId: string, warrantyData: Record<string, unknown>): Promise<Record<string, unknown>> {
     try {
-      const response = await api.patch<ApiResponse<any>>(
+      const response = await api.put<ApiResponse<Record<string, unknown>>>(
         API_ENDPOINTS.ASSET_BY_ID(assetId), 
         { warranty_expiry: warrantyData.expiryDate }
       );
@@ -282,9 +269,8 @@ class InventoryManagerService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to update asset warranty');
-    } catch (error: any) {
-      console.error('Error updating asset warranty:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to update asset warranty');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to update asset warranty');
     }
   }
 
@@ -296,9 +282,8 @@ class InventoryManagerService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch low stock alerts');
-    } catch (error: any) {
-      console.error('Error fetching low stock alerts:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch low stock alerts');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch low stock alerts');
     }
   }
 
@@ -310,9 +295,8 @@ class InventoryManagerService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch asset utilization');
-    } catch (error: any) {
-      console.error('Error fetching asset utilization:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch asset utilization');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch asset utilization');
     }
   }
 }

@@ -56,7 +56,6 @@ const AssetQRCodeDialog: React.FC<Props> = ({ open, onClose, asset }) => {
   const qrValue = fullAssetData.unique_asset_id;
 
   if (!qrValue) {
-    console.error("Asset does not have a unique_asset_id:", asset);
     return (
       <Dialog open={open} onClose={onClose}>
         <DialogTitle>Error</DialogTitle>
@@ -80,7 +79,6 @@ const AssetQRCodeDialog: React.FC<Props> = ({ open, onClose, asset }) => {
     if (canvas) {
       canvas.toBlob((blob) => {
         if (!blob) {
-          console.error("Failed to create blob from canvas");
           return;
         }
         const url = URL.createObjectURL(blob);
@@ -89,10 +87,8 @@ const AssetQRCodeDialog: React.FC<Props> = ({ open, onClose, asset }) => {
         link.download = `Asset-${fullAssetData.unique_asset_id}-QR.png`;
         link.click();
         URL.revokeObjectURL(url);
-        console.log("QR code downloaded:", fullAssetData.unique_asset_id);
       });
     } else {
-      console.error("Canvas not found for QR code download");
     }
   };
 
@@ -204,7 +200,7 @@ const AssetQRCodeDialog: React.FC<Props> = ({ open, onClose, asset }) => {
                   ref={containerRef}
                   sx={{
                     bgcolor: "white",
-                    p: 3,
+                    p: { xs: 2, sm: 3 },
                     borderRadius: 2,
                     boxShadow: 3,
                     border: 2,

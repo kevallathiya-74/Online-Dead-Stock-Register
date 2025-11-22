@@ -136,10 +136,7 @@ const AdminDashboard: React.FC = () => {
       // Generate chart data from real stats
       generateChartData(stats);
 
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
-      toast.error('Failed to load dashboard data');
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setLoading(false);
     }
   }, []); // useCallback with empty dependency array since it doesn't use any external values
@@ -238,10 +235,10 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ flexGrow: 1, p: 3 }}>
+      <Box sx={{ flexGrow: 1, p: { xs: 1, sm: 2, md: 3 } }}>
         {/* Header */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, mb: { xs: 2, sm: 3 }, gap: { xs: 2, sm: 0 } }}>
+          <Typography variant="h4" component="h1" gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}>
             Admin Dashboard
           </Typography>
           <Button
@@ -256,7 +253,7 @@ const AdminDashboard: React.FC = () => {
 
         {/* System Alerts */}
         {systemAlerts.length > 0 && (
-          <Grid container spacing={3} sx={{ mb: 3 }}>
+          <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: { xs: 2, sm: 3 } }}>
             {systemAlerts.map((alert) => (
               <Grid item xs={12} sm={6} md={3} key={alert.id}>
                 <Alert 
@@ -275,7 +272,7 @@ const AdminDashboard: React.FC = () => {
         )}
 
         {/* Key Statistics Cards */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: { xs: 2, sm: 3 } }}>
           <Grid item xs={12} sm={6} md={3}>
             <Card sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
               <CardContent>

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -73,7 +73,6 @@ const QRScannerPage: React.FC = () => {
     try {
       // Prevent multiple simultaneous scan attempts
       if (scanningRef.current) {
-        console.log("Scanning already in progress");
         return;
       }
 
@@ -101,8 +100,6 @@ const QRScannerPage: React.FC = () => {
       setError("");
       setScanning(true);
 
-      console.log("Starting camera initialization...");
-
       // Wait for video element to be ready
       await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -116,7 +113,6 @@ const QRScannerPage: React.FC = () => {
       }
 
       // Request camera permission and enumerate devices
-      console.log("Requesting camera permission...");
       const permissionStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: facingMode },
       });
@@ -129,7 +125,6 @@ const QRScannerPage: React.FC = () => {
       const cameras = devices.filter(
         (device) => device.kind === "videoinput"
       );
-      console.log("Available cameras:", cameras.length, cameras);
       setAvailableCameras(cameras);
 
       // Determine which camera to use
@@ -150,20 +145,15 @@ const QRScannerPage: React.FC = () => {
           
           if (preferredCamera) {
             selectedDeviceId = preferredCamera.deviceId;
-            console.log("Using preferred camera:", preferredCamera.label);
           } else {
             // Fallback to index-based selection
             selectedDeviceId = cameras[currentCameraIndex]?.deviceId;
-            console.log("Using camera by index:", currentCameraIndex);
           }
         } else {
           // Only one camera available
           selectedDeviceId = cameras[0].deviceId;
-          console.log("Using only available camera:", cameras[0].label);
         }
       }
-
-      console.log("Starting QR code reader with device:", selectedDeviceId);
       toast.info("Initializing camera...");
 
       // Start decoding with proper error handling
@@ -173,19 +163,14 @@ const QRScannerPage: React.FC = () => {
         (result, err) => {
           if (result && scanningRef.current) {
             const qrText = result.getText();
-            console.log("✓ QR Code detected:", qrText);
-            console.log("Invoking handler via ref...");
             // Call handler via ref to always get the latest version
             if (handleQRCodeDetectedRef.current) {
-              console.log("Handler ref exists, calling it now");
               handleQRCodeDetectedRef.current(qrText);
             } else {
-              console.error("Handler ref is null!");
             }
           }
           // Only log actual errors, not NotFoundException which is normal
           if (err && !(err instanceof NotFoundException)) {
-            console.warn("QR Scan error:", err);
           }
         }
       );
@@ -221,36 +206,33 @@ const QRScannerPage: React.FC = () => {
       if (videoRef.current && videoRef.current.srcObject) {
         const mediaStream = videoRef.current.srcObject as MediaStream;
         setStream(mediaStream);
-        console.log("✓ Camera stream attached successfully");
         toast.success("Camera ready! Point at a QR code");
       } else {
-        console.warn("Stream not attached to video element");
       }
-    } catch (err: any) {
-      console.error("Camera access error:", err);
+    } catch (err: unknown) {
       scanningRef.current = false;
       setScanning(false);
 
       let errorMessage = "Failed to access camera. Please try again.";
 
       if (
-        err.name === "NotAllowedError" ||
-        err.name === "PermissionDeniedError"
+        (err as any).name === "NotAllowedError" ||
+        (err as any).name === "PermissionDeniedError"
       ) {
         errorMessage =
           "Camera access denied. Please grant camera permissions in your browser settings.";
         toast.error("Camera permission denied");
       } else if (
-        err.name === "NotFoundError" ||
-        err.name === "DevicesNotFoundError"
+        (err as any).name === "NotFoundError" ||
+        (err as any).name === "DevicesNotFoundError"
       ) {
         errorMessage = "No camera found on this device.";
         toast.error("No camera found");
-      } else if (err.name === "NotReadableError") {
+      } else if ((err as any).name === "NotReadableError") {
         errorMessage =
           "Camera is already in use by another application. Please close other apps using the camera.";
         toast.error("Camera in use");
-      } else if (err.name === "OverconstrainedError") {
+      } else if ((err as any).name === "OverconstrainedError") {
         errorMessage =
           "Could not start camera with the requested settings. Trying alternative...";
         toast.error("Camera constraint error");
@@ -260,7 +242,7 @@ const QRScannerPage: React.FC = () => {
           setFacingMode("environment");
         }
       } else {
-        toast.error("Camera error: " + (err.message || "Unknown error"));
+        toast.error("Camera error: " + ((err as any).message || "Unknown error"));
       }
 
       setError(errorMessage);
@@ -268,14 +250,12 @@ const QRScannerPage: React.FC = () => {
   };
 
   const stopScanning = useCallback(() => {
-    console.log("Stopping scanner...");
     scanningRef.current = false;
 
     // Stop all video tracks
     if (stream) {
       stream.getTracks().forEach((track) => {
         track.stop();
-        console.log("Stopped track:", track.kind);
       });
       setStream(null);
     }
@@ -284,9 +264,7 @@ const QRScannerPage: React.FC = () => {
     if (codeReaderRef.current) {
       try {
         codeReaderRef.current.reset();
-        console.log("Code reader reset");
       } catch (err) {
-        console.warn("Error resetting code reader:", err);
       }
     }
 
@@ -306,7 +284,6 @@ const QRScannerPage: React.FC = () => {
     }
 
     try {
-      console.log("Switching camera...");
 
       // Stop current scanning completely
       stopScanning();
@@ -330,9 +307,8 @@ const QRScannerPage: React.FC = () => {
       toast.success(
         `Switched to ${newFacingMode === "environment" ? "back" : "front"} camera`
       );
-    } catch (err: any) {
-      console.error("Camera switch error:", err);
-      toast.error("Failed to switch camera: " + (err.message || "Unknown error"));
+    } catch (err: unknown) {
+      toast.error("Failed to switch camera: " + ((err as any).message || "Unknown error"));
       setScanning(false);
       scanningRef.current = false;
     }
@@ -365,7 +341,6 @@ const QRScannerPage: React.FC = () => {
       setTorchOn(!torchOn);
       toast.success(torchOn ? "Flashlight off" : "Flashlight on");
     } catch (err) {
-      console.error("Torch error:", err);
       toast.error("Failed to toggle flashlight");
     }
   };
@@ -379,23 +354,18 @@ const QRScannerPage: React.FC = () => {
   const [loadingIssues, setLoadingIssues] = useState(false);
 
   const handleQRCodeDetected = useCallback(async (data: string) => {
-    console.log("==> handleQRCodeDetected called with:", data);
-    console.log("==> scanningRef.current:", scanningRef.current);
     
     // Prevent multiple scans - check and set atomically
     if (!scanningRef.current) {
-      console.log("Scan already in progress, ignoring duplicate");
       return;
     }
     
     // Immediately set to false to prevent duplicate processing
     scanningRef.current = false;
-    console.log("==> Set scanningRef to false, calling stopScanning...");
     
     stopScanning();
 
     try {
-      console.log("Scanned QR Code Data:", data);
       toast.info("Processing QR code...");
 
       // Parse QR code data if it's JSON
@@ -404,39 +374,27 @@ const QRScannerPage: React.FC = () => {
         const parsed = JSON.parse(data);
         if (parsed.asset_id) {
           assetIdentifier = parsed.asset_id;
-          console.log("Parsed JSON QR code, using asset_id:", assetIdentifier);
         } else if (parsed.unique_asset_id) {
           assetIdentifier = parsed.unique_asset_id;
-          console.log("Parsed JSON QR code, using unique_asset_id:", assetIdentifier);
         } else if (parsed.serial) {
           assetIdentifier = parsed.serial;
-          console.log("Parsed JSON QR code, using serial:", assetIdentifier);
         }
       } catch (parseError) {
         // Not JSON, use as-is
-        console.log("QR code is plain text, using directly");
       }
 
       const token =
         localStorage.getItem("auth_token") || localStorage.getItem("token");
-      
-      console.log("🔐 Auth token present:", !!token);
-      console.log("🔐 Token preview:", token ? `${token.substring(0, 20)}...` : 'null');
+      console.log("?? Token preview:", token ? `${token.substring(0, 20)}...` : 'null');
       
       // Use the API base URL from config for proper network IP detection
       const apiUrl = `${API_BASE_URL}/qr/scan/${encodeURIComponent(assetIdentifier)}`;
-      console.log("📡 API Call Details:");
-      console.log("  - URL:", apiUrl);
-      console.log("  - API_BASE_URL:", API_BASE_URL);
-      console.log("  - Method: GET");
-      console.log("  - Asset Identifier:", assetIdentifier);
       console.log("  - Encoded Identifier:", encodeURIComponent(assetIdentifier));
 
       const requestHeaders = {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       };
-      console.log("  - Headers:", requestHeaders);
 
       const startTime = performance.now();
       const response = await fetch(apiUrl, {
@@ -444,22 +402,15 @@ const QRScannerPage: React.FC = () => {
         headers: requestHeaders,
       });
       const endTime = performance.now();
-
-      console.log("📡 Response received:");
-      console.log("  - Status:", response.status, response.statusText);
       console.log("  - Time taken:", Math.round(endTime - startTime), "ms");
       console.log("  - Headers:", Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("❌ API Error Response:");
-        console.error("  - Status:", response.status);
-        console.error("  - Raw text:", errorText);
         
         let errorData;
         try {
           errorData = JSON.parse(errorText);
-          console.error("  - Parsed error:", errorData);
         } catch (e) {
           errorData = { message: errorText || "Asset not found" };
         }
@@ -468,24 +419,17 @@ const QRScannerPage: React.FC = () => {
       }
 
       const result = await response.json();
-      console.log("✅ Scan result:", result);
 
       if (result.success && result.asset) {
-        toast.success("✓ Asset scanned successfully!");
+        toast.success("? Asset scanned successfully!");
         // Store the scanned asset to display in table format
         setScannedAsset(result.asset);
         setError("");
-        console.log("Asset data set:", result.asset);
 
         // Fetch existing issues for this asset
         await fetchAssetIssues(result.asset.id || result.asset._id);
 
         // Show scan details
-        console.log("Scan details:", {
-          scanned_by: result.scanned_by,
-          scanned_at: result.scanned_at,
-          audit_logged: true,
-        });
 
         // Notify via update service for real-time synchronization
         if (result.asset._id || result.asset.id) {
@@ -503,7 +447,6 @@ const QRScannerPage: React.FC = () => {
           
           // Legacy: Try global refresh function if available
           if ((window as any).refreshAssetDetails) {
-            console.log('Triggering global asset details refresh');
             (window as any).refreshAssetDetails();
           }
         }
@@ -511,12 +454,11 @@ const QRScannerPage: React.FC = () => {
         setError("Invalid QR code. Asset not found.");
         toast.error("Asset not found");
       }
-    } catch (err: any) {
-      console.error("QR scan error:", err);
+    } catch (err: unknown) {
       setError(
-        err.message || "Invalid QR code. Please scan a valid asset QR code."
+        (err as any).message || "Invalid QR code. Please scan a valid asset QR code."
       );
-      toast.error(err.message || "Failed to scan QR code");
+      toast.error((err as any).message || "Failed to scan QR code");
     }
   }, [stopScanning]);
 
@@ -558,7 +500,6 @@ const QRScannerPage: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error("Error fetching asset issues:", error);
     } finally {
       setLoadingIssues(false);
     }
@@ -610,16 +551,13 @@ const QRScannerPage: React.FC = () => {
       const result = await response.json();
       toast.success(
         isUpdate
-          ? "✓ Issue updated successfully!"
-          : "✓ Issue reported successfully!"
+          ? "? Issue updated successfully!"
+          : "? Issue reported successfully!"
       );
 
       // Refresh issues list
       await fetchAssetIssues(assetId);
-    } catch (error: any) {
-      console.error("Error submitting issue:", error);
-      toast.error(error.message || "Failed to submit issue");
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setSubmittingIssue(false);
     }
   };
@@ -633,7 +571,7 @@ const QRScannerPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ maxWidth: 800, mx: "auto", p: 3 }}>
+      <Box sx={{ maxWidth: { xs: '100%', sm: '100%', md: 800 }, mx: "auto", p: { xs: 2, sm: 3 } }}>
         <Box
           sx={{
             mb: 3,
@@ -859,7 +797,7 @@ const QRScannerPage: React.FC = () => {
                 }}
               >
                 <Typography variant="h6" color="success.main">
-                  ✓ Asset Scanned Successfully
+                  ? Asset Scanned Successfully
                 </Typography>
                 <Button
                   variant="outlined"
@@ -1019,7 +957,7 @@ const QRScannerPage: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         {scannedAsset.purchase_cost
-                          ? `₹${parseFloat(
+                          ? `?${parseFloat(
                               scannedAsset.purchase_cost
                             ).toLocaleString("en-IN")}`
                           : "N/A"}

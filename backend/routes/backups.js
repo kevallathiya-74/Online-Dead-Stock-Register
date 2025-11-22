@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
 const backupController = require('../controllers/backupController');
+const { validateObjectId } = require('../middleware/objectIdValidator');
 
 // All routes require authentication and admin role
 router.use(authMiddleware);
@@ -17,12 +18,12 @@ router.get('/jobs', backupController.getBackupJobs);
 router.post('/', backupController.createBackup);
 
 // Restore backup
-router.post('/:id/restore', backupController.restoreBackup);
+router.post('/:id/restore', validateObjectId('id'), backupController.restoreBackup);
 
 // Download backup
-router.get('/:id/download', backupController.downloadBackup);
+router.get('/:id/download', validateObjectId('id'), backupController.downloadBackup);
 
 // Delete backup
-router.delete('/:id', backupController.deleteBackup);
+router.delete('/:id', validateObjectId('id'), backupController.deleteBackup);
 
 module.exports = router;

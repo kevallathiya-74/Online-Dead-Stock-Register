@@ -24,7 +24,7 @@ exports.getAutomationStatus = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Failed to get automation status:', error);
+    logger.error('Failed to get automation status:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to retrieve automation status',
@@ -36,7 +36,7 @@ exports.getAutomationStatus = async (req, res) => {
 // Manual trigger for disposal automation (Admin only)
 exports.triggerDisposalCheck = async (req, res) => {
   try {
-    console.log(`🔧 Manual disposal check triggered by user: ${req.user.email}`);
+    logger.info(`🔧 Manual disposal check triggered by user: ${req.user.email}`);
     
     const result = await scheduledJobs.triggerDisposalCheckNow();
 
@@ -46,7 +46,7 @@ exports.triggerDisposalCheck = async (req, res) => {
       data: result,
     });
   } catch (error) {
-    console.error('Failed to trigger disposal check:', error);
+    logger.error('Failed to trigger disposal check:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to run disposal automation',
@@ -98,7 +98,7 @@ exports.updateDisposalRules = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Failed to update disposal rules:', error);
+    logger.error('Failed to update disposal rules:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to update disposal rules',
@@ -139,7 +139,7 @@ exports.getEligibleAssets = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Failed to get eligible assets:', error);
+    logger.error('Failed to get eligible assets:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to retrieve eligible assets',
@@ -158,7 +158,7 @@ exports.getSchedulerStatus = async (req, res) => {
       data: status,
     });
   } catch (error) {
-    console.error('Failed to get scheduler status:', error);
+    logger.error('Failed to get scheduler status:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to retrieve scheduler status',

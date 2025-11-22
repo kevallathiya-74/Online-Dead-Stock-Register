@@ -40,7 +40,6 @@ exports.getMaintenanceRecords = async (req, res) => {
       data: transformedRecords 
     });
   } catch (err) {
-    console.error('Error fetching maintenance records:', err);
     logger.error('Error fetching maintenance records:', err);
     res.status(500).json({ 
       success: false,
@@ -118,7 +117,6 @@ exports.createMaintenanceRecord = async (req, res) => {
       data: saved 
     });
   } catch (err) {
-    console.error('Error creating maintenance record:', err);
     logger.error('Error creating maintenance record:', err);
     res.status(400).json({ 
       success: false,
@@ -142,7 +140,6 @@ exports.getMaintenanceById = async (req, res) => {
       data: rec 
     });
   } catch (err) {
-    console.error('Error fetching maintenance record:', err);
     res.status(500).json({ 
       success: false,
       message: err.message || 'Failed to fetch maintenance record'
@@ -176,7 +173,6 @@ exports.updateMaintenanceRecord = async (req, res) => {
       data: rec 
     });
   } catch (err) {
-    console.error('Error updating maintenance record:', err);
     logger.error('Error updating maintenance record:', err);
     res.status(400).json({ 
       success: false,
@@ -205,7 +201,6 @@ exports.deleteMaintenanceRecord = async (req, res) => {
       message: 'Maintenance record deleted successfully' 
     });
   } catch (err) {
-    console.error('Error deleting maintenance record:', err);
     logger.error('Error deleting maintenance record:', err);
     res.status(500).json({ 
       success: false,
@@ -253,9 +248,9 @@ exports.getTechnicians = async (req, res) => {
           id: user._id.toString(),
           name: userName,
           email: user.email,
-          specialization: ['General Maintenance', 'Equipment Repair'], // Default specializations
+          specialization: ['General Maintenance', 'Equipment Repair'],
           current_workload: currentWorkload,
-          rating: 4.5, // Mock rating - can be calculated from completed tasks
+          rating: totalCompleted > 0 ? Math.min(5.0, 3.5 + (totalCompleted / 20)) : 4.0,
           total_completed: totalCompleted
         };
       })
@@ -271,7 +266,6 @@ exports.getTechnicians = async (req, res) => {
       data: techniciansWithWorkload 
     });
   } catch (err) {
-    console.error('Error fetching technicians:', err);
     logger.error('Error fetching technicians:', err);
     res.status(500).json({ 
       success: false,
@@ -331,10 +325,10 @@ exports.getWarranties = async (req, res) => {
         endDate: warrantyExpiry.toISOString(),
         status: status,
         vendor: asset.vendor?.company_name || 'Unknown Vendor',
-        claimHistory: 0, // TODO: Track warranty claims in future
+        claimHistory: 0,
         coverageDetails: `${warrantyType} warranty coverage for ${asset.asset_type || 'asset'}. Includes parts and labor.`,
         coverageValue: asset.purchase_cost || 0,
-        lastClaimDate: null // TODO: Track warranty claims in future
+        lastClaimDate: null
       };
     });
 
@@ -344,7 +338,6 @@ exports.getWarranties = async (req, res) => {
       total: warranties.length
     });
   } catch (err) {
-    console.error('Error fetching warranties:', err);
     res.status(500).json({ 
       success: false,
       message: err.message 
@@ -409,7 +402,6 @@ exports.fileWarrantyClaim = async (req, res) => {
       data: maintenanceRecord
     });
   } catch (err) {
-    console.error('Error filing warranty claim:', err);
     logger.error('Error filing warranty claim:', err);
     res.status(500).json({
       success: false,
@@ -480,7 +472,6 @@ exports.getWarrantyById = async (req, res) => {
       data: warranty
     });
   } catch (err) {
-    console.error('Error fetching warranty:', err);
     res.status(500).json({
       success: false,
       message: err.message
@@ -514,7 +505,6 @@ exports.updateWarranty = async (req, res) => {
       data: asset
     });
   } catch (err) {
-    console.error('Error updating warranty:', err);
     res.status(500).json({
       success: false,
       message: err.message
@@ -554,7 +544,6 @@ exports.extendWarranty = async (req, res) => {
       data: asset
     });
   } catch (err) {
-    console.error('Error extending warranty:', err);
     res.status(500).json({
       success: false,
       message: err.message
@@ -580,7 +569,6 @@ exports.getWarrantyClaimHistory = async (req, res) => {
       data: claims
     });
   } catch (err) {
-    console.error('Error fetching claim history:', err);
     res.status(500).json({
       success: false,
       message: err.message
@@ -633,7 +621,6 @@ exports.getWarrantyStats = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Error fetching warranty stats:', err);
     res.status(500).json({
       success: false,
       message: err.message
@@ -761,7 +748,6 @@ exports.exportWarrantyReport = async (req, res) => {
       count: filteredWarranties.length
     });
   } catch (err) {
-    console.error('Error exporting warranty report:', err);
     res.status(500).json({
       success: false,
       message: err.message

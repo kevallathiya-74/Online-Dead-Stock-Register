@@ -18,6 +18,7 @@ const {
   getInvoiceStats
 } = require('../controllers/invoiceController');
 const { authenticateToken, requireRole } = require('../middleware/authMiddleware');
+const { validateObjectId } = require('../middleware/objectIdValidator');
 
 // Purchase Order Routes
 // GET /api/purchase-management/orders - Get all purchase orders (Admin, Inventory Manager, IT Manager)
@@ -31,6 +32,7 @@ router.get('/orders',
 router.get('/orders/:id', 
   authenticateToken, 
   requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
+  validateObjectId('id'),
   getPurchaseOrderById
 );
 
@@ -45,6 +47,7 @@ router.post('/orders',
 router.patch('/orders/:id/status', 
   authenticateToken, 
   requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
+  validateObjectId('id'),
   updatePurchaseOrderStatus
 );
 
@@ -89,6 +92,7 @@ router.get('/invoices/stats',
 router.get('/invoices/:id', 
   authenticateToken, 
   requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
+  validateObjectId('id'),
   getInvoiceById
 );
 
@@ -103,6 +107,7 @@ router.post('/invoices',
 router.patch('/invoices/:id/status', 
   authenticateToken, 
   requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
+  validateObjectId('id'),
   updateInvoiceStatus
 );
 
@@ -110,6 +115,7 @@ router.patch('/invoices/:id/status',
 router.delete('/invoices/:id', 
   authenticateToken, 
   requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
+  validateObjectId('id'),
   deleteInvoice
 );
 

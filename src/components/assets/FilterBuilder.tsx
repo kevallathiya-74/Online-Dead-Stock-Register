@@ -94,7 +94,6 @@ const FilterBuilder: React.FC<FilterBuilderProps> = ({
       });
       setAvailableFields(response.data.fields);
     } catch (error) {
-      console.error('Error fetching filter fields:', error);
     }
   };
 
@@ -150,7 +149,6 @@ const FilterBuilder: React.FC<FilterBuilderProps> = ({
       }
       onApply(filters);
     } catch (error) {
-      console.error('Error applying filters:', error);
     } finally {
       setIsLoading(false);
     }

@@ -16,15 +16,18 @@ export interface ApiError {
 /**
  * Extract error message from various error response formats
  */
-export const getErrorMessage = (error: any): string => {
+export const getErrorMessage = (error: unknown): string => {
   // Axios error response
-  if (error.response?.data) {
-    const data = error.response.data;
-    return data.error || data.message || data.details || 'An error occurred';
+  if (error && typeof error === 'object' && 'response' in error) {
+    const axiosError = error as { response?: { data?: ApiError } };
+    if (axiosError.response?.data) {
+      const data = axiosError.response.data;
+      return data.error || data.message || data.details || 'An error occurred';
+    }
   }
 
   // Axios error without response
-  if (error.request) {
+  if (error && typeof error === 'object' && 'request' in error) {
     return 'Network error. Please check your connection.';
   }
 
@@ -45,21 +48,13 @@ export const getErrorMessage = (error: any): string => {
 /**
  * Handle API errors with toast notifications
  */
-export const handleApiError = (error: any, context?: string): void => {
+export const handleApiError = (error: unknown, context?: string): void => {
   const message = getErrorMessage(error);
   const fullMessage = context ? `${context}: ${message}` : message;
   
   toast.error(fullMessage, {
     autoClose: 5000,
     position: 'top-right',
-  });
-
-  // Log detailed error for debugging
-  console.error('API Error:', {
-    context,
-    error,
-    message: fullMessage,
-    timestamp: new Date().toISOString(),
   });
 };
 

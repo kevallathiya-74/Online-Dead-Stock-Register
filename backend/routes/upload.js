@@ -3,6 +3,7 @@ const router = express.Router();
 const { authMiddleware } = require('../middleware/authMiddleware');
 const { documentUpload, assetImageUpload } = require('../middleware/uploadMiddleware');
 const uploadController = require('../controllers/uploadController');
+const { validateObjectId } = require('../middleware/objectIdValidator');
 
 // Apply auth middleware to all routes
 router.use(authMiddleware);
@@ -20,10 +21,10 @@ router.post('/asset-images',
 );
 
 // Download document by ID
-router.get('/documents/:id', uploadController.downloadDocument);
+router.get('/documents/:id', validateObjectId('id'), uploadController.downloadDocument);
 
 // Get documents for specific asset
-router.get('/assets/:asset_id/documents', uploadController.getAssetDocuments);
+router.get('/assets/:asset_id/documents', validateObjectId('asset_id'), uploadController.getAssetDocuments);
 
 // Get user's uploaded documents
 router.get('/my-documents', uploadController.getUserDocuments);
@@ -32,7 +33,7 @@ router.get('/my-documents', uploadController.getUserDocuments);
 router.get('/document-types', uploadController.getDocumentTypes);
 
 // Delete document
-router.delete('/documents/:id', uploadController.deleteDocument);
+router.delete('/documents/:id', validateObjectId('id'), uploadController.deleteDocument);
 
 // Error handling middleware for multer
 router.use((error, req, res, next) => {

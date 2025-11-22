@@ -73,7 +73,6 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
         openLabelsModal();
         break;
       default:
-        console.warn(`Unknown modal type: ${modalType}`);
     }
   };
 

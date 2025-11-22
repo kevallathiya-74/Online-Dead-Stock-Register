@@ -109,7 +109,6 @@ const AssetDetailsPage: React.FC = () => {
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === `asset_updated_${id}`) {
-        console.log('Asset update detected from another tab/window');
         loadAssetDetails(true);
       }
     };
@@ -130,10 +129,8 @@ const AssetDetailsPage: React.FC = () => {
       setError('');
       
       if (!silent) {
-        console.log('Asset details loaded:', assetData);
       }
     } catch (error: any) {
-      console.error('Failed to load asset details:', error);
       setError(error.response?.data?.message || 'Failed to load asset details');
       if (!silent) {
         toast.error('Failed to load asset details');
@@ -145,7 +142,6 @@ const AssetDetailsPage: React.FC = () => {
 
   // Public method to trigger refresh (can be called from audit components)
   const refreshAssetDetails = () => {
-    console.log('Manual refresh triggered');
     loadAssetDetails();
   };
 
@@ -162,7 +158,6 @@ const AssetDetailsPage: React.FC = () => {
     if (!id) return;
 
     const unsubscribe = assetUpdateService.subscribe(id, (assetId, updateData) => {
-      console.log(`🔔 Received update notification for asset ${assetId}:`, updateData);
       
       // Show notification based on update type
       if (updateData?.type === 'audit_completed') {
@@ -247,7 +242,7 @@ const AssetDetailsPage: React.FC = () => {
   if (error || !asset) {
     return (
       <DashboardLayout>
-        <Box sx={{ maxWidth: 800, mx: 'auto', mt: 4 }}>
+        <Box sx={{ maxWidth: { xs: '100%', sm: 600, md: 800 }, mx: 'auto', mt: 4 }}>
           <Alert severity="error">{error || 'Asset not found'}</Alert>
           <Button 
             startIcon={<ArrowBackIcon />}
@@ -281,7 +276,7 @@ const AssetDetailsPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ maxWidth: 1200, mx: 'auto', p: 3 }}>
+      <Box sx={{ maxWidth: { xs: '100%', sm: '100%', md: 1200 }, mx: 'auto', p: { xs: 2, sm: 3 } }}>
         {/* Header with Real-time Update Indicator */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

@@ -73,7 +73,6 @@ const BulkOperationsPanel: React.FC<BulkOperationsPanelProps> = ({
         u.role === 'ADMIN' || u.role === 'INVENTORY_MANAGER'
       ) || []);
     } catch (error) {
-      console.error('Error fetching users:', error);
     }
   };
 
@@ -127,7 +126,6 @@ const BulkOperationsPanel: React.FC<BulkOperationsPanelProps> = ({
         alert('Operation cannot proceed. Please check the warnings.');
       }
     } catch (error: any) {
-      console.error('Validation error:', error);
       alert(error.response?.data?.message || 'Validation failed');
     } finally {
       setIsValidating(false);
@@ -172,7 +170,6 @@ const BulkOperationsPanel: React.FC<BulkOperationsPanelProps> = ({
 
       alert(response.data.message || 'Operation completed successfully');
     } catch (error: any) {
-      console.error('Execution error:', error);
       alert(error.response?.data?.message || 'Operation failed');
     } finally {
       setIsExecuting(false);

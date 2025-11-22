@@ -72,7 +72,6 @@ const ScheduleAuditForm: React.FC<ScheduleAuditFormProps> = ({
       });
       setUsers(response.data.users || []);
     } catch (error) {
-      console.error('Error fetching users:', error);
     }
   };
 
@@ -88,7 +87,6 @@ const ScheduleAuditForm: React.FC<ScheduleAuditFormProps> = ({
       setLocations(data.locations || ['Building A', 'Building B', 'Warehouse']);
       setCategories(data.categories || ['Electronics', 'Furniture', 'Vehicles', 'IT Equipment']);
     } catch (error) {
-      console.error('Error fetching metadata:', error);
       // Use defaults
       setDepartments(['IT', 'HR', 'Finance', 'Operations', 'Inventory', 'Admin']);
       setCategories(['Electronics', 'Furniture', 'Vehicles', 'Machinery', 'IT Equipment', 'Office Supplies']);
@@ -142,18 +140,18 @@ const ScheduleAuditForm: React.FC<ScheduleAuditFormProps> = ({
       });
 
       if (onSuccess) onSuccess();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to schedule audit');
+    } catch (err: unknown) {
+      setError((err as any).response?.data?.message || 'Failed to schedule audit');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const updateFormData = (field: string, value: any) => {
+  const updateFormData = (field: string, value: unknown) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const updateScopeConfig = (field: string, value: any) => {
+  const updateScopeConfig = (field: string, value: unknown) => {
     setFormData(prev => ({
       ...prev,
       scope_config: { ...prev.scope_config, [field]: value }

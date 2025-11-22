@@ -48,16 +48,12 @@ const Login = () => {
   const onSubmit = async (data: LoginFormInputs) => {
     try {
       setIsLoading(true);
-      console.log('Login component: Attempting login for:', data.email);
       await login(data.email, data.password);
-      console.log('Login component: Login successful, navigating to dashboard');
       // Add a small delay to ensure state is updated
       setTimeout(() => {
-        console.log('Login component: Executing navigation to dashboard');
         navigate('/dashboard', { replace: true });
       }, 100);
     } catch (error) {
-      console.error('Login component: Login failed:', error);
     } finally {
       setIsLoading(false);
     }
@@ -71,16 +67,16 @@ const Login = () => {
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: 'grey.100',
-        p: 2,
+        p: { xs: 2, sm: 3 },
       }}
     >
-      <Card sx={{ maxWidth: 400, width: '100%' }}>
-        <CardContent sx={{ p: 4 }}>
-          <Box sx={{ mb: 4, textAlign: 'center' }}>
-            <Typography variant="h4" component="h1" gutterBottom>
+      <Card sx={{ maxWidth: { xs: '100%', sm: 450 }, width: '100%' }}>
+        <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
+          <Box sx={{ mb: { xs: 3, sm: 4 }, textAlign: 'center' }}>
+            <Typography variant="h4" component="h1" gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}>
               Welcome Back
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
               Sign in to your Dead Stock Register account
             </Typography>
           </Box>

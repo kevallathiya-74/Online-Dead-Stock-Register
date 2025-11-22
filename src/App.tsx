@@ -39,6 +39,7 @@ const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'));
 const AdminAddUserPage = lazy(() => import('./pages/admin/AdminAddUserPage'));
 const AdminDocumentsPage = lazy(() => import('./pages/admin/AdminDocumentsPage'));
 const AdminBackupPage = lazy(() => import('./pages/admin/AdminBackupPage'));
+const AdminProfilePage = lazy(() => import('./pages/admin/AdminProfilePage'));
 
 // Inventory Manager Pages
 const AssetsPage = lazy(() => import('./pages/assets/AssetsPage'));
@@ -58,6 +59,7 @@ const PurchaseOrdersPage = lazy(() => import('./pages/purchase-orders/PurchaseOr
 const InvoicesPage = lazy(() => import('./pages/purchase-orders/InvoicesPage'));
 const LocationsPage = lazy(() => import('./pages/locations/LocationsPage'));
 const ApprovalsPage = lazy(() => import('./pages/approvals/ApprovalsPage'));
+const InventoryManagerProfilePage = lazy(() => import('./pages/inventory/InventoryManagerProfilePage'));
 
 // Inventory/Dead Stock Pages
 const DeadStockItemsPage = lazy(() => import('./pages/inventory/DeadStockItemsPage'));
@@ -67,6 +69,7 @@ const DisposalRecordsPage = lazy(() => import('./pages/inventory/DisposalRecords
 const AuditorDashboard = lazy(() => import('./pages/auditor/AuditorDashboard'));
 const AuditListPage = lazy(() => import('./pages/auditor/AuditListPage'));
 const CompliancePage = lazy(() => import('./pages/auditor/CompliancePage'));
+const AuditorProfilePage = lazy(() => import('./pages/auditor/AuditorProfilePage'));
 
 // Vendor Pages
 const VendorDashboard = lazy(() => import('./pages/vendor/VendorDashboard'));
@@ -74,6 +77,9 @@ const VendorOrdersPage = lazy(() => import('./pages/vendor/VendorOrdersPage'));
 const VendorProductsPage = lazy(() => import('./pages/vendor/VendorProductsPage'));
 const VendorInvoicesPage = lazy(() => import('./pages/vendor/VendorInvoicesPage'));
 const VendorProfilePage = lazy(() => import('./pages/vendor/VendorProfilePage'));
+
+// Generic Profile Page
+const UserProfilePage = lazy(() => import('./pages/profile/UserProfilePage'));
 
 const App = () => {
   return (
@@ -95,6 +101,7 @@ const App = () => {
                 <Route element={<ProtectedRoute />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/dashboard/*" element={<Dashboard />} />
+                  <Route path="/profile" element={<UserProfilePage />} />
                 </Route>
               
             {/* Admin Only Routes */}
@@ -112,12 +119,14 @@ const App = () => {
               <Route path="/admin/users" element={<AdminUsersPage />} />
               <Route path="/admin/users/add" element={<AdminAddUserPage />} />
               <Route path="/admin/documents" element={<AdminDocumentsPage />} />
+              <Route path="/admin/profile" element={<AdminProfilePage />} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/users/*" element={<UsersPage />} />
             </Route>
               
             {/* Inventory Manager Routes - ADMIN, INVENTORY_MANAGER, and IT_MANAGER */}
             <Route element={<ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.INVENTORY_MANAGER, UserRole.IT_MANAGER]} />}>
+              <Route path="/inventory-manager/profile" element={<InventoryManagerProfilePage />} />
               <Route path="/assets" element={<AssetsPage />} />
               <Route path="/assets/add" element={<AddAssetPage />} />
               <Route path="/assets/scan-qr" element={<QRScannerPage />} />
@@ -148,6 +157,7 @@ const App = () => {
             {/* Auditor Routes - AUDITOR role only */}
             <Route element={<ProtectedRoute allowedRoles={[UserRole.AUDITOR]} />}>
               <Route path="/auditor" element={<AuditorDashboard />} />
+              <Route path="/auditor/profile" element={<AuditorProfilePage />} />
               <Route path="/auditor/dashboard" element={<AuditorDashboard />} />
               <Route path="/auditor/audit-list" element={<AuditListPage />} />
               <Route path="/auditor/compliance" element={<CompliancePage />} />
@@ -171,17 +181,19 @@ const App = () => {
           </Router>
         </ErrorBoundary>
         
-        {/* Toast Container for notifications */}
+        {/* Toast Container for notifications - Optimized configuration */}
         <ToastContainer
-          position="top-right"
-          autoClose={3000}
+          position="bottom-right"
+          autoClose={5000}
           hideProgressBar={false}
-          newestOnTop={false}
+          newestOnTop={true}
           closeOnClick
           rtl={false}
           pauseOnFocusLoss
           draggable
           pauseOnHover
+          limit={3}
+          theme="light"
         />
       </AuthProvider>
     </ThemeProvider>

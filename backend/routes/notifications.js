@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../middleware/authMiddleware');
 const notificationController = require('../controllers/notificationController');
+const { validateObjectId } = require('../middleware/objectIdValidator');
 
 // Apply auth middleware to all routes
 router.use(authMiddleware);
@@ -16,13 +17,13 @@ router.get('/unread-count', notificationController.getUnreadCount);
 router.get('/types', notificationController.getNotificationTypes);
 
 // Mark notification as read
-router.put('/:id/read', notificationController.markAsRead);
+router.put('/:id/read', validateObjectId('id'), notificationController.markAsRead);
 
 // Mark all notifications as read
 router.put('/read-all', notificationController.markAllAsRead);
 
 // Delete specific notification
-router.delete('/:id', notificationController.deleteNotification);
+router.delete('/:id', validateObjectId('id'), notificationController.deleteNotification);
 
 // Delete all read notifications
 router.delete('/read-all', notificationController.deleteAllRead);

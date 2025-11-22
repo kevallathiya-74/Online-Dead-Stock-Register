@@ -183,9 +183,9 @@ exports.updateAsset = async (req, res) => {
           'info'
         );
         
-        console.log('Audit log created for asset transfer');
+        logger.info('Audit log created for asset transfer', { assetId: asset._id });
       } catch (auditErr) {
-        console.error('Audit log creation failed:', auditErr);
+        logger.error('Audit log creation failed', { error: auditErr.message });
         // Don't fail the request if audit log fails
       }
     }
@@ -193,7 +193,7 @@ exports.updateAsset = async (req, res) => {
     res.json(asset);
 
   } catch (err) {
-    console.error('Update asset error:', err);
+    logger.error('Update asset error', { error: err.message, assetId: req.params.id });
     res.status(400).json({ message: err.message });
   }
 };
@@ -243,7 +243,7 @@ exports.getAssetStats = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Get asset stats error:', err);
+    logger.error('Get asset stats error', { error: err.message });
     res.status(500).json({ 
       success: false,
       error: err.message 

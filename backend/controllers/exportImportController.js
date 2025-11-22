@@ -75,7 +75,6 @@ exports.exportData = async (req, res) => {
     const User = require('../models/user');
     const Transaction = require('../models/transaction');
     const Vendor = require('../models/vendor');
-    const logger = require('../utils/logger');
     
     let exportData = {
       exportDate: new Date().toISOString(),
@@ -308,7 +307,7 @@ exports.exportData = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Export error:', error);
+    logger.error('Export error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to export data',
@@ -466,7 +465,7 @@ exports.importData = async (req, res) => {
     try {
       fs.unlinkSync(filePath);
     } catch (err) {
-      console.error('Failed to delete temp file:', err);
+      logger.error('Failed to delete temp file:', err);
     }
 
     res.json({
@@ -476,14 +475,14 @@ exports.importData = async (req, res) => {
       errors: errors.length > 0 ? errors.map(e => e.error) : undefined
     });
   } catch (error) {
-    console.error('Import error:', error);
+    logger.error('Import error:', error);
     
     // Clean up uploaded file on error
     if (req.file && req.file.path) {
       try {
         fs.unlinkSync(req.file.path);
       } catch (err) {
-        console.error('Failed to delete temp file:', err);
+        logger.error('Failed to delete temp file:', err);
       }
     }
     

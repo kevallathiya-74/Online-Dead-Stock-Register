@@ -75,7 +75,6 @@ const DisposalRecordsPage: React.FC = () => {
         toast.error('No disposal records found');
       }
     } catch (error) {
-      console.error('Error fetching disposal records:', error);
       setRecords([]);
       toast.error('Failed to load disposal records');
     } finally {
@@ -148,7 +147,6 @@ const DisposalRecordsPage: React.FC = () => {
       
       toast.success('Document downloaded successfully');
     } catch (error: any) {
-      console.error('Error downloading document:', error);
       // Fallback: Generate a simple text file with disposal details
       const record = records.find(r => r.document_reference === docRef);
       if (record) {
@@ -186,7 +184,7 @@ const DisposalRecordsPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h4" component="h1" fontWeight="bold">
             Disposal Records

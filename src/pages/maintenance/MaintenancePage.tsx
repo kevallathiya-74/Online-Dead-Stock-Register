@@ -115,10 +115,7 @@ const MaintenancePage = () => {
       
       setMaintenanceRecords(Array.isArray(maintenanceData) ? maintenanceData : []);
       setTechnicians(Array.isArray(technicianData) ? technicianData : []);
-    } catch (error) {
-      console.error('Failed to load maintenance data:', error);
-      toast.error('Failed to load maintenance data');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   useEffect(() => {
@@ -239,9 +236,7 @@ const MaintenancePage = () => {
       toast.success('Maintenance status updated successfully');
       setEditDialogOpen(false);
       setSelectedRecord(null);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to update maintenance status');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const handleMaintenanceScheduled = async () => {
@@ -271,7 +266,7 @@ const MaintenancePage = () => {
         </Box>
 
         {/* Statistics Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={6} md={2}>
             <Card>
               <CardContent>
@@ -421,7 +416,7 @@ const MaintenancePage = () => {
             {/* Filters */}
             <Card sx={{ mb: 3 }}>
               <CardContent>
-                <Grid container spacing={3} alignItems="center">
+                <Grid container spacing={{ xs: 2, sm: 3 }} alignItems="center">
                   <Grid item xs={12} md={4}>
                     <TextField
                       fullWidth
@@ -670,7 +665,7 @@ const MaintenancePage = () => {
                   <Typography variant="h6" gutterBottom>
                     Maintenance Reports
                   </Typography>
-                  <Grid container spacing={3}>
+                  <Grid container spacing={{ xs: 2, sm: 3 }}>
                     <Grid item xs={12} md={6}>
                       <Card variant="outlined">
                         <CardContent>
@@ -761,8 +756,8 @@ const MaintenancePage = () => {
                     </Box>
                   ))
                 ) : upcomingMaintenance.length === 0 ? (
-                  <Box sx={{ p: 3, textAlign: 'center' }}>
-                    <NotificationIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+                  <Box sx={{ p: { xs: 2, sm: 3 }, textAlign: 'center' }}>
+                    <NotificationIcon sx={{ fontSize: { xs: 40, sm: 48 }, color: 'text.secondary', mb: 1 }} />
                     <Typography variant="body2" color="text.secondary">
                       No maintenance scheduled for this week
                     </Typography>
@@ -814,8 +809,8 @@ const MaintenancePage = () => {
                     </Box>
                   ))
                 ) : technicians.length === 0 ? (
-                  <Box sx={{ p: 3, textAlign: 'center' }}>
-                    <TechnicianIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+                  <Box sx={{ p: { xs: 2, sm: 3 }, textAlign: 'center' }}>
+                    <TechnicianIcon sx={{ fontSize: { xs: 40, sm: 48 }, color: 'text.secondary', mb: 1 }} />
                     <Typography variant="body2" color="text.secondary">
                       No technicians available
                     </Typography>

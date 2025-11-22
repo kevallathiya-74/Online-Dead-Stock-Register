@@ -138,7 +138,6 @@ class PurchaseService {
       }
       throw new Error(response.data.error || 'Failed to fetch purchase orders');
     } catch (error) {
-      console.error('Error fetching purchase orders:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch purchase orders';
       throw new Error(errorMessage);
     }
@@ -152,7 +151,6 @@ class PurchaseService {
       }
       throw new Error(response.data.error || 'Failed to fetch purchase order');
     } catch (error) {
-      console.error('Error fetching purchase order:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch purchase order';
       throw new Error(errorMessage);
     }
@@ -166,7 +164,6 @@ class PurchaseService {
       }
       throw new Error(response.data.error || 'Failed to create purchase order');
     } catch (error) {
-      console.error('Error creating purchase order:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to create purchase order';
       throw new Error(errorMessage);
     }
@@ -182,16 +179,15 @@ class PurchaseService {
         throw new Error(response.data.error || 'Failed to update purchase order status');
       }
     } catch (error) {
-      console.error('Error updating purchase order status:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to update purchase order status';
       throw new Error(errorMessage);
     }
   }
 
   // Purchase Requests
-  async getPurchaseRequests(params?: any): Promise<{
+  async getPurchaseRequests(params?: Record<string, string>): Promise<{
     purchase_requests: PurchaseRequest[];
-    pagination: any;
+    pagination: { page: number; limit: number; total: number };
   }> {
     try {
       const queryParams = new URLSearchParams(params || {}).toString();
@@ -200,9 +196,8 @@ class PurchaseService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch purchase requests');
-    } catch (error: any) {
-      console.error('Error fetching purchase requests:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch purchase requests');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch purchase requests');
     }
   }
 
@@ -213,9 +208,8 @@ class PurchaseService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to create purchase request');
-    } catch (error: any) {
-      console.error('Error creating purchase request:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to create purchase request');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to create purchase request');
     }
   }
 
@@ -227,9 +221,8 @@ class PurchaseService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch purchase statistics');
-    } catch (error: any) {
-      console.error('Error fetching purchase statistics:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch purchase statistics');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch purchase statistics');
     }
   }
 }

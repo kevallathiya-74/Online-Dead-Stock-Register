@@ -70,7 +70,6 @@ const WarrantyPage = () => {
       }, 0);
       setTotalCoverageValue(totalValue);
     } catch (error: any) {
-      console.error('Error loading warranty data:', error);
       if (error.response?.status !== 401) {
         toast.error(error.response?.data?.message || 'Failed to load warranty data');
       }
@@ -130,10 +129,7 @@ const WarrantyPage = () => {
       
       // Reload data to get updated information from backend
       await loadWarrantyData();
-    } catch (error: any) {
-      console.error('Error filing warranty claim:', error);
-      toast.error(error.response?.data?.message || 'Failed to file warranty claim');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const handleExportReport = async () => {
@@ -154,10 +150,7 @@ const WarrantyPage = () => {
       window.URL.revokeObjectURL(url);
       
       toast.success('Warranty report downloaded successfully');
-    } catch (error: any) {
-      console.error('Error exporting report:', error);
-      toast.error('Failed to export warranty report');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const expiringCount = warranties.filter(w => w.status === 'Expiring Soon').length;
@@ -166,7 +159,7 @@ const WarrantyPage = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h4" component="h1">
             Warranty Management
@@ -181,7 +174,7 @@ const WarrantyPage = () => {
         </Box>
 
         {/* Summary Cards */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: 3 }}>
           <Grid item xs={12} sm={6} md={3}>
             <Card>
               <CardContent>
@@ -194,7 +187,7 @@ const WarrantyPage = () => {
                       {activeCount}
                     </Typography>
                   </Box>
-                  <CheckCircleIcon color="success" sx={{ fontSize: 40 }} />
+                  <CheckCircleIcon color="success" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>
@@ -211,7 +204,7 @@ const WarrantyPage = () => {
                       {expiringCount}
                     </Typography>
                   </Box>
-                  <WarningIcon color="warning" sx={{ fontSize: 40 }} />
+                  <WarningIcon color="warning" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>
@@ -228,7 +221,7 @@ const WarrantyPage = () => {
                       {expiredCount}
                     </Typography>
                   </Box>
-                  <CancelIcon color="error" sx={{ fontSize: 40 }} />
+                  <CancelIcon color="error" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>
@@ -245,7 +238,7 @@ const WarrantyPage = () => {
                       {formatCurrency(totalCoverageValue)}
                     </Typography>
                   </Box>
-                  <ScheduleIcon color="primary" sx={{ fontSize: 40 }} />
+                  <ScheduleIcon color="primary" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>

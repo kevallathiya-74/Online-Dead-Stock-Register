@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Drawer,
@@ -30,6 +30,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getNavigationForRole, getProfileNavigationForRole, NavigationItem } from '../../utils/navigation';
 
 const drawerWidth = 280;
+const mobileDrawerWidth = 260;
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -47,9 +48,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const isProfilePage = location.pathname.endsWith('/profile');
 
   // Use profile navigation if on profile page, otherwise use regular navigation
-  const navigation = user 
-    ? (isProfilePage ? getProfileNavigationForRole(user.role) : getNavigationForRole(user.role))
-    : [];
+  // Memoize navigation to prevent infinite loop
+  const navigation = useMemo(() => {
+    return user 
+      ? (isProfilePage ? getProfileNavigationForRole(user.role) : getNavigationForRole(user.role))
+      : [];
+  }, [user?.role, isProfilePage]);
 
   // Auto-expand parent menu when on a child route
   useEffect(() => {
@@ -67,7 +71,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       }
     });
 
-    setOpenItems(prev => ({ ...prev, ...newOpenItems }));
+    // Only update if there are actual changes
+    if (Object.keys(newOpenItems).length > 0) {
+      setOpenItems(prev => {
+        const updated = { ...prev, ...newOpenItems };
+        // Check if state actually changed to prevent unnecessary re-renders
+        const hasChanges = Object.keys(newOpenItems).some(key => prev[key] !== newOpenItems[key]);
+        return hasChanges ? updated : prev;
+      });
+    }
   }, [location.pathname, navigation]);
 
   const handleDrawerToggle = () => {
@@ -99,7 +111,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       await logout();
       navigate('/');
     } catch (error) {
-      console.error('Logout failed:', error);
     }
     handleProfileMenuClose();
   };
@@ -116,7 +127,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               onClick={() => handleMenuItemClick(item)}
               selected={isActive}
               sx={{
-                minHeight: 48,
+                minHeight: { xs: 44, sm: 48 },
+                px: { xs: 1.5, sm: 2 },
                 '&.Mui-selected': {
                   backgroundColor: 'primary.main',
                   color: 'white',
@@ -132,7 +144,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               <ListItemIcon>
                 <item.icon />
               </ListItemIcon>
-              <ListItemText primary={item.title} />
+              <ListItemText 
+                primary={item.title}
+                primaryTypographyProps={{ component: 'div' }}
+              />
               {item.children && (
                 openItems[item.id] ? <ExpandLess /> : <ExpandMore />
               )}
@@ -163,14 +178,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       
       {/* User Info */}
       {user && (
-        <Box sx={{ p: 2, textAlign: 'center' }}>
-          <Avatar sx={{ mx: 'auto', mb: 1, bgcolor: 'primary.main' }}>
+        <Box sx={{ p: { xs: 1.5, sm: 2 }, textAlign: 'center' }}>
+          <Avatar sx={{ mx: 'auto', mb: 1, bgcolor: 'primary.main', width: { xs: 40, sm: 48 }, height: { xs: 40, sm: 48 } }}>
             {(user.name || user.full_name)?.[0] || user.email[0].toUpperCase()}
           </Avatar>
-          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+          <Typography variant="subtitle2" component="div" sx={{ fontWeight: 'bold', fontSize: { xs: '0.875rem', sm: '1rem' } }}>
             {user.name || user.full_name || 'User'}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          <Typography variant="body2" component="div" color="text.secondary" sx={{ mb: 1, fontSize: { xs: '0.75rem', sm: '0.875rem' }, wordBreak: 'break-all' }}>
             {user.email}
           </Typography>
           <Chip
@@ -178,13 +193,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             size="small"
             color="primary"
             variant="outlined"
+            sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
           />
         </Box>
       )}
       
       <Divider />
       
-      <List sx={{ px: 1, py: 2 }}>
+      <List sx={{ px: { xs: 0.5, sm: 1 }, py: { xs: 1, sm: 2 } }}>
         {renderNavigationItems(navigation)}
       </List>
     </div>
@@ -210,7 +226,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             <MenuIcon />
           </IconButton>
           
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
             {user?.role.replace('_', ' ')} Dashboard
           </Typography>
 
@@ -241,6 +257,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               const profilePath = user?.role === 'VENDOR' ? '/vendor/profile' : 
                                  user?.role === 'AUDITOR' ? '/auditor/profile' : 
                                  user?.role === 'ADMIN' ? '/admin/profile' : 
+                                 user?.role === 'INVENTORY_MANAGER' ? '/inventory-manager/profile' :
+                                 user?.role === 'IT_MANAGER' ? '/profile' :
                                  '/dashboard';
               navigate(profilePath); 
               handleProfileMenuClose(); 
@@ -275,7 +293,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           }}
           sx={{
             display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+            '& .MuiDrawer-paper': { 
+              boxSizing: 'border-box', 
+              width: { xs: mobileDrawerWidth, sm: drawerWidth },
+              maxWidth: '85vw'
+            },
           }}
         >
           {drawer}
@@ -296,10 +318,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: { xs: 1, sm: 2, md: 3 },
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           minHeight: '100vh',
           backgroundColor: 'grey.50',
+          overflowX: 'hidden',
         }}
       >
         <Toolbar />

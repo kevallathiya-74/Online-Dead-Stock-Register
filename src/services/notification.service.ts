@@ -49,7 +49,6 @@ class NotificationService {
       throw new Error(response.data.error || 'Failed to fetch notifications');
     } catch (error: unknown) {
       const err = error as Error & { response?: { data?: { message?: string } }; message: string };
-      console.error('Error fetching notifications:', err);
       throw new Error(err.response?.data?.message || err.message || 'Failed to fetch notifications');
     }
   }
@@ -61,9 +60,8 @@ class NotificationService {
       if (!response.data.success) {
         throw new Error(response.data.error || 'Failed to mark notification as read');
       }
-    } catch (error: any) {
-      console.error('Error marking notification as read:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to mark notification as read');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to mark notification as read');
     }
   }
 
@@ -74,9 +72,8 @@ class NotificationService {
       if (!response.data.success) {
         throw new Error(response.data.error || 'Failed to mark all notifications as read');
       }
-    } catch (error: any) {
-      console.error('Error marking all notifications as read:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to mark all notifications as read');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to mark all notifications as read');
     }
   }
 
@@ -87,9 +84,8 @@ class NotificationService {
       if (!response.data.success) {
         throw new Error(response.data.error || 'Failed to delete notification');
       }
-    } catch (error: any) {
-      console.error('Error deleting notification:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to delete notification');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to delete notification');
     }
   }
 
@@ -101,9 +97,8 @@ class NotificationService {
         return response.data.data;
       }
       throw new Error(response.data.error || 'Failed to fetch notification stats');
-    } catch (error: any) {
-      console.error('Error fetching notification stats:', error);
-      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch notification stats');
+    } catch (error: unknown) {
+      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch notification stats');
     }
   }
 }

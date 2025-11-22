@@ -49,6 +49,22 @@ import VendorFormDialog from './VendorFormDialog';
 import { toast } from 'react-toastify';
 import api from '../../services/api';
 
+interface VendorFormData {
+  vendor_name: string;
+  contact_person: string;
+  email: string;
+  phone: string;
+  address: {
+    street: string;
+    city: string;
+    state: string;
+    zip_code: string;
+    country: string;
+  };
+  payment_terms: string;
+  is_active: boolean;
+}
+
 interface Vendor {
   _id: string;
   vendor_name: string;
@@ -85,11 +101,8 @@ const VendorsPage = () => {
       const response = await api.get('/vendors');
       const vendorData = response.data.data || response.data;
       setVendors(Array.isArray(vendorData) ? vendorData : []);
-    } catch (error) {
-      console.error('Failed to load vendors:', error);
-      toast.error('Failed to load vendors');
-      setVendors([]);
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */
+      setVendors([]); } finally {
       setLoading(false);
     }
   };
@@ -104,7 +117,7 @@ const VendorsPage = () => {
     loadVendors();
   }, []);
 
-  const handleAddVendor = async (formData: any) => {
+  const handleAddVendor = async (formData: VendorFormData) => {
     try {
       const response = await api.post('/vendors', formData);
       const newVendor = response.data?.data || response.data;
@@ -112,13 +125,12 @@ const VendorsPage = () => {
       toast.success('Vendor added successfully');
       setFormDialogOpen(false);
     } catch (error: any) {
-      console.error('Failed to add vendor:', error);
       toast.error(error.response?.data?.message || 'Failed to add vendor');
       throw error;
     }
   };
 
-  const handleUpdateVendor = async (formData: any) => {
+  const handleUpdateVendor = async (formData: VendorFormData) => {
     if (!selectedVendor) return;
     
     try {
@@ -131,7 +143,6 @@ const VendorsPage = () => {
       setFormDialogOpen(false);
       setSelectedVendor(null);
     } catch (error: any) {
-      console.error('Failed to update vendor:', error);
       toast.error(error.response?.data?.message || 'Failed to update vendor');
       throw error;
     }
@@ -146,10 +157,7 @@ const VendorsPage = () => {
       toast.success('Vendor deleted successfully');
       setDeleteConfirmOpen(false);
       setSelectedVendor(null);
-    } catch (error: any) {
-      console.error('Failed to delete vendor:', error);
-      toast.error(error.response?.data?.message || 'Failed to delete vendor');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const openAddDialog = () => {
@@ -294,7 +302,7 @@ Generated on: ${new Date().toLocaleString()}
         </Box>
 
         {/* Statistics Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ mb: 4 }}>
           <Grid item xs={12} sm={6} md={3}>
             <Card>
               <CardContent>
@@ -386,7 +394,7 @@ Generated on: ${new Date().toLocaleString()}
         {/* Filters */}
         <Card sx={{ mb: 3 }}>
           <CardContent>
-            <Grid container spacing={3} alignItems="center">
+            <Grid container spacing={{ xs: 2, sm: 3 }} alignItems="center">
               <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
@@ -602,7 +610,7 @@ Generated on: ${new Date().toLocaleString()}
           </DialogTitle>
           <DialogContent dividers>
             {selectedVendor && (
-              <Grid container spacing={3}>
+              <Grid container spacing={{ xs: 2, sm: 3 }}>
                 <Grid item xs={12}>
                   <Card variant="outlined">
                     <CardContent>

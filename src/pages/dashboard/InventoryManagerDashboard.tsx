@@ -264,7 +264,6 @@ const InventoryManagerDashboard: React.FC = () => {
       setPendingApprovals(Array.isArray(approvalsData.data) ? approvalsData.data : []);
       
     } catch (error: any) {
-      console.error("Error loading dashboard data:", error);
       setError(error.message || "Failed to load dashboard data");
       toast.error("Failed to load dashboard data");
     } finally {
@@ -416,8 +415,8 @@ const InventoryManagerDashboard: React.FC = () => {
         <Grid container spacing={3}>
           {/* Assets by Location */}
           <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 3, height: "100%" }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
+            <Paper sx={{ p: { xs: 2, sm: 3 }, height: "100%" }}>
+              <Typography variant="h6" sx={{ mb: 2, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                 Assets by Location
               </Typography>
               {loading ? (
@@ -440,8 +439,8 @@ const InventoryManagerDashboard: React.FC = () => {
                         secondary={
                           <Box sx={{ mt: 1 }}>
                             <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                              <Typography variant="body2">{location.count} assets</Typography>
-                              <Typography variant="body2">{location.percentage}%</Typography>
+                              <Typography variant="body2" component="span">{location.count} assets</Typography>
+                              <Typography variant="body2" component="span">{location.percentage}%</Typography>
                             </Box>
                             <LinearProgress
                               variant="determinate"
@@ -450,6 +449,8 @@ const InventoryManagerDashboard: React.FC = () => {
                             />
                           </Box>
                         }
+                        primaryTypographyProps={{ component: 'div' }}
+                        secondaryTypographyProps={{ component: 'div' }}
                       />
                     </ListItem>
                   ))}
@@ -468,8 +469,8 @@ const InventoryManagerDashboard: React.FC = () => {
 
           {/* Warranty Expiring */}
           <Grid item xs={12} md={6}>
-            <Paper sx={{ p: 3, height: "100%" }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
+            <Paper sx={{ p: { xs: 2, sm: 3 }, height: "100%" }}>
+              <Typography variant="h6" sx={{ mb: 2, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                 Warranty Expiring Soon
               </Typography>
               {loading ? (
@@ -540,8 +541,8 @@ const InventoryManagerDashboard: React.FC = () => {
 
           {/* Maintenance Schedule */}
           <Grid item xs={12} md={7}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
+            <Paper sx={{ p: { xs: 2, sm: 3 } }}>
+              <Typography variant="h6" sx={{ mb: 2, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                 Upcoming Maintenance
               </Typography>
               {loading ? (
@@ -595,8 +596,8 @@ const InventoryManagerDashboard: React.FC = () => {
 
           {/* Top Vendors */}
           <Grid item xs={12} md={5}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
+            <Paper sx={{ p: { xs: 2, sm: 3 } }}>
+              <Typography variant="h6" sx={{ mb: 2, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                 Top Vendors
               </Typography>
               {loading ? (
@@ -627,6 +628,8 @@ const InventoryManagerDashboard: React.FC = () => {
                             </Typography>
                           </>
                         }
+                        primaryTypographyProps={{ component: 'div' }}
+                        secondaryTypographyProps={{ component: 'div' }}
                       />
                     </ListItem>
                   ))}
@@ -646,8 +649,8 @@ const InventoryManagerDashboard: React.FC = () => {
           {/* Pending Approvals */}
           {pendingApprovals.length > 0 && (
             <Grid item xs={12}>
-              <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ mb: 2 }}>
+              <Paper sx={{ p: { xs: 2, sm: 3 } }}>
+                <Typography variant="h6" sx={{ mb: 2, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                   Pending Approvals ({pendingApprovals.length})
                 </Typography>
                 {loading ? (
@@ -672,7 +675,7 @@ const InventoryManagerDashboard: React.FC = () => {
                         <ListItemText
                           primary={
                             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                              <Typography variant="subtitle2">
+                              <Typography variant="subtitle2" component="span">
                                 {approval.type} - {approval.id}
                               </Typography>
                               <Chip
@@ -691,6 +694,8 @@ const InventoryManagerDashboard: React.FC = () => {
                           secondary={`Requested by ${approval.requester} • ${approval.daysAgo} day${
                             approval.daysAgo !== 1 ? "s" : ""
                           } ago`}
+                          primaryTypographyProps={{ component: 'div' }}
+                          secondaryTypographyProps={{ component: 'div' }}
                         />
                       </ListItem>
                     ))}

@@ -91,7 +91,6 @@ const AddAssetPage: React.FC = () => {
   setQrOpen(true);
   toast.success(`Asset "${formData.name}" created successfully!`);
     } catch (error: any) {
-      console.error('Failed to create asset:', error);
       const errorMsg = error.response?.data?.message || error.message || 'Failed to create asset';
       toast.error(errorMsg);
     } finally {

@@ -58,7 +58,6 @@ const BulkOperationsHistory: React.FC = () => {
       setHistory(response.data.operations || []);
       setTotalPages(response.data.pagination?.pages || 1);
     } catch (error) {
-      console.error('Error fetching history:', error);
     } finally {
       setLoading(false);
     }

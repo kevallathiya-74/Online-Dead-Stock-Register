@@ -11,16 +11,77 @@
   --secondary-dark: #334155;
 }
 
+/* Mobile-first responsive base styles */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+  width: 100%;
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Improve touch responsiveness */
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  touch-action: manipulation;
+}
+
+#root {
+  width: 100%;
+  overflow-x: hidden;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* Prevent horizontal scroll on all containers */
+.MuiContainer-root,
+.MuiBox-root,
+.MuiPaper-root {
+  max-width: 100% !important;
+}
+
+/* Mobile table scroll */
+.MuiTableContainer-root {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mobile-friendly buttons */
+@media (max-width: 600px) {
+  .MuiButton-root {
+    min-height: 44px;
+    padding: 8px 16px;
+  }
+  
+  .MuiIconButton-root {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Responsive images */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Prevent text overflow */
+.MuiTypography-root {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }

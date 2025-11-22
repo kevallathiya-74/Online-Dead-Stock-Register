@@ -114,7 +114,7 @@ exports.signup = async (req, res) => {
       token 
     });
   } catch (err) {
-    console.error('Signup error:', err);
+    logger.error('Signup error', { error: err.message });
     res.status(500).json({ message: err.message });
   }
 };
@@ -180,7 +180,7 @@ exports.login = async (req, res) => {
       token 
     });
   } catch (err) {
-    console.error('❌ Login error:', {
+    logger.error('❌ Login error:', {
       message: err.message,
       stack: err.stack,
       name: err.name
@@ -219,7 +219,7 @@ exports.forgotPassword = async (req, res) => {
 
     res.json({ message: 'If an account exists with this email, password reset instructions have been sent.' });
   } catch (error) {
-    console.error('Forgot password error:', error);
+    logger.error('Forgot password error', { error: error.message });
     res.status(500).json({ message: 'Error processing password reset' });
   }
 };
@@ -278,7 +278,7 @@ exports.resetPassword = async (req, res) => {
 
     res.json({ message: 'Password has been reset successfully' });
   } catch (error) {
-    console.error('Reset password error:', error);
+    logger.error('Reset password error', { error: error.message });
     res.status(500).json({ message: 'Error resetting password' });
   }
 };
@@ -294,7 +294,7 @@ exports.verifyResetToken = async (req, res) => {
 
     res.json({ valid: Boolean(user) });
   } catch (error) {
-    console.error('Verify token error:', error);
+    logger.error('Verify token error', { error: error.message });
     res.status(500).json({ message: 'Error verifying reset token' });
   }
 };

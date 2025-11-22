@@ -87,7 +87,6 @@ const ApprovalsPage: React.FC = () => {
       const approvalData = response.data.data || response.data;
       setApprovals(Array.isArray(approvalData) ? approvalData : []);
     } catch (error: any) {
-      console.error('Failed to load approvals:', error);
       const errorMessage = error.response?.data?.message || 'Failed to load approvals';
       setError(errorMessage);
       if (error.response?.status !== 401) {
@@ -121,10 +120,7 @@ const ApprovalsPage: React.FC = () => {
       setViewDialog(false);
       setApprovalComments('');
       toast.success(`Request ${action.toLowerCase()} successfully`);
-    } catch (error: any) {
-      console.error('Failed to process approval:', error);
-      toast.error(error.response?.data?.message || 'Failed to process approval');
-    }
+    } catch (error) { /* Error handled by API interceptor */ }
   };
 
   const pendingApprovals = approvals.filter(a => a.status === 'Pending');

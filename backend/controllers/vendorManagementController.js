@@ -1,4 +1,5 @@
 const Vendor = require('../models/vendor');
+const logger = require('../utils/logger');
 const Asset = require('../models/asset');
 const Transaction = require('../models/transaction');
 const AuditLog = require('../models/auditLog');
@@ -56,7 +57,7 @@ exports.getAllVendors = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching vendors:', error);
+    logger.error('Error fetching vendors:', error);
     res.status(500).json({ message: 'Failed to fetch vendors' });
   }
 };
@@ -79,7 +80,7 @@ exports.getVendorById = async (req, res) => {
       performance
     });
   } catch (error) {
-    console.error('Error fetching vendor:', error);
+    logger.error('Error fetching vendor:', error);
     res.status(500).json({ message: 'Failed to fetch vendor' });
   }
 };
@@ -121,7 +122,7 @@ exports.createVendor = async (req, res) => {
       vendor
     });
   } catch (error) {
-    console.error('Error creating vendor:', error);
+    logger.error('Error creating vendor:', error);
     if (error.code === 11000) {
       res.status(400).json({ message: 'Vendor code already exists' });
     } else {
@@ -180,7 +181,7 @@ exports.updateVendor = async (req, res) => {
       vendor: updatedVendor
     });
   } catch (error) {
-    console.error('Error updating vendor:', error);
+    logger.error('Error updating vendor:', error);
     res.status(500).json({ message: 'Failed to update vendor' });
   }
 };
@@ -227,7 +228,7 @@ exports.deleteVendor = async (req, res) => {
 
     res.json({ message: 'Vendor deactivated successfully' });
   } catch (error) {
-    console.error('Error deleting vendor:', error);
+    logger.error('Error deleting vendor:', error);
     res.status(500).json({ message: 'Failed to delete vendor' });
   }
 };
@@ -250,7 +251,7 @@ exports.getVendorPerformance = async (req, res) => {
       performance
     });
   } catch (error) {
-    console.error('Error fetching vendor performance:', error);
+    logger.error('Error fetching vendor performance:', error);
     res.status(500).json({ message: 'Failed to fetch vendor performance' });
   }
 };
@@ -311,7 +312,7 @@ exports.getVendorStats = async (req, res) => {
       recent_activities: recentActivities
     });
   } catch (error) {
-    console.error('Error fetching vendor stats:', error);
+    logger.error('Error fetching vendor stats:', error);
     res.status(500).json({ message: 'Failed to fetch vendor statistics' });
   }
 };
@@ -334,7 +335,7 @@ exports.getVendorsByCategory = async (req, res) => {
       total_count: vendors.length
     });
   } catch (error) {
-    console.error('Error fetching vendors by category:', error);
+    logger.error('Error fetching vendors by category:', error);
     res.status(500).json({ message: 'Failed to fetch vendors by category' });
   }
 };
@@ -383,7 +384,7 @@ exports.updateVendorRating = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error updating vendor rating:', error);
+    logger.error('Error updating vendor rating:', error);
     res.status(500).json({ message: 'Failed to update vendor rating' });
   }
 };
@@ -440,7 +441,7 @@ async function getVendorPerformance(vendorId) {
         Math.max(...transactions.map(t => new Date(t.createdAt))) : null
     };
   } catch (error) {
-    console.error('Error calculating vendor performance:', error);
+    logger.error('Error calculating vendor performance:', error);
     return {
       total_assets: 0,
       active_assets: 0,

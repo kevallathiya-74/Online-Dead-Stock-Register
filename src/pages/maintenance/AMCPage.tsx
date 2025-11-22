@@ -85,10 +85,7 @@ const AMCPage = () => {
       const response = await api.get('/maintenance/amc-contracts');
       const data = response.data.data || response.data;
       setContracts(data);
-    } catch (error) {
-      console.error('Error loading AMC data:', error);
-      toast.error('Failed to load AMC data');
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setLoading(false);
     }
   };
@@ -169,7 +166,7 @@ const AMCPage = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h4" component="h1">
             AMC Management
@@ -206,7 +203,7 @@ const AMCPage = () => {
                       {activeCount}
                     </Typography>
                   </Box>
-                  <CheckCircleIcon color="success" sx={{ fontSize: 40 }} />
+                  <CheckCircleIcon color="success" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>
@@ -225,7 +222,7 @@ const AMCPage = () => {
                       </Badge>
                     </Typography>
                   </Box>
-                  <WarningIcon color="warning" sx={{ fontSize: 40 }} />
+                  <WarningIcon color="warning" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>
@@ -242,7 +239,7 @@ const AMCPage = () => {
                       {renewalCount}
                     </Typography>
                   </Box>
-                  <ScheduleIcon color="info" sx={{ fontSize: 40 }} />
+                  <ScheduleIcon color="info" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>
@@ -259,7 +256,7 @@ const AMCPage = () => {
                       ₹{Number(totalAnnualCost || 0).toLocaleString('en-IN')}
                     </Typography>
                   </Box>
-                  <ScheduleIcon color="primary" sx={{ fontSize: 40 }} />
+                  <ScheduleIcon color="primary" sx={{ fontSize: { xs: 32, sm: 40 } }} />
                 </Box>
               </CardContent>
             </Card>

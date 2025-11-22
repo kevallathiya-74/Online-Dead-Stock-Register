@@ -79,7 +79,6 @@ const AdminAuditLogPage: React.FC = () => {
     setLoading(true);
     try {
       const response = await api.get("/audit-logs");
-      console.log("Audit logs response:", response.data);
 
       // Handle different response formats
       let logData: AdminAuditLog[] = [];
@@ -88,16 +87,10 @@ const AdminAuditLogPage: React.FC = () => {
       } else if (Array.isArray(response.data)) {
         logData = response.data;
       } else {
-        console.warn("Unexpected audit logs response format:", response.data);
         logData = [];
       }
-
-      console.log("Setting audit logs:", logData.length, "logs");
       setAuditLogs(logData);
-    } catch (error) {
-      console.error("Failed to load audit logs:", error);
-      toast.error("Failed to load audit logs");
-    } finally {
+    } catch (error) { /* Error handled by API interceptor */ } finally {
       setLoading(false);
     }
   };
@@ -214,7 +207,7 @@ const AdminAuditLogPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <Box sx={{ flexGrow: 1, p: 3 }}>
+      <Box sx={{ flexGrow: 1, p: { xs: 1, sm: 2, md: 3 } }}>
         {/* Header */}
         <Box
           sx={{
