@@ -175,10 +175,22 @@ const AuditorDashboard: React.FC = () => {
   };
 
   const handleAssetFound = (asset: any) => {
+    console.log('🎯 handleAssetFound called with asset:', asset);
+    console.log('Asset details:', {
+      id: asset.id,
+      unique_asset_id: asset.unique_asset_id,
+      name: asset.name,
+      status: asset.status,
+      location: asset.location
+    });
+    
     setScannedAsset(asset);
     setQrScannerOpen(false);
     setAssetDetailsOpen(true);
-    toast.success(`Asset found: ${asset.name || asset.unique_asset_id}`);
+    
+    const assetName = asset.name || asset.unique_asset_id;
+    console.log('📢 Showing success toast for:', assetName);
+    toast.success(`Asset found: ${assetName}`);
   };
 
   const handleAssetDetailsClose = () => {

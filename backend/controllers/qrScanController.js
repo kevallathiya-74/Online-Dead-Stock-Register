@@ -14,8 +14,21 @@ exports.scanAsset = async (req, res) => {
     const { qrCode } = req.params;
     const { mode = 'lookup', include_history = false } = req.query;
 
+    // Validate QR code parameter
+    if (!qrCode || qrCode.trim().length === 0) {
+      logger.warn('\u26a0\ufe0f Invalid QR code parameter - empty or null');
+      return res.status(400).json({
+        success: false,
+        message: 'QR code parameter is required',
+        suggestions: [
+          'Ensure QR code is not empty',
+          'Check if the QR code was scanned correctly'
+        ]
+      });
+    }
+
     // Decode URI component to handle special characters
-    const decodedQrCode = decodeURIComponent(qrCode);
+    const decodedQrCode = decodeURIComponent(qrCode).trim();
 
     logger.debug('📱 QR Scan Request:');
     logger.debug('  - Original QR Code:', qrCode);
@@ -217,32 +230,57 @@ exports.batchScan = async (req, res) => {
   try {
     const { qr_codes, mode = 'lookup' } = req.body;
 
+    // Validate input
     if (!Array.isArray(qr_codes) || qr_codes.length === 0) {
+      logger.warn('\u26a0\ufe0f Invalid batch scan request - qr_codes not an array or empty');
       return res.status(400).json({
         success: false,
-        message: 'qr_codes array is required and must not be empty'
+        message: 'qr_codes array is required and must not be empty',
+        suggestions: [
+          'Provide an array of QR codes',
+          'Ensure at least one QR code is in the array'
+        ]
       });
     }
 
     if (qr_codes.length > 100) {
+      logger.warn(`\u26a0\ufe0f Too many QR codes in batch scan: ${qr_codes.length}`);
       return res.status(400).json({
         success: false,
-        message: 'Maximum 100 QR codes can be scanned at once'
+        message: 'Maximum 100 QR codes can be scanned at once',
+        actual_count: qr_codes.length,
+        suggestions: [
+          'Split your batch into multiple requests',
+          'Each batch should have 100 or fewer codes'
+        ]
       });
     }
+
+    logger.info(`\ud83d\udcc4 Batch scan started: ${qr_codes.length} codes`);
 
     const results = {
       success: true,
       total: qr_codes.length,
       found: 0,
       not_found: 0,
+      invalid: 0,
       assets: [],
       errors: []
     };
 
     for (const qrCode of qr_codes) {
       try {
-        const decodedQrCode = typeof qrCode === 'string' ? qrCode.trim() : qrCode;
+        // Validate individual QR code
+        if (!qrCode || (typeof qrCode === 'string' && qrCode.trim().length === 0)) {
+          results.invalid++;
+          results.errors.push({
+            qr_code: qrCode || '(empty)',
+            error: 'Invalid or empty QR code'
+          });
+          continue;
+        }
+
+        const decodedQrCode = typeof qrCode === 'string' ? qrCode.trim() : String(qrCode).trim();
         
         // Parse QR code if it's JSON format
         let searchValue = decodedQrCode;
@@ -308,19 +346,23 @@ exports.batchScan = async (req, res) => {
       }
     }
 
-    // Log batch scan completion
+    // Log batch scan completion with detailed results
+    logger.info(`\u2705 Batch scan completed: Found=${results.found}, Not Found=${results.not_found}, Invalid=${results.invalid}`);
+    
     await AuditLog.create({
       user_id: req.user.id,
       action: 'batch_scan_completed',
       entity_type: 'System',
-      description: `Batch scan completed: ${results.found} found, ${results.not_found} not found`,
-      severity: 'info',
+      description: `Batch scan completed: ${results.found} found, ${results.not_found} not found, ${results.invalid} invalid`,
+      severity: results.not_found > results.found ? 'warning' : 'info',
       ip_address: req.ip || req.connection.remoteAddress,
       user_agent: req.get('user-agent'),
       details: {
         total_scanned: qr_codes.length,
         found: results.found,
         not_found: results.not_found,
+        invalid: results.invalid,
+        success_rate: ((results.found / qr_codes.length) * 100).toFixed(2) + '%',
         mode
       },
       timestamp: new Date()
@@ -328,11 +370,16 @@ exports.batchScan = async (req, res) => {
 
     res.json(results);
   } catch (error) {
-    logger.error('Error in batch scan:', error);
+    logger.error('\u274c Error in batch scan:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to process batch scan',
-      error: error.message
+      error: error.message,
+      suggestions: [
+        'Check if backend server is running',
+        'Verify database connection',
+        'Try again with fewer QR codes'
+      ]
     });
   }
 };
@@ -341,7 +388,30 @@ exports.batchScan = async (req, res) => {
 exports.getScanHistory = async (req, res) => {
   try {
     const { limit = 50, page = 1, mode, asset_id } = req.query;
-    const skip = (page - 1) * limit;
+    
+    // Validate pagination parameters
+    const parsedLimit = parseInt(limit);
+    const parsedPage = parseInt(page);
+    
+    if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+      logger.warn(`\u26a0\ufe0f Invalid limit parameter: ${limit}`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid limit parameter. Must be between 1 and 100.'
+      });
+    }
+    
+    if (isNaN(parsedPage) || parsedPage < 1) {
+      logger.warn(`\u26a0\ufe0f Invalid page parameter: ${page}`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid page parameter. Must be 1 or greater.'
+      });
+    }
+    
+    const skip = (parsedPage - 1) * parsedLimit;
+    
+    logger.debug(`\ud83d\udccb Fetching scan history: user=${req.user.id}, limit=${parsedLimit}, page=${parsedPage}`);
 
     let query = {
       performed_by: req.user.id,
@@ -367,9 +437,11 @@ exports.getScanHistory = async (req, res) => {
     const scans = await AuditLog.find(query)
       .sort({ timestamp: -1 })
       .skip(skip)
-      .limit(parseInt(limit))
+      .limit(parsedLimit)
       .populate('asset_id', 'unique_asset_id name manufacturer model location status')
       .select('action asset_id details timestamp');
+      
+    logger.debug(`\u2705 Found ${scans.length} scan history items (total: ${total})`);
 
     res.json({
       success: true,
@@ -515,16 +587,58 @@ exports.quickAuditScan = async (req, res) => {
       notes,
       photos = []
     } = req.body;
+    
+    // Validate QR code parameter
+    if (!qrCode || typeof qrCode !== 'string') {
+      logger.warn(`⚠️ Quick audit scan missing qrCode parameter`);
+      return res.status(400).json({
+        success: false,
+        message: 'QR code is required',
+        suggestions: ['Provide a valid QR code in the URL parameter']
+      });
+    }
 
-    const decodedQrCode = decodeURIComponent(qrCode);
+    const decodedQrCode = decodeURIComponent(qrCode).trim();
+    
+    if (decodedQrCode === '') {
+      logger.warn(`⚠️ Quick audit scan received empty qrCode after decode`);
+      return res.status(400).json({
+        success: false,
+        message: 'QR code cannot be empty',
+        suggestions: ['Ensure the QR code is readable and not blank']
+      });
+    }
+    
+    // Validate optional fields
+    if (condition && !['Excellent', 'Good', 'Fair', 'Poor', 'Non-Functional'].includes(condition)) {
+      logger.warn(`⚠️ Invalid condition value: ${condition}`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid condition value',
+        suggestions: ['Valid conditions: Excellent, Good, Fair, Poor, Non-Functional']
+      });
+    }
+    
+    if (status && !['Active', 'Inactive', 'Under Maintenance', 'Disposed', 'Reserved'].includes(status)) {
+      logger.warn(`⚠️ Invalid status value: ${status}`);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status value',
+        suggestions: ['Valid statuses: Active, Inactive, Under Maintenance, Disposed, Reserved']
+      });
+    }
+    
+    logger.info(`📱 Quick audit scan initiated: ${decodedQrCode.substring(0, 50)}...`);
 
     // Parse QR code if JSON
     let searchValue = decodedQrCode;
     try {
       const parsed = JSON.parse(decodedQrCode);
       searchValue = parsed.asset_id || parsed.unique_asset_id || parsed.serial_number || parsed.qr_code || decodedQrCode;
+      logger.debug(`📝 Parsed JSON QR code, search value: ${searchValue}`);
     } catch (parseError) {
-      // Not JSON
+      // Not JSON, use as-is
+      logger.debug(`🔍 Using plain text QR code: ${searchValue}`);
     }
 
     // Find asset
@@ -537,10 +651,33 @@ exports.quickAuditScan = async (req, res) => {
     });
 
     if (!asset) {
+      logger.warn(`❌ Quick audit: Asset not found for QR: ${decodedQrCode.substring(0, 30)}...`);
+      
+      // Log failed audit
+      await AuditLog.create({
+        user_id: req.user.id,
+        action: 'quick_audit_failed',
+        entity_type: 'Asset',
+        entity_id: null,
+        description: `Quick audit failed: Asset not found`,
+        severity: 'warning',
+        ip_address: req.ip || req.connection.remoteAddress,
+        user_agent: req.get('user-agent'),
+        details: {
+          qr_code: decodedQrCode,
+          reason: 'Asset not found'
+        }
+      });
+      
       return res.status(404).json({
         success: false,
         message: 'Asset not found for quick audit',
-        qr_code: decodedQrCode
+        qr_code: decodedQrCode,
+        suggestions: [
+          'Verify the QR code is correct',
+          'Check if the asset exists in the database',
+          'Try scanning again'
+        ]
       });
     }
 
@@ -565,6 +702,8 @@ exports.quickAuditScan = async (req, res) => {
     asset.last_audited_by = req.user.id;
 
     await asset.save();
+    
+    logger.info(`✅ Quick audit completed for asset: ${asset.unique_asset_id}`);
 
     // Log audit with detailed information
     const auditLog = await AuditLog.create({
