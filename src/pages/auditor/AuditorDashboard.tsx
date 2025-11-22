@@ -39,6 +39,11 @@ import {
   TableHead,
   TableRow,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
 } from '@mui/material';
 import {
   Assignment as AssignmentIcon,
@@ -48,11 +53,14 @@ import {
   Search as SearchIcon,
   TrendingUp as TrendingUpIcon,
   Refresh as RefreshIcon,
+  QrCodeScanner as QrScannerIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import auditorService from '../../services/auditorService';
 import type { AuditorStats } from '../../types';
 import { useNavigate } from 'react-router-dom';
+import EnhancedQRScanner from '../../components/common/EnhancedQRScanner';
 
 // Stat Card Component
 interface StatCardProps {
@@ -94,6 +102,9 @@ const AuditorDashboard: React.FC = () => {
   const [auditItems, setAuditItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const [scannedAsset, setScannedAsset] = useState<any>(null);
+  const [assetDetailsOpen, setAssetDetailsOpen] = useState(false);
 
   const fetchDashboardData = async () => {
     try {
@@ -155,6 +166,32 @@ const AuditorDashboard: React.FC = () => {
     }
   };
 
+  const handleQrScanOpen = () => {
+    setQrScannerOpen(true);
+  };
+
+  const handleQrScanClose = () => {
+    setQrScannerOpen(false);
+  };
+
+  const handleAssetFound = (asset: any) => {
+    setScannedAsset(asset);
+    setQrScannerOpen(false);
+    setAssetDetailsOpen(true);
+    toast.success(`Asset found: ${asset.name || asset.unique_asset_id}`);
+  };
+
+  const handleAssetDetailsClose = () => {
+    setAssetDetailsOpen(false);
+    setScannedAsset(null);
+  };
+
+  const handleNavigateToAsset = () => {
+    if (scannedAsset) {
+      navigate(`/assets/${scannedAsset.id}`);
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -188,7 +225,7 @@ const AuditorDashboard: React.FC = () => {
     <DashboardLayout>
       <Box sx={{ p: 3 }}>
         {/* Header */}
-        <Box mb={3} display="flex" justifyContent="space-between" alignItems="center">
+        <Box mb={3} display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
           <Box>
             <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
               Auditor Dashboard
@@ -197,14 +234,24 @@ const AuditorDashboard: React.FC = () => {
               Track audit progress, compliance metrics, and asset conditions
             </Typography>
           </Box>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={fetchDashboardData}
-            disabled={loading}
-          >
-            Refresh
-          </Button>
+          <Box display="flex" gap={2}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<QrScannerIcon />}
+              onClick={handleQrScanOpen}
+            >
+              Scan QR Code
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={fetchDashboardData}
+              disabled={loading}
+            >
+              Refresh
+            </Button>
+          </Box>
         </Box>
 
         {/* Statistics Cards */}
@@ -322,6 +369,143 @@ const AuditorDashboard: React.FC = () => {
             </Table>
           </TableContainer>
         </Paper>
+
+        {/* QR Scanner Dialog */}
+        <EnhancedQRScanner
+          open={qrScannerOpen}
+          onClose={handleQrScanClose}
+          onAssetFound={handleAssetFound}
+          mode="audit"
+          enableBatchScan={true}
+          enableHistory={true}
+        />
+
+        {/* Scanned Asset Details Dialog */}
+        <Dialog
+          open={assetDetailsOpen}
+          onClose={handleAssetDetailsClose}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Typography variant="h6">Scanned Asset Details</Typography>
+              <IconButton onClick={handleAssetDetailsClose} size="small">
+                <CloseIcon />
+              </IconButton>
+            </Box>
+          </DialogTitle>
+          <DialogContent dividers>
+            {scannedAsset && (
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Paper sx={{ p: 2, bgcolor: 'primary.50' }}>
+                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                      Asset Name
+                    </Typography>
+                    <Typography variant="h6">
+                      {scannedAsset.name || `${scannedAsset.manufacturer} ${scannedAsset.model}`}
+                    </Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Asset ID
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    {scannedAsset.unique_asset_id}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Serial Number
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    {scannedAsset.serial_number || 'N/A'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Status
+                  </Typography>
+                  <Chip
+                    label={scannedAsset.status}
+                    color={getStatusColor(scannedAsset.status)}
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Condition
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    {scannedAsset.condition}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Location
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    {scannedAsset.location}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Assigned User
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    {scannedAsset.assigned_user?.name || 'Unassigned'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Category
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    {scannedAsset.category || 'N/A'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Last Audit Date
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    {scannedAsset.last_audit_date && scannedAsset.last_audit_date !== '1970-01-01'
+                      ? new Date(scannedAsset.last_audit_date).toLocaleDateString()
+                      : 'Never'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Manufacturer
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    {scannedAsset.manufacturer}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Model
+                  </Typography>
+                  <Typography variant="body1" fontWeight="medium">
+                    {scannedAsset.model}
+                  </Typography>
+                </Grid>
+              </Grid>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleAssetDetailsClose}>Close</Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleNavigateToAsset}
+            >
+              View Full Details
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </DashboardLayout>
   );

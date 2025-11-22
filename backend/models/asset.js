@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const assetSchema = new mongoose.Schema({
   unique_asset_id: { type: String, required: true, unique: true },
+  qr_code: { type: String, unique: true, sparse: true }, // QR code field for scanning
   name: { type: String },
   manufacturer: { type: String, required: true },
   model: { type: String, required: true },
@@ -25,6 +26,8 @@ const assetSchema = new mongoose.Schema({
   configuration: { type: Object },
   expected_lifespan: { type: Number },
   quantity: { type: Number, default: 1 },
+  location_verified: { type: Boolean, default: false },
+  last_location_verification_date: { type: Date },
 },{
   timestamps: true
 });
@@ -42,6 +45,11 @@ assetSchema.index({ purchase_date: -1 }); // Recent purchases (descending)
 assetSchema.index({ location: 1, status: 1 }); // Location inventory
 assetSchema.index({ createdAt: -1 }); // Recently created assets
 assetSchema.index({ vendor: 1, status: 1 }); // Vendor products
+
+// QR Code scanning indexes
+assetSchema.index({ qr_code: 1 }, { sparse: true, unique: true }); // Fast QR lookups
+assetSchema.index({ serial_number: 1 }); // Serial number scanning
+assetSchema.index({ unique_asset_id: 1 }); // Asset ID scanning (already unique)
 
 // Text search index for full-text search across multiple fields
 assetSchema.index({ 
@@ -66,6 +74,18 @@ assetSchema.index({ assigned_user: 1 }, { sparse: true });
 
 // Sparse index for last audited by (only when audited)
 assetSchema.index({ last_audited_by: 1 }, { sparse: true });
+
+// ========================================
+// PRE-SAVE HOOKS
+// ========================================
+
+// Auto-generate QR code if not provided (use unique_asset_id as default)
+assetSchema.pre('save', function(next) {
+  if (!this.qr_code) {
+    this.qr_code = this.unique_asset_id;
+  }
+  next();
+});
 
 // TTL index for automatic cleanup of scrapped assets (optional)
 // assetSchema.index({ updatedAt: 1 }, { 

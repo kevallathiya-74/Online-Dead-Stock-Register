@@ -14,47 +14,85 @@ exports.scanAsset = async (req, res) => {
     const { qrCode } = req.params;
     const { mode = 'lookup', include_history = false } = req.query;
 
+    // Decode URI component to handle special characters
+    const decodedQrCode = decodeURIComponent(qrCode);
+
     logger.debug('📱 QR Scan Request:');
-    logger.debug('  - QR Code:', qrCode);
+    logger.debug('  - Original QR Code:', qrCode);
+    logger.debug('  - Decoded QR Code:', decodedQrCode);
     logger.debug('  - Mode:', mode);
     logger.debug('  - User:', req.user?.id, req.user?.name);
     logger.debug('  - Include History:', include_history);
     logger.debug('  - IP:', req.ip || req.connection.remoteAddress);
 
-    // Find asset by unique ID or serial number
+    // Parse QR code if it's JSON format
+    let searchValue = decodedQrCode;
+    try {
+      const parsed = JSON.parse(decodedQrCode);
+      if (parsed.asset_id) {
+        searchValue = parsed.asset_id;
+      } else if (parsed.unique_asset_id) {
+        searchValue = parsed.unique_asset_id;
+      } else if (parsed.serial_number) {
+        searchValue = parsed.serial_number;
+      } else if (parsed.qr_code) {
+        searchValue = parsed.qr_code;
+      }
+      logger.debug('  - Parsed QR JSON, using:', searchValue);
+    } catch (parseError) {
+      // Not JSON, use decoded value as-is
+      logger.debug('  - Not JSON format, using raw value');
+    }
+
+    // Find asset by multiple possible fields
     const asset = await Asset.findOne({
       $or: [
-        { unique_asset_id: qrCode },
-        { serial_number: qrCode },
-        { qr_code: qrCode }
+        { qr_code: searchValue },
+        { unique_asset_id: searchValue },
+        { serial_number: searchValue },
+        { qr_code: decodedQrCode },
+        { unique_asset_id: decodedQrCode },
+        { serial_number: decodedQrCode }
       ]
     }).populate('assigned_user', 'name email department')
-      .populate('vendor', 'vendor_name email phone');
+      .populate('vendor', 'vendor_name email phone')
+      .populate('last_audited_by', 'name email');
 
     logger.debug('  - Asset found:', !!asset);
     if (asset) {
       logger.debug('  - Asset ID:', asset._id);
       logger.debug('  - Asset Name:', asset.name || `${asset.manufacturer} ${asset.model}`);
+      logger.debug('  - Unique Asset ID:', asset.unique_asset_id);
+      logger.debug('  - QR Code:', asset.qr_code);
     }
 
     if (!asset) {
-      logger.debug('❌ Asset not found for QR code:', qrCode);
+      logger.debug('❌ Asset not found for QR code:', decodedQrCode);
       
       // Log failed scan attempt
       await AuditLog.create({
         user_id: req.user.id,
         action: 'qr_scan_failed',
         entity_type: 'Unknown',
-        description: `Failed QR scan attempt: Asset not found for code ${qrCode}`,
+        description: `Failed QR scan attempt: Asset not found for code ${decodedQrCode}`,
         severity: 'warning',
         ip_address: req.ip || req.connection.remoteAddress,
-        user_agent: req.get('user-agent')
+        user_agent: req.get('user-agent'),
+        details: {
+          attempted_qr_code: decodedQrCode,
+          mode: mode
+        }
       });
 
       return res.status(404).json({
         success: false,
-        message: 'Asset not found',
-        qr_code: qrCode
+        message: 'Asset not found. Please verify the QR code is correct.',
+        qr_code: decodedQrCode,
+        suggestions: [
+          'Ensure the QR code is not damaged or obscured',
+          'Try scanning the asset\'s serial number instead',
+          'Check if the asset exists in the system'
+        ]
       });
     }
 
@@ -110,6 +148,7 @@ exports.scanAsset = async (req, res) => {
       asset: {
         id: asset._id,
         unique_asset_id: asset.unique_asset_id,
+        qr_code: asset.qr_code,
         name: asset.name,
         manufacturer: asset.manufacturer,
         model: asset.model,
@@ -118,6 +157,8 @@ exports.scanAsset = async (req, res) => {
         status: asset.status,
         condition: asset.condition,
         location: asset.location,
+        location_verified: asset.location_verified,
+        last_location_verification_date: asset.last_location_verification_date,
         department: asset.department,
         purchase_date: asset.purchase_date,
         purchase_cost: asset.purchase_cost,
@@ -142,7 +183,8 @@ exports.scanAsset = async (req, res) => {
         } : null,
         last_maintenance_date: asset.last_maintenance_date,
         images: asset.images || [],
-        notes: asset.notes
+        notes: asset.notes,
+        quantity: asset.quantity
       },
       scan_history: scanHistory,
       scanned_at: new Date(),
@@ -150,7 +192,8 @@ exports.scanAsset = async (req, res) => {
         id: req.user.id,
         name: req.user.name,
         email: req.user.email
-      }
+      },
+      mode: mode
     };
 
     logger.debug('✅ QR Scan successful, returning asset data');
@@ -199,18 +242,29 @@ exports.batchScan = async (req, res) => {
 
     for (const qrCode of qr_codes) {
       try {
+        const decodedQrCode = typeof qrCode === 'string' ? qrCode.trim() : qrCode;
+        
+        // Parse QR code if it's JSON format
+        let searchValue = decodedQrCode;
+        try {
+          const parsed = JSON.parse(decodedQrCode);
+          searchValue = parsed.asset_id || parsed.unique_asset_id || parsed.serial_number || parsed.qr_code || decodedQrCode;
+        } catch (parseError) {
+          // Not JSON, use as-is
+        }
+
         const asset = await Asset.findOne({
           $or: [
-            { unique_asset_id: qrCode },
-            { serial_number: qrCode },
-            { qr_code: qrCode }
+            { qr_code: searchValue },
+            { unique_asset_id: searchValue },
+            { serial_number: searchValue }
           ]
         }).populate('assigned_user', 'name email department');
 
         if (asset) {
           results.found++;
           results.assets.push({
-            qr_code: qrCode,
+            qr_code: decodedQrCode,
             asset_id: asset._id,
             unique_asset_id: asset.unique_asset_id,
             name: asset.name,
@@ -219,8 +273,14 @@ exports.batchScan = async (req, res) => {
             status: asset.status,
             condition: asset.condition,
             location: asset.location,
-            assigned_user: asset.assigned_user?.name || null
+            assigned_user: asset.assigned_user?.name || null,
+            last_audit_date: asset.last_audit_date
           });
+
+          // Update last_audit_date for batch scans
+          asset.last_audit_date = new Date();
+          asset.last_audited_by = req.user.id;
+          await asset.save();
 
           // Log scan
           await AuditLog.create({
@@ -236,8 +296,8 @@ exports.batchScan = async (req, res) => {
         } else {
           results.not_found++;
           results.errors.push({
-            qr_code: qrCode,
-            error: 'Asset not found'
+            qr_code: decodedQrCode,
+            error: 'Asset not found in database'
           });
         }
       } catch (err) {
@@ -456,21 +516,41 @@ exports.quickAuditScan = async (req, res) => {
       photos = []
     } = req.body;
 
+    const decodedQrCode = decodeURIComponent(qrCode);
+
+    // Parse QR code if JSON
+    let searchValue = decodedQrCode;
+    try {
+      const parsed = JSON.parse(decodedQrCode);
+      searchValue = parsed.asset_id || parsed.unique_asset_id || parsed.serial_number || parsed.qr_code || decodedQrCode;
+    } catch (parseError) {
+      // Not JSON
+    }
+
     // Find asset
     const asset = await Asset.findOne({
       $or: [
-        { unique_asset_id: qrCode },
-        { serial_number: qrCode },
-        { qr_code: qrCode }
+        { qr_code: searchValue },
+        { unique_asset_id: searchValue },
+        { serial_number: searchValue }
       ]
     });
 
     if (!asset) {
       return res.status(404).json({
         success: false,
-        message: 'Asset not found'
+        message: 'Asset not found for quick audit',
+        qr_code: decodedQrCode
       });
     }
+
+    // Store old values for audit trail
+    const oldValues = {
+      condition: asset.condition,
+      status: asset.status,
+      location_verified: asset.location_verified,
+      last_audit_date: asset.last_audit_date
+    };
 
     // Update asset
     if (condition) asset.condition = condition;
@@ -479,16 +559,10 @@ exports.quickAuditScan = async (req, res) => {
       asset.location_verified = location_verified;
       asset.last_location_verification_date = new Date();
     }
+    if (notes) asset.notes = notes;
     
     asset.last_audit_date = new Date();
     asset.last_audited_by = req.user.id;
-
-    // Save with audit trail
-    const oldValues = {
-      condition: asset.condition,
-      status: asset.status,
-      last_audit_date: asset.last_audit_date
-    };
 
     await asset.save();
 
@@ -504,10 +578,11 @@ exports.quickAuditScan = async (req, res) => {
       user_agent: req.get('user-agent'),
       old_values: oldValues,
       new_values: {
-        condition: condition || asset.condition,
-        status: status || asset.status,
+        condition: asset.condition,
+        status: asset.status,
+        location_verified: asset.location_verified,
         last_audit_date: asset.last_audit_date,
-        location_verified: location_verified
+        last_location_verification_date: asset.last_location_verification_date
       },
       details: {
         notes: notes || '',
