@@ -32,7 +32,6 @@ import {
   CameraAlt as CameraIcon,
   FlashlightOn as FlashlightIcon,
   FlashlightOff as FlashlightOffIcon,
-  Cameraswitch as SwitchCameraIcon,
   Warning as WarningIcon,
   Send as SendIcon,
   Clear as ClearIcon,
@@ -51,6 +50,7 @@ const QRScannerPage: React.FC = () => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState("");
   const [torchOn, setTorchOn] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(true);
   const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>(
     []
   );
@@ -112,9 +112,14 @@ const QRScannerPage: React.FC = () => {
         codeReaderRef.current = new BrowserQRCodeReader();
       }
 
-      // Request camera permission and enumerate devices
+      // Request camera permission and enumerate devices with torch capability
       const permissionStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facingMode },
+        video: { 
+          facingMode: facingMode,
+          // Request advanced features including torch
+          // @ts-ignore
+          advanced: [{ torch: true }]
+        },
       });
       
       // Stop the permission stream immediately
@@ -154,7 +159,6 @@ const QRScannerPage: React.FC = () => {
           selectedDeviceId = cameras[0].deviceId;
         }
       }
-      toast.info("Initializing camera...");
 
       // Start decoding with proper error handling
       await codeReaderRef.current.decodeFromVideoDevice(
@@ -202,11 +206,23 @@ const QRScannerPage: React.FC = () => {
         });
       }
 
-      // Store the stream reference
+      // Store the stream reference and check torch capability
       if (videoRef.current && videoRef.current.srcObject) {
         const mediaStream = videoRef.current.srcObject as MediaStream;
         setStream(mediaStream);
-        toast.success("Camera ready! Point at a QR code");
+        
+        // Check if device supports torch/flashlight
+        const videoTrack = mediaStream.getVideoTracks()[0];
+        if (videoTrack) {
+          const capabilities: any = videoTrack.getCapabilities();
+          const hasTorch = 'torch' in capabilities;
+          const hasFillLight = capabilities.fillLightMode && Array.isArray(capabilities.fillLightMode);
+          setTorchSupported(hasTorch || hasFillLight);
+          
+          if (!hasTorch && !hasFillLight) {
+            console.log('⚠️ Device does not support flashlight');
+          }
+        }
       } else {
       }
     } catch (err: unknown) {
@@ -249,8 +265,23 @@ const QRScannerPage: React.FC = () => {
     }
   };
 
-  const stopScanning = useCallback(() => {
+  const stopScanning = useCallback(async () => {
     scanningRef.current = false;
+
+    // Turn off torch if it's on before stopping
+    if (torchOn && stream) {
+      try {
+        const track = stream.getVideoTracks()[0];
+        if (track) {
+          await track.applyConstraints({
+            advanced: [{ torch: false } as any]
+          });
+          console.log('🔦 Torch turned off during stop');
+        }
+      } catch (err) {
+        console.log('⚠️ Could not turn off torch during stop:', err);
+      }
+    }
 
     // Stop all video tracks
     if (stream) {
@@ -275,7 +306,7 @@ const QRScannerPage: React.FC = () => {
 
     setScanning(false);
     setTorchOn(false);
-  }, [stream]);
+  }, [stream, torchOn]);
 
   const switchCamera = async () => {
     if (availableCameras.length <= 1) {
@@ -316,32 +347,221 @@ const QRScannerPage: React.FC = () => {
 
   const toggleTorch = async () => {
     if (!scanning || !stream) {
-      toast.info("Start camera first");
+      toast.warning("Please start the camera first");
       return;
     }
 
+    const newTorchState = !torchOn;
+    
     try {
       const track = stream.getVideoTracks()[0];
       if (!track) {
-        toast.info("No video track available");
+        toast.error("No video track available");
         return;
       }
 
+      console.log('═══════════════════════════════════════');
+      console.log('🔦 FLASHLIGHT TOGGLE ATTEMPT');
+      console.log('═══════════════════════════════════════');
+      console.log('Current State:', torchOn);
+      console.log('Target State:', newTorchState);
+      console.log('Track State:', track.readyState);
+      console.log('Track Enabled:', track.enabled);
+      
       const capabilities: any = track.getCapabilities();
+      console.log('Capabilities:', JSON.stringify(capabilities, null, 2));
+      
+      const currentSettings: any = track.getSettings();
+      console.log('Current Settings:', JSON.stringify(currentSettings, null, 2));
 
-      if (!capabilities.torch) {
-        toast.info("Flashlight not available on this device");
-        return;
+      // CHECK IF DEVICE ACTUALLY SUPPORTS TORCH
+      const hasTorchCapability = 'torch' in capabilities;
+      const hasFillLightMode = capabilities.fillLightMode && Array.isArray(capabilities.fillLightMode);
+      
+      console.log('🔍 Torch Capability Check:');
+      console.log('  - Has torch property:', hasTorchCapability);
+      console.log('  - Has fillLightMode:', hasFillLightMode);
+      
+      if (!hasTorchCapability && !hasFillLightMode) {
+        throw new Error('DEVICE_NO_TORCH_HARDWARE');
       }
 
-      await track.applyConstraints({
-        advanced: [{ torch: !torchOn } as any],
-      });
+      // Force enable track if disabled
+      if (!track.enabled) {
+        track.enabled = true;
+        console.log('✅ Track enabled');
+      }
 
-      setTorchOn(!torchOn);
-      toast.success(torchOn ? "Flashlight off" : "Flashlight on");
-    } catch (err) {
-      toast.error("Failed to toggle flashlight");
+      let success = false;
+      let method = '';
+
+      // AGGRESSIVE METHOD 1: Standard Advanced Constraints (only if supported)
+      if (!success && hasTorchCapability) {
+        try {
+          console.log('🔥 Trying Method 1: Advanced Constraints');
+          await track.applyConstraints({
+            advanced: [{ torch: newTorchState } as any]
+          });
+          
+          // Wait a bit for hardware to respond
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          const verifySettings: any = track.getSettings();
+          console.log('Verify Settings After Method 1:', verifySettings);
+          
+          if (verifySettings.torch === newTorchState) {
+            success = true;
+            method = 'Advanced Constraints';
+            console.log('✅ Method 1 SUCCESS - Torch verified in settings');
+          }
+        } catch (error: any) {
+          console.error('❌ Method 1 FAILED:', error.name, error.message);
+        }
+      }
+
+      // METHOD 2: Direct torch property (only if supported)
+      if (!success && hasTorchCapability) {
+        try {
+          console.log('🔥 Trying Method 2: Direct Property');
+          // @ts-ignore - Direct torch property
+          await track.applyConstraints({ torch: newTorchState });
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          const verifySettings: any = track.getSettings();
+          if (verifySettings.torch === newTorchState) {
+            success = true;
+            method = 'Direct Property';
+            console.log('✅ Method 2 SUCCESS');
+          }
+        } catch (error: any) {
+          console.error('❌ Method 2 FAILED:', error.name, error.message);
+        }
+      }
+
+      // METHOD 3: fillLightMode (only if supported)
+      if (!success && hasFillLightMode) {
+        try {
+          console.log('🔥 Trying Method 3: fillLightMode');
+          const fillMode = capabilities.fillLightMode.includes('flash') ? 'flash' : 
+                          capabilities.fillLightMode.includes('torch') ? 'torch' : null;
+          
+          if (fillMode && newTorchState) {
+            await track.applyConstraints({
+              advanced: [{ fillLightMode: fillMode } as any]
+            });
+          } else {
+            await track.applyConstraints({
+              advanced: [{ fillLightMode: 'off' } as any]
+            });
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          const verifySettings: any = track.getSettings();
+          if (verifySettings.fillLightMode === (newTorchState ? fillMode : 'off')) {
+            success = true;
+            method = 'fillLightMode';
+            console.log('✅ Method 3 SUCCESS');
+          }
+        } catch (error: any) {
+          console.error('❌ Method 3 FAILED:', error.name, error.message);
+        }
+      }
+
+      // METHOD 4: Try with all video constraints
+      if (!success) {
+        try {
+          console.log('🔥 Trying Method 4: Full Constraints');
+          await track.applyConstraints({
+            facingMode: facingMode,
+            advanced: [{ torch: newTorchState } as any]
+          });
+          await new Promise(resolve => setTimeout(resolve, 100));
+          success = true;
+          method = 'Full Constraints';
+          console.log('✅ Method 4 SUCCESS');
+        } catch (error: any) {
+          console.error('❌ Method 4 FAILED:', error.name, error.message);
+        }
+      }
+
+      // METHOD 5: Nuclear option - restart stream with torch
+      if (!success && newTorchState) {
+        try {
+          console.log('🔥 Trying Method 5: Stream Restart (Nuclear)');
+          const deviceId = track.getSettings().deviceId;
+          
+          // Get new stream with torch constraint
+          const newStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              deviceId: deviceId ? { exact: deviceId } : undefined,
+              facingMode: facingMode,
+              // @ts-ignore
+              advanced: [{ torch: true }]
+            }
+          });
+          
+          // Replace the old stream
+          if (videoRef.current) {
+            videoRef.current.srcObject = newStream;
+          }
+          
+          // Stop old stream
+          stream.getTracks().forEach(t => t.stop());
+          setStream(newStream);
+          
+          success = true;
+          method = 'Stream Restart';
+          console.log('✅ Method 5 SUCCESS - Stream restarted with torch');
+        } catch (error: any) {
+          console.error('❌ Method 5 FAILED:', error.name, error.message);
+        }
+      }
+
+      console.log('═══════════════════════════════════════');
+
+      if (success) {
+        setTorchOn(newTorchState);
+        console.log(`✅✅✅ FLASHLIGHT ${newTorchState ? 'ON' : 'OFF'} via ${method}`);
+        toast.success(
+          newTorchState ? `🔦 Flashlight ON (${method})` : `Flashlight OFF`,
+          {
+            autoClose: 2000,
+            position: 'bottom-center'
+          }
+        );
+      } else {
+        throw new Error('All methods failed to control flashlight');
+      }
+
+    } catch (err: any) {
+      console.error('🔴🔴🔴 FLASHLIGHT COMPLETELY FAILED:', err);
+      setTorchOn(false);
+      
+      if (err.message === 'DEVICE_NO_TORCH_HARDWARE') {
+        setTorchSupported(false);
+        toast.error(
+          '⚠️ Your device does not have a flashlight\n\n' +
+          'Your camera has many features but NO LED flash.\n\n' +
+          'This is a hardware limitation.',
+          {
+            autoClose: 6000,
+            position: 'top-center'
+          }
+        );
+      } else {
+        toast.error(
+          'Flashlight not available. Requirements:\n' +
+          '1. Use REAR camera (not front)\n' +
+          '2. Device must have LED flash hardware\n' +
+          '3. Chrome/Safari browser\n' +
+          '4. HTTPS or localhost',
+          {
+            autoClose: 5000,
+            position: 'top-center'
+          }
+        );
+      }
     }
   };
 
@@ -366,8 +586,6 @@ const QRScannerPage: React.FC = () => {
     stopScanning();
 
     try {
-      toast.info("Processing QR code...");
-
       // Parse QR code data if it's JSON
       let assetIdentifier = data;
       try {
@@ -421,7 +639,7 @@ const QRScannerPage: React.FC = () => {
       const result = await response.json();
 
       if (result.success && result.asset) {
-        toast.success("? Asset scanned successfully!");
+        toast.success("Asset scanned successfully!");
         // Store the scanned asset to display in table format
         setScannedAsset(result.asset);
         setError("");
@@ -739,26 +957,16 @@ const QRScannerPage: React.FC = () => {
                       gap: 2,
                     }}
                   >
-                    <IconButton
-                      sx={{
-                        bgcolor: "rgba(255, 255, 255, 0.9)",
-                        "&:hover": { bgcolor: "rgba(255, 255, 255, 1)" },
-                      }}
-                      onClick={toggleTorch}
-                      title="Toggle flashlight"
-                    >
-                      {torchOn ? <FlashlightOffIcon /> : <FlashlightIcon />}
-                    </IconButton>
-                    {availableCameras.length > 1 && (
+                    {torchSupported && (
                       <IconButton
                         sx={{
                           bgcolor: "rgba(255, 255, 255, 0.9)",
                           "&:hover": { bgcolor: "rgba(255, 255, 255, 1)" },
                         }}
-                        onClick={switchCamera}
-                        title="Switch camera"
+                        onClick={toggleTorch}
+                        title="Toggle flashlight"
                       >
-                        <SwitchCameraIcon />
+                        {torchOn ? <FlashlightOffIcon /> : <FlashlightIcon />}
                       </IconButton>
                     )}
                     <Button
@@ -797,7 +1005,7 @@ const QRScannerPage: React.FC = () => {
                 }}
               >
                 <Typography variant="h6" color="success.main">
-                  ? Asset Scanned Successfully
+                  Asset Scanned Successfully
                 </Typography>
                 <Button
                   variant="outlined"
@@ -1036,25 +1244,6 @@ const QRScannerPage: React.FC = () => {
                   </TableBody>
                 </Table>
               </Paper>
-
-              <Box
-                sx={{
-                  mt: 3,
-                  display: "flex",
-                  gap: 2,
-                  justifyContent: "flex-end",
-                }}
-              >
-                <Button variant="outlined" onClick={() => navigate("/assets")}>
-                  View All Assets
-                </Button>
-                <Button
-                  variant="contained"
-                  onClick={() => navigate(`/assets/${scannedAsset.id}`)}
-                >
-                  View Full Details
-                </Button>
-              </Box>
             </CardContent>
           </Card>
         )}

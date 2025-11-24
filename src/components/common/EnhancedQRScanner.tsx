@@ -79,6 +79,9 @@ interface BatchScanItem {
   asset_id?: string;
   unique_asset_id?: string;
   name?: string;
+  manufacturer?: string;
+  model?: string;
+  location?: string;
   status?: string;
   error?: string;
 }
@@ -128,6 +131,7 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
   const codeReaderRef = useRef<BrowserQRCodeReader | null>(null);
   const scanningRef = useRef(false);
   const handleQRCodeDetectedRef = useRef<((qrText: string) => Promise<void>) | null>(null);
+  const initializingRef = useRef(false); // Prevent simultaneous initialization
 
   // Vibrate on successful scan (mobile)
   const vibrate = (pattern: number | number[] = 200) => {
@@ -224,14 +228,7 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
           
           setScannedAsset(asset);
           
-          // Show success toast
-          const assetName = asset.name || `${asset.manufacturer} ${asset.model}`;
-          toast.success(`✅ Asset found: ${assetName}`, {
-            position: 'top-center',
-            autoClose: 3000
-          });
-          
-          // Call parent callback
+          // Call parent callback - parent component will show success toast
           console.log('📤 Calling onAssetFound callback...');
           onAssetFound(asset);
 
@@ -264,9 +261,12 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
               ...prev,
               {
                 qr_code: qrText,
-                asset_id: asset.id,
+                asset_id: asset.id || asset._id,
                 unique_asset_id: asset.unique_asset_id,
                 name: asset.name || `${asset.manufacturer} ${asset.model}`,
+                manufacturer: asset.manufacturer,
+                model: asset.model,
+                location: asset.location,
                 status: "success",
               },
             ]);
@@ -289,7 +289,7 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
         console.error('❌ QR scan error:', err);
         const apiError = err as { 
           response?: { 
-            data?: { message?: string; suggestions?: string[] };
+            data?: { message?: string; error?: string; suggestions?: string[] };
             status?: number;
           }; 
           message?: string;
@@ -298,13 +298,14 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
         
         console.error('Error details:', {
           status: apiError.response?.status,
-          message: apiError.response?.data?.message || apiError.message,
+          message: apiError.response?.data?.message || apiError.response?.data?.error || apiError.message,
           code: apiError.code,
           suggestions: apiError.response?.data?.suggestions
         });
         
         let errorMessage = "Asset not found or lookup failed";
         
+        // Extract actual error message from backend
         if (apiError.response?.data?.message) {
           errorMessage = apiError.response.data.message;
           
@@ -312,6 +313,10 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
           if (apiError.response.data.suggestions && Array.isArray(apiError.response.data.suggestions)) {
             errorMessage += '\n\nSuggestions:\n' + apiError.response.data.suggestions.join('\n');
           }
+        } else if (apiError.response?.data?.error) {
+          errorMessage = apiError.response.data.error;
+        } else if (apiError.response?.status === 500) {
+          errorMessage = 'Server error occurred. Please check backend logs and try again.';
         } else if (apiError.message) {
           if (apiError.code === 'ECONNABORTED' || apiError.message.includes('timeout')) {
             errorMessage = 'Request timeout. Please check your internet connection and try again.';
@@ -340,6 +345,7 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
               qr_code: qrText,
               error: errorMessage,
               status: "error",
+              name: "Not Found",
             },
           ]);
           
@@ -354,10 +360,7 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
     },
     [
       onAssetFound,
-      onClose,
       mode,
-      enableHistory,
-      enableBatchScan,
       isBatchScanning,
     ]
   );
@@ -367,17 +370,83 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
     handleQRCodeDetectedRef.current = handleQRCodeDetected;
   }, [handleQRCodeDetected]);
 
+  // Stop scanning - defined first so it can be used by other functions
+  const stopScanning = useCallback(() => {
+    console.log('🛑 Stopping scanner...');
+    
+    // Always reset these flags
+    scanningRef.current = false;
+    initializingRef.current = false;
+    setScanning(false);
+
+    // Stop all video tracks from stream ref
+    if (stream) {
+      console.log('📹 Stopping video tracks from stream ref');
+      try {
+        stream.getTracks().forEach((track) => {
+          console.log(`  - Stopping track: ${track.kind}, state: ${track.readyState}`);
+          track.stop();
+        });
+      } catch (err) {
+        console.warn('⚠️ Error stopping tracks from stream ref:', err);
+      }
+      setStream(null);
+    }
+
+    // Also stop tracks from video element srcObject
+    if (videoRef.current && videoRef.current.srcObject) {
+      console.log('📹 Stopping video tracks from video element');
+      try {
+        const videoStream = videoRef.current.srcObject as MediaStream;
+        videoStream.getTracks().forEach((track) => {
+          console.log(`  - Stopping video element track: ${track.kind}, state: ${track.readyState}`);
+          track.stop();
+        });
+      } catch (err) {
+        console.warn('⚠️ Error stopping video element tracks:', err);
+      }
+      videoRef.current.srcObject = null;
+      // Force video to pause
+      try {
+        videoRef.current.pause();
+      } catch (err) {
+        // Ignore
+      }
+    }
+
+    // Reset code reader
+    if (codeReaderRef.current) {
+      try {
+        console.log('🔄 Resetting QR reader');
+        codeReaderRef.current.reset();
+      } catch (err) {
+        console.warn('⚠️ Error resetting QR reader:', err);
+      }
+    }
+
+    setFlashEnabled(false);
+    console.log('✅ Scanner stopped and cleaned up');
+  }, [stream]);
+
   // Start scanning
   const startScanning = useCallback(
     async (deviceId?: string) => {
       try {
         console.log('🎥 Starting camera...', { deviceId, facingMode });
         
-        // Prevent multiple simultaneous scan attempts
+        // Prevent multiple simultaneous scan attempts with mutex
+        if (initializingRef.current) {
+          console.log('⚠️ Camera initialization already in progress, skipping');
+          return;
+        }
+        
         if (scanningRef.current) {
           console.log('⚠️ Already scanning, skipping');
           return;
         }
+        
+        // Set initialization lock
+        initializingRef.current = true;
 
         // Check for camera API support
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -395,15 +464,13 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
           });
           
           setError(errorMsg);
-          return;
+          throw new Error(errorMsg);
         }
 
-        // Wait for video element to be ready
-        await new Promise((resolve) => setTimeout(resolve, 200));
-
+        // Ensure video element is available
         if (!videoRef.current) {
-          console.error('❌ Video element not ready');
-          throw new Error("Video element not available");
+          console.error('❌ Video element not found in DOM');
+          throw new Error("Video element not available. Please try again.");
         }
 
         console.log('✅ Video element ready');
@@ -423,24 +490,36 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
           console.log('🔍 Requesting camera permission...');
           
           try {
-            const permissionStream = await navigator.mediaDevices.getUserMedia({
-              video: { 
-                facingMode: facingMode,
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-              },
-            });
+            // First, try to enumerate devices to check if we already have permission
+            let devices = await navigator.mediaDevices.enumerateDevices();
+            let cameras = devices.filter(device => device.kind === "videoinput");
+            
+            // If we don't have camera labels, we need to request permission
+            if (cameras.length === 0 || !cameras[0].label) {
+              console.log('📋 Requesting camera permission for device enumeration...');
+              const permissionStream = await navigator.mediaDevices.getUserMedia({
+                video: { 
+                  facingMode: facingMode,
+                  width: { ideal: 1280 },
+                  height: { ideal: 720 }
+                },
+              });
 
-            console.log('✅ Camera permission granted');
+              console.log('✅ Camera permission granted');
 
-            // Stop the permission stream immediately
-            permissionStream.getTracks().forEach((track) => track.stop());
+              // Stop the permission stream immediately and wait for release
+              permissionStream.getTracks().forEach((track) => {
+                track.stop();
+                console.log(`  - Stopped permission track: ${track.kind}`);
+              });
+              
+              // Wait for camera to fully release
+              await new Promise(resolve => setTimeout(resolve, 300));
 
-            // Enumerate devices with proper labels
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const cameras = devices.filter(
-              (device) => device.kind === "videoinput"
-            );
+              // Re-enumerate devices with proper labels after permission granted
+              devices = await navigator.mediaDevices.enumerateDevices();
+              cameras = devices.filter(device => device.kind === "videoinput");
+            }
             
             console.log(`📹 Found ${cameras.length} camera(s)`, cameras.map(c => ({ id: c.deviceId, label: c.label })));
             setAvailableCameras(cameras);
@@ -477,12 +556,36 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
             }
           } catch (permErr) {
             console.error('❌ Permission error:', permErr);
+            const error = permErr as { name?: string; message?: string };
+            
+            // If NotReadableError at permission stage, throw with specific message
+            if (error.name === 'NotReadableError') {
+              throw new Error('Camera is currently locked by another application or browser tab. Please close all other camera-using applications and tabs, wait 10 seconds, then try again.');
+            }
+            
             throw permErr;
           }
         }
-
-        // Start decoding
-        console.log('🔄 Starting QR code detection...');
+        
+        // Suppress "already playing" warning by ensuring video play state
+        if (videoRef.current) {
+          try {
+            // Pause first to avoid "already playing" warning
+            if (!videoRef.current.paused) {
+              videoRef.current.pause();
+            }
+          } catch (e) {
+            // Ignore - video might not be ready
+          }
+        }
+        
+        // Use specific device ID or constraints to avoid conflicts
+        const videoConstraints = deviceId 
+          ? { deviceId: { exact: deviceId } }
+          : { facingMode: facingMode };
+        
+        console.log('📸 Using video constraints:', videoConstraints);
+        
         await codeReaderRef.current.decodeFromVideoDevice(
           deviceId || null,
           videoRef.current,
@@ -502,7 +605,7 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
           }
         );
 
-        // Wait for video to start
+        // Wait for video to start with better readyState checking
         if (videoRef.current) {
           console.log('⏳ Waiting for video stream...');
           await new Promise<void>((resolve) => {
@@ -513,47 +616,104 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
             }
 
             const checkVideo = () => {
+              // Check if video element has a valid srcObject first
+              if (!video.srcObject) {
+                console.warn('⚠️ Video element has no srcObject yet');
+                setTimeout(() => {
+                  if (video.srcObject) {
+                    checkVideo();
+                  } else {
+                    resolve(); // Resolve anyway to prevent hanging
+                  }
+                }, 100);
+                return;
+              }
+
+              // Wait for HAVE_CURRENT_DATA (readyState >= 2)
               if (video.readyState >= 2) {
                 console.log('✅ Video stream ready');
                 resolve();
               } else {
-                video.addEventListener("loadeddata", () => {
+                const loadHandler = () => {
                   console.log('✅ Video data loaded');
                   resolve();
-                }, {
-                  once: true,
-                });
+                };
+                
+                video.addEventListener("loadeddata", loadHandler, { once: true });
+                
+                // Fallback timeout
+                setTimeout(() => {
+                  video.removeEventListener("loadeddata", loadHandler);
+                  resolve();
+                }, 2000);
               }
             };
 
             checkVideo();
-            // Fallback timeout
-            setTimeout(() => {
-              console.log('⏰ Video timeout - proceeding anyway');
-              resolve();
-            }, 3000);
           });
         }
 
-        // Store stream reference
+        // Wait a bit more for stream to be fully attached
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Store stream reference and verify it's active
         if (videoRef.current && videoRef.current.srcObject) {
           const mediaStream = videoRef.current.srcObject as MediaStream;
+          
+          // Verify stream is actually active
+          if (!mediaStream.active) {
+            console.error('❌ Media stream is not active');
+            throw new Error('Camera stream is inactive');
+          }
+          
+          const videoTracks = mediaStream.getVideoTracks();
+          if (videoTracks.length === 0) {
+            console.error('❌ No video tracks in stream');
+            throw new Error('No video tracks available');
+          }
+          
+          // Check if track is enabled and not muted
+          const track = videoTracks[0];
+          if (!track.enabled || track.muted) {
+            console.warn('⚠️ Video track is disabled or muted');
+          }
+          
           setStream(mediaStream);
           console.log('✅ Camera started successfully');
           console.log('Stream details:', {
             active: mediaStream.active,
             tracks: mediaStream.getTracks().length,
-            videoTracks: mediaStream.getVideoTracks().length
+            videoTracks: videoTracks.length,
+            trackState: track.readyState,
+            trackEnabled: track.enabled
           });
           console.log('🟢 scanningRef.current:', scanningRef.current);
-          toast.success('🎬 Camera started! Point at a QR code to scan.');
+          
+          // Release initialization lock AFTER successful start
+          initializingRef.current = false;
         } else {
-          console.warn('⚠️ Video source object not set');
+          const errorMsg = '⚠️ Video source object not set - camera may not have started properly';
+          console.error(errorMsg);
+          throw new Error('Camera initialization incomplete - no video stream');
         }
       } catch (err: unknown) {
         console.error('❌ Camera start failed:', err);
+        
+        // Release locks and cleanup
+        initializingRef.current = false;
         scanningRef.current = false;
         setScanning(false);
+        
+        // Force cleanup any partial streams
+        if (videoRef.current && videoRef.current.srcObject) {
+          try {
+            const partialStream = videoRef.current.srcObject as MediaStream;
+            partialStream.getTracks().forEach((track) => track.stop());
+            videoRef.current.srcObject = null;
+          } catch (cleanupErr) {
+            console.warn('⚠️ Error cleaning up partial stream:', cleanupErr);
+          }
+        }
 
         let errorMessage = "Failed to start camera. Please try again.";
         const error = err as { name?: string; message?: string };
@@ -573,7 +733,11 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
           errorMessage = "No camera found on this device. Please ensure your device has a camera.";
         } else if (error.name === "NotReadableError") {
           errorMessage =
-            "Camera is in use by another application. Please close other apps using the camera and try again.";
+            "Camera is busy or unavailable. This can happen if:\n" +
+            "• Another tab or app is using the camera\n" +
+            "• The camera didn't fully release from a previous session\n" +
+            "• Browser needs a refresh\n\n" +
+            "Try: Close other tabs, restart browser, or wait a few seconds and try again.";
         } else if (error.name === "OverconstrainedError") {
           errorMessage =
             "Could not start camera with requested settings. Trying alternate camera...";
@@ -588,7 +752,7 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
         }
 
         setError(errorMessage);
-        toast.error(errorMessage);
+        // Don't show toast here - let the calling function (initializeScanner) handle user notification
       }
     },
     [facingMode, currentCameraIndex]
@@ -596,22 +760,44 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
 
   // Initialize scanner
   const initializeScanner = useCallback(async () => {
+    let initSuccess = false;
     try {
       console.log('🚀 Initializing scanner...');
-      console.log('Current state:', { scanning: scanningRef.current, loading, error, stream: !!stream });
+      console.log('Current state:', { 
+        scanning: scanningRef.current, 
+        initializing: initializingRef.current,
+        loading, 
+        error, 
+        stream: !!stream 
+      });
+      
+      // Check if already initializing
+      if (initializingRef.current) {
+        console.log('⚠️ Already initializing, skipping duplicate call');
+        return;
+      }
+      
       setLoading(true);
       setError(null);
 
-      // Clear any previous state
-      if (scanningRef.current || stream) {
-        console.log('🧹 Cleaning up previous scanner instance...');
+      // Force complete cleanup of any previous state
+      if (scanningRef.current || stream || videoRef.current?.srcObject) {
+        console.log('🧹 Force cleaning up previous scanner instance...');
         stopScanning();
-        // Wait for cleanup to complete
-        await new Promise(resolve => setTimeout(resolve, 300));
+        // Wait longer for full cleanup - camera needs time to release
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
-      // Small delay to ensure cleanup
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Additional safety check - query all media tracks and stop any orphaned ones
+      try {
+        const allDevices = await navigator.mediaDevices.enumerateDevices();
+        console.log('🔍 Device check - available cameras:', allDevices.filter(d => d.kind === 'videoinput').length);
+      } catch (e) {
+        console.warn('⚠️ Could not enumerate devices:', e);
+      }
+      
+      // Wait for DOM to be fully ready
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Initialize QR code reader
       if (!codeReaderRef.current) {
@@ -621,65 +807,85 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
         console.log('ℹ️ Reusing existing BrowserQRCodeReader instance');
       }
 
-      // Start scanning
+      // Start scanning with retry logic for NotReadableError
       console.log('🎬 Starting camera...');
-      await startScanning();
-      console.log('✅ Scanner initialized successfully');
+      let retryCount = 0;
+      const maxRetries = 2;
+      
+      while (retryCount <= maxRetries && isMountedRef.current) {
+        try {
+          await startScanning();
+          
+          // Verify we actually have a valid stream before declaring success
+          if (videoRef.current?.srcObject) {
+            const checkStream = videoRef.current.srcObject as MediaStream;
+            if (checkStream.active && checkStream.getVideoTracks().length > 0) {
+              console.log('✅ Scanner initialized successfully');
+              initSuccess = true;
+              break; // Success - exit retry loop
+            } else {
+              console.warn('⚠️ Stream exists but is not active or has no tracks');
+              throw new Error('Camera stream is not properly initialized');
+            }
+          } else {
+            throw new Error('Camera started but no video stream available');
+          }
+        } catch (startErr: unknown) {
+          const error = startErr as { name?: string; message?: string };
+          
+          // Check if component is still mounted before retrying
+          if (!isMountedRef.current) {
+            console.log('⚠️ Component unmounted during initialization, aborting');
+            return;
+          }
+          
+          // If NotReadableError and we have retries left, wait and retry
+          if (error.name === 'NotReadableError' && retryCount < maxRetries) {
+            retryCount++;
+            console.log(`🔄 Retry ${retryCount}/${maxRetries} after NotReadableError - waiting 1.5 seconds...`);
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            continue;
+          }
+          
+          // No more retries or different error - throw it
+          throw startErr;
+        }
+      }
+      
+      if (!initSuccess && isMountedRef.current) {
+        throw new Error('Failed to initialize camera after retries');
+      }
     } catch (err: unknown) {
       console.error('❌ Scanner initialization failed:', err);
       const error = err as { message?: string; name?: string };
-      const errorMsg = error.message || "Failed to initialize camera. Please check permissions and try again.";
+      let errorMsg = error.message || "Failed to initialize camera. Please check permissions and try again.";
+      
+      // Add helpful context for NotReadableError
+      if (error.name === 'NotReadableError') {
+        errorMsg = "🚫 CAMERA LOCKED - The camera is being used by another process.\n\n" +
+                   "STEPS TO FIX:\n" +
+                   "1. Close ALL browser tabs (including this one)\n" +
+                   "2. Check for other apps using camera (Zoom, Teams, Skype, etc.)\n" +
+                   "3. Wait 10-15 seconds\n" +
+                   "4. Reopen this page\n\n" +
+                   "Still not working? Restart your browser or computer.";
+      } else if (error.message && error.message.includes('locked')) {
+        errorMsg = error.message; // Use our custom locked message from permission stage
+      }
+      
+      // Clean up on failure
+      initializingRef.current = false;
+      scanningRef.current = false;
+      setScanning(false);
       setError(errorMsg);
-      toast.error(errorMsg);
+      toast.error(errorMsg, { autoClose: 8000 });
     } finally {
       setLoading(false);
-    }
-  }, [startScanning]);
-
-  // Stop scanning
-  const stopScanning = useCallback(() => {
-    console.log('🛑 Stopping scanner...');
-    
-    // Don't stop if not currently scanning
-    if (!scanningRef.current && !stream) {
-      console.log('ℹ️ Scanner not active, skipping stop');
-      return;
-    }
-    
-    scanningRef.current = false;
-    setScanning(false);
-
-    // Stop all video tracks
-    if (stream) {
-      console.log('📹 Stopping video tracks');
-      try {
-        stream.getTracks().forEach((track) => {
-          track.stop();
-        });
-      } catch (err) {
-        console.warn('⚠️ Error stopping tracks:', err);
-      }
-      setStream(null);
-    }
-
-    // Reset code reader
-    if (codeReaderRef.current) {
-      try {
-        console.log('🔄 Resetting QR reader');
-        codeReaderRef.current.reset();
-      } catch (err) {
-        console.warn('⚠️ Error resetting QR reader:', err);
+      if (!initSuccess) {
+        console.log('❌ Scanner initialization completed with errors');
       }
     }
-
-    // Clear video source
-    if (videoRef.current && videoRef.current.srcObject) {
-      videoRef.current.srcObject = null;
-    }
-
-    setFlashEnabled(false);
-    console.log('✅ Scanner stopped');
-  }, [stream]);
+  }, [startScanning, stopScanning]);
 
   // Toggle flash (placeholder - depends on browser support)
   const toggleFlash = async () => {
@@ -779,10 +985,14 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
         qrCodes.splice(100); // Keep only first 100
       }
 
+      console.log('📤 Submitting batch scan:', qrCodes.length, 'codes');
+
       const response = await api.post("/qr/batch-scan", {
         qr_codes: qrCodes,
         mode,
       });
+
+      console.log('✅ Batch scan response:', response.data);
 
       if (response.data.success) {
         const { found, not_found, invalid } = response.data;
@@ -796,24 +1006,38 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
         message += `📊 Success Rate: ${successRate}%`;
         
         if (found > 0) {
-          toast.success(message);
+          toast.success(message, {
+            position: 'top-center',
+            autoClose: 7000,
+          });
         } else if (not_found > found) {
-          toast.warning(message);
+          toast.warning(message, {
+            position: 'top-center',
+            autoClose: 7000,
+          });
         } else {
-          toast.info(message);
+          toast.info(message, {
+            position: 'top-center',
+            autoClose: 7000,
+          });
         }
         
         setBatchScans([]);
         setIsBatchScanning(false);
+        stopScanning();
       } else {
         toast.error(response.data.message || "Batch scan failed");
       }
     } catch (error: any) {
+      console.error('❌ Batch scan submission failed:', error);
       const errorMessage = error.response?.data?.message || "Failed to submit batch scan";
       const suggestions = error.response?.data?.suggestions;
       
       if (suggestions && suggestions.length > 0) {
-        toast.error(`${errorMessage}\n${suggestions.join("\n")}`);
+        toast.error(`${errorMessage}\n\nSuggestions:\n${suggestions.join("\n")}`, {
+          position: 'top-center',
+          autoClose: 8000,
+        });
       } else {
         toast.error(errorMessage);
       }
@@ -823,24 +1047,34 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
   };
 
   // Load scan history
-  const loadScanHistory = async () => {
+  const loadScanHistory = useCallback(async () => {
     try {
       setLoadingHistory(true);
+      setError(null);
       const response = await api.get("/qr/history", {
         params: {
           limit: 20,
+          page: 1,
           mode,
         },
       });
 
-      if (response.data.success) {
+      if (response.data.success && response.data.scans) {
         setScanHistory(response.data.scans);
+        console.log('✅ Loaded scan history:', response.data.scans.length, 'items');
+      } else {
+        console.warn('⚠️ No scan history found in response');
+        setScanHistory([]);
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('❌ Failed to load scan history:', error);
+      const errorMsg = error.response?.data?.message || 'Failed to load scan history';
+      toast.warning(errorMsg);
+      setScanHistory([]);
     } finally {
       setLoadingHistory(false);
     }
-  };
+  }, [mode]);
 
   // Remove batch scan item
   const removeBatchScanItem = (index: number) => {
@@ -850,6 +1084,13 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
   // Manual start camera
   const handleStartCamera = async () => {
     console.log('👆 User clicked Start Camera');
+    
+    // Prevent multiple clicks
+    if (loading) {
+      console.log('⚠️ Camera initialization already in progress');
+      return;
+    }
+    
     try {
       // Ensure clean state before starting
       if (scanningRef.current) {
@@ -857,29 +1098,97 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
         stopScanning();
         await new Promise(resolve => setTimeout(resolve, 300));
       }
+      
+      // Clear any previous errors
+      setError(null);
+      
       await initializeScanner();
     } catch (error) {
-      console.error('❌ Failed to start camera:', error);
-      toast.error('Failed to start camera. Please try again.');
+      console.error('❌ Failed to start camera from button click:', error);
     }
   };
 
   // Effects
+  const isInitialMount = useRef(true);
+  const prevOpenRef = useRef(open);
+  const prevTabRef = useRef(activeTab);
+  
   useEffect(() => {
-    // Cleanup function - only stop when closing dialog or switching tabs
+    // Skip cleanup on initial mount
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      prevOpenRef.current = open;
+      prevTabRef.current = activeTab;
+      return;
+    }
+    
+    // Only cleanup when dialog is actually closing or switching away from camera tab
+    const isClosing = prevOpenRef.current && !open;
+    const isSwitchingAwayFromCamera = prevTabRef.current === 0 && activeTab !== 0;
+    
+    // Don't cleanup if just staying on the same tab or switching to camera tab
+    if (isClosing || isSwitchingAwayFromCamera) {
+      console.log('🧹 Cleaning up scanner on tab change or close');
+      stopScanning();
+    }
+    
+    // Update previous values
+    prevOpenRef.current = open;
+    prevTabRef.current = activeTab;
+  }, [open, activeTab, stopScanning]);
+  
+  // Cleanup on unmount - CRITICAL to prevent camera lock
+  // Use ref to track if component is mounted
+  const isMountedRef = useRef(true);
+  
+  useEffect(() => {
+    isMountedRef.current = true;
+    
     return () => {
-      if (!open || activeTab !== 0) {
-        console.log('🧹 Cleaning up scanner on tab change or close');
-        stopScanning();
+      // Only cleanup if dialog is actually closing, not just re-rendering
+      if (!open) {
+        isMountedRef.current = false;
+        console.log('🧹 Component unmounting - cleaning up camera resources');
+        
+        // Force stop everything
+        initializingRef.current = false;
+        scanningRef.current = false;
+        
+        // Stop all tracks
+        if (stream) {
+          stream.getTracks().forEach((track) => {
+            if (track.readyState !== 'ended') {
+              track.stop();
+            }
+          });
+        }
+        
+        if (videoRef.current?.srcObject) {
+          const videoStream = videoRef.current.srcObject as MediaStream;
+          videoStream.getTracks().forEach((track) => {
+            if (track.readyState !== 'ended') {
+              track.stop();
+            }
+          });
+          videoRef.current.srcObject = null;
+        }
+        
+        if (codeReaderRef.current) {
+          try {
+            codeReaderRef.current.reset();
+          } catch (err) {
+            // Ignore
+          }
+        }
       }
     };
-  }, [open, activeTab]);
+  }, [stream, open]);
 
   useEffect(() => {
-    if (open && activeTab === 2 && enableHistory) {
+    if (open && activeTab === 1 && enableHistory) {
       loadScanHistory();
     }
-  }, [open, activeTab, enableHistory]);
+  }, [open, activeTab, enableHistory, loadScanHistory]);
 
   // Get status color
   const getStatusColor = (status: string) => {
@@ -935,16 +1244,6 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
         {/* Tabs */}
         <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
           <Tab icon={<CameraIcon />} label="Scanner" />
-          {enableBatchScan && (
-            <Tab
-              icon={
-                <Badge badgeContent={batchScans.length} color="primary">
-                  <BatchIcon />
-                </Badge>
-              }
-              label="Batch Scan"
-            />
-          )}
           {enableHistory && <Tab icon={<HistoryIcon />} label="History" />}
         </Tabs>
       </DialogTitle>
@@ -952,11 +1251,32 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
       <DialogContent>
         {/* Scanner Tab */}
         {activeTab === 0 && (
-          <Grid container spacing={2} sx={{ height: "100%" }}>
+          <Box sx={{ height: "100%" }}>
             {/* Camera View */}
-            <Grid item xs={12} md={8}>
-              <Card sx={{ height: "100%" }}>
-                <CardContent sx={{ height: "100%", p: 1 }}>
+            <Card sx={{ height: "100%" }}>
+              <CardContent sx={{ height: "100%", p: 1, position: "relative" }}>
+                  {/* Video element - always rendered in DOM */}
+                  <Box
+                    component="video"
+                    ref={videoRef}
+                    sx={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                      minHeight: { xs: "300px", sm: "400px", md: "500px" },
+                      objectFit: "cover",
+                      borderRadius: 2,
+                      backgroundColor: "#000",
+                      display: scanning ? "block" : "none",
+                      zIndex: scanning ? 1 : 0,
+                    }}
+                    autoPlay
+                    playsInline
+                    muted
+                  />
+
                   {loading && (
                     <Box
                       display="flex"
@@ -1036,63 +1356,14 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
                       width="100%"
                       height="100%"
                       minHeight="400px"
+                      zIndex={2}
+                      sx={{
+                        pointerEvents: 'none', // Allow clicks to pass through to controls
+                        '& > *': {
+                          pointerEvents: 'auto' // Re-enable for child elements
+                        }
+                      }}
                     >
-                      <Box
-                        component="video"
-                        ref={videoRef}
-                        sx={{
-                          width: "100%",
-                          height: "100%",
-                          minHeight: { xs: "300px", sm: "400px", md: "500px" },
-                          objectFit: "cover",
-                          borderRadius: 2,
-                          backgroundColor: "#000",
-                          display: "block",
-                        }}
-                        autoPlay
-                        playsInline
-                        muted
-                      />
-
-                      {/* Scanning Status Indicator */}
-                      <Box
-                        sx={{
-                          position: "absolute",
-                          top: 16,
-                          left: "50%",
-                          transform: "translateX(-50%)",
-                          backgroundColor: scanning && scanningRef.current ? "rgba(76, 175, 80, 0.9)" : "rgba(255, 152, 0, 0.9)",
-                          color: "white",
-                          px: 3,
-                          py: 1,
-                          borderRadius: 2,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 1,
-                          boxShadow: 2
-                        }}
-                      >
-                        {scanning && scanningRef.current ? (
-                          <>
-                            <Box
-                              sx={{
-                                width: 8,
-                                height: 8,
-                                borderRadius: "50%",
-                                backgroundColor: "white",
-                                animation: "blink 1s infinite"
-                              }}
-                            />
-                            <Typography variant="body2" fontWeight="600">
-                              Scanning... Point at QR code
-                            </Typography>
-                          </>
-                        ) : (
-                          <Typography variant="body2" fontWeight="600">
-                            {loading ? "Processing..." : "Ready"}
-                          </Typography>
-                        )}
-                      </Box>
 
                       {/* Scanning Overlay */}
                       <Box
@@ -1137,50 +1408,21 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
                           transform: "translateX(-50%)",
                           display: "flex",
                           gap: 1,
+                          zIndex: 10
                         }}
                       >
                         <Tooltip title="Toggle Flash">
                           <IconButton
                             onClick={toggleFlash}
                             sx={{
-                              backgroundColor: "rgba(0,0,0,0.5)",
+                              backgroundColor: "rgba(0,0,0,0.6)",
                               color: "white",
                               "&:hover": {
-                                backgroundColor: "rgba(0,0,0,0.7)",
+                                backgroundColor: "rgba(0,0,0,0.8)",
                               },
                             }}
                           >
                             {flashEnabled ? <FlashOnIcon /> : <FlashOffIcon />}
-                          </IconButton>
-                        </Tooltip>
-                        {availableCameras.length > 1 && (
-                          <Tooltip title="Switch Camera">
-                            <IconButton
-                              onClick={switchCamera}
-                              sx={{
-                                backgroundColor: "rgba(0,0,0,0.5)",
-                                color: "white",
-                                "&:hover": {
-                                  backgroundColor: "rgba(0,0,0,0.7)",
-                                },
-                              }}
-                            >
-                              <SwitchCameraIcon />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        <Tooltip title="Restart Camera">
-                          <IconButton
-                            onClick={restartScanning}
-                            sx={{
-                              backgroundColor: "rgba(0,0,0,0.5)",
-                              color: "white",
-                              "&:hover": {
-                                backgroundColor: "rgba(0,0,0,0.7)",
-                              },
-                            }}
-                          >
-                            <RefreshIcon />
                           </IconButton>
                         </Tooltip>
                       </Box>
@@ -1188,239 +1430,11 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
                   )}
                 </CardContent>
               </Card>
-            </Grid>
-
-            {/* Asset Information */}
-            <Grid item xs={12} md={4}>
-              {scannedAsset ? (
-                <Card>
-                  <CardContent>
-                    <Box display="flex" alignItems="center" gap={1} mb={2}>
-                      <SuccessIcon color="success" />
-                      <Typography variant="h6" color="success.main">
-                        Asset Found!
-                      </Typography>
-                    </Box>
-
-                    <Box mb={2}>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Asset ID
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {scannedAsset.unique_asset_id}
-                      </Typography>
-                    </Box>
-
-                    <Box mb={2}>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Asset Details
-                      </Typography>
-                      <Typography variant="body1">
-                        {scannedAsset.manufacturer} {scannedAsset.model}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        S/N: {scannedAsset.serial_number}
-                      </Typography>
-                    </Box>
-
-                    <Box mb={2}>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Status
-                      </Typography>
-                      <Chip
-                        label={scannedAsset.status}
-                        size="small"
-                        color={getStatusColor(scannedAsset.status) as any}
-                      />
-                    </Box>
-
-                    <Box mb={2}>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Location
-                      </Typography>
-                      <Typography variant="body2">
-                        {scannedAsset.location}
-                      </Typography>
-                    </Box>
-
-                    <Box mb={2}>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        Condition
-                      </Typography>
-                      <Typography variant="body2">
-                        {scannedAsset.condition}
-                      </Typography>
-                    </Box>
-
-                    {isBatchScanning && (
-                      <Alert severity="info" sx={{ mt: 2 }}>
-                        Batch scanning active. Continue scanning or submit
-                        batch.
-                      </Alert>
-                    )}
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card>
-                  <CardContent>
-                    <Box
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="center"
-                      height={300}
-                      flexDirection="column"
-                      gap={2}
-                    >
-                      <CameraIcon
-                        sx={{ fontSize: 64, color: "text.secondary" }}
-                      />
-                      <Typography
-                        variant="body1"
-                        color="text.secondary"
-                        textAlign="center"
-                      >
-                        Position the QR code within the scanning area
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        textAlign="center"
-                      >
-                        Make sure the code is well-lit and clearly visible
-                      </Typography>
-
-                      {enableBatchScan && !isBatchScanning && (
-                        <Button
-                          variant="outlined"
-                          startIcon={<BatchIcon />}
-                          onClick={startBatchScanning}
-                        >
-                          Start Batch Scan
-                        </Button>
-                      )}
-
-                      {isBatchScanning && (
-                        <Button
-                          variant="contained"
-                          color="error"
-                          onClick={stopBatchScanning}
-                        >
-                          Stop Batch Scan
-                        </Button>
-                      )}
-                    </Box>
-                  </CardContent>
-                </Card>
-              )}
-            </Grid>
-          </Grid>
-        )}
-
-        {/* Batch Scan Tab */}
-        {activeTab === 1 && enableBatchScan && (
-          <Box>
-            <Box
-              display="flex"
-              justifyContent="space-between"
-              alignItems="center"
-              mb={2}
-            >
-              <Typography variant="h6">
-                Batch Scan Results ({batchScans.length})
-              </Typography>
-              <Box>
-                <Button
-                  variant="outlined"
-                  startIcon={<RefreshIcon />}
-                  onClick={() => setBatchScans([])}
-                  sx={{ mr: 1 }}
-                >
-                  Clear
-                </Button>
-                <Button
-                  variant="contained"
-                  disabled={batchScans.length === 0 || isBatchScanning}
-                  onClick={submitBatchScan}
-                >
-                  Submit Batch
-                </Button>
-              </Box>
-            </Box>
-
-            {batchScans.length > 0 && (
-              <LinearProgress
-                variant="determinate"
-                value={
-                  (batchScans.filter((s) => s.status === "success").length /
-                    batchScans.length) *
-                  100
-                }
-                sx={{ mb: 2 }}
-              />
-            )}
-
-            <TableContainer component={Paper}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>QR Code</TableCell>
-                    <TableCell>Asset ID</TableCell>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell align="right">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {batchScans.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center">
-                        <Typography variant="body2" color="text.secondary">
-                          No scans yet. Start batch scanning to add items.
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    batchScans.map((item, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{item.qr_code}</TableCell>
-                        <TableCell>{item.unique_asset_id || "-"}</TableCell>
-                        <TableCell>{item.name || "-"}</TableCell>
-                        <TableCell>
-                          {item.error ? (
-                            <Chip
-                              label="Error"
-                              size="small"
-                              color="error"
-                              icon={<ErrorIcon />}
-                            />
-                          ) : (
-                            <Chip
-                              label="Success"
-                              size="small"
-                              color="success"
-                              icon={<SuccessIcon />}
-                            />
-                          )}
-                        </TableCell>
-                        <TableCell align="right">
-                          <IconButton
-                            size="small"
-                            onClick={() => removeBatchScanItem(index)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
           </Box>
         )}
 
         {/* History Tab */}
-        {activeTab === 2 && enableHistory && (
+        {activeTab === 1 && enableHistory && (
           <Box>
             <Box
               display="flex"
@@ -1440,48 +1454,89 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
             </Box>
 
             {loadingHistory ? (
-              <Box display="flex" justifyContent="center" p={4}>
+              <Box display="flex" justifyContent="center" p={4} flexDirection="column" alignItems="center" gap={2}>
                 <CircularProgress />
+                <Typography variant="body2" color="text.secondary">
+                  Loading scan history...
+                </Typography>
               </Box>
             ) : scanHistory.length === 0 ? (
-              <Alert severity="info">No scan history found.</Alert>
+              <Box textAlign="center" py={4}>
+                <HistoryIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+                <Typography variant="h6" color="text.secondary" gutterBottom>
+                  No Scan History
+                </Typography>
+                <Typography variant="body2" color="text.disabled">
+                  Your recent QR scans will appear here
+                </Typography>
+              </Box>
             ) : (
-              <List>
-                {scanHistory.map((item) => (
-                  <React.Fragment key={item.id}>
-                    <ListItem alignItems="flex-start">
-                      <ListItemText
-                        primary={
-                          item.asset
-                            ? `${item.asset.unique_asset_id} - ${item.asset.manufacturer} ${item.asset.model}`
-                            : "Asset not found"
-                        }
-                        secondary={
-                          <>
-                            <Typography
-                              component="span"
-                              variant="body2"
-                              color="text.primary"
-                            >
-                              {item.action} -{" "}
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Asset</TableCell>
+                      <TableCell>Action</TableCell>
+                      <TableCell>Location</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Timestamp</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {scanHistory.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          {item.asset ? (
+                            <Box>
+                              <Typography variant="body2" fontWeight="medium">
+                                {item.asset.unique_asset_id}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {item.asset.name || `${item.asset.manufacturer} ${item.asset.model}`}
+                              </Typography>
+                            </Box>
+                          ) : (
+                            <Typography variant="body2" color="text.disabled">
+                              Asset not found
                             </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={item.action.replace(/_/g, ' ').toUpperCase()}
+                            size="small"
+                            color={item.action.includes('audit') ? 'primary' : 'default'}
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                            {item.asset?.location || "-"}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          {item.asset?.status && (
+                            <Chip
+                              label={item.asset.status}
+                              size="small"
+                              color={getStatusColor(item.asset.status) as any}
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
                             {new Date(item.timestamp).toLocaleString()}
-                          </>
-                        }
-                      />
-                    </ListItem>
-                    <Divider component="li" />
-                  </React.Fragment>
-                ))}
-              </List>
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             )}
           </Box>
         )}
       </DialogContent>
-
-      <DialogActions>
-        <Button onClick={onClose}>Close</Button>
-      </DialogActions>
     </Dialog>
   );
 };

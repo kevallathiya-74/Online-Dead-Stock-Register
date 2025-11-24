@@ -278,6 +278,7 @@ try {
   settingsRoutes = require('./routes/settings');
   assetIssueRoutes = require('./routes/assetIssues');
   automationRoutes = require('./routes/automation');  // ✅ Added automation routes
+  lifecycleRoutes = require('./routes/lifecycleRoutes');  // ✅ Lifecycle automation routes
   seedRoutes = require('./routes/seed');  // Development only - seed database
 } catch (error) {
   console.error('❌ Error loading route modules:', error.message);
@@ -334,6 +335,7 @@ v1Router.use('/backups', backupsRoutes);
 v1Router.use('/', assetIssueRoutes); // Asset issues routes (includes /assets/:id/issues)
 v1Router.use('/settings', settingsRoutes);
 v1Router.use('/automation', automationRoutes);  // ✅ Added automation routes
+v1Router.use('/lifecycle', lifecycleRoutes);  // ✅ Lifecycle automation routes
 v1Router.use('/dev', seedRoutes);  // Development only - seed database
 
 // Mount v1 router

@@ -119,11 +119,18 @@ const AssetDetailsPage: React.FC = () => {
 
   const loadAssetDetails = async (silent = false) => {
     try {
+      // Validate ID before making API call
+      if (!id || id.trim() === '') {
+        throw new Error('Invalid asset ID');
+      }
+      
       if (!silent) setLoading(true);
       
+      console.log('📥 Loading asset details for ID:', id);
       const response = await api.get(`/assets/${id}`);
       const assetData = response.data.data || response.data;
       
+      console.log('✅ Asset data loaded:', assetData?.unique_asset_id);
       setAsset(assetData);
       setLastUpdated(new Date());
       setError('');
@@ -131,9 +138,11 @@ const AssetDetailsPage: React.FC = () => {
       if (!silent) {
       }
     } catch (error: any) {
-      setError(error.response?.data?.message || 'Failed to load asset details');
+      console.error('❌ Failed to load asset:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to load asset details';
+      setError(errorMsg);
       if (!silent) {
-        toast.error('Failed to load asset details');
+        toast.error(errorMsg);
       }
     } finally {
       if (!silent) setLoading(false);

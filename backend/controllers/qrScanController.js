@@ -69,7 +69,8 @@ exports.scanAsset = async (req, res) => {
       ]
     }).populate('assigned_user', 'name email department')
       .populate('vendor', 'vendor_name email phone')
-      .populate('last_audited_by', 'name email');
+      .populate('last_audited_by', 'name email')
+      .lean(); // Use lean for better performance
 
     logger.debug('  - Asset found:', !!asset);
     if (asset) {
@@ -85,6 +86,7 @@ exports.scanAsset = async (req, res) => {
       // Log failed scan attempt
       await AuditLog.create({
         user_id: req.user.id,
+        performed_by: req.user.id,
         action: 'qr_scan_failed',
         entity_type: 'Unknown',
         description: `Failed QR scan attempt: Asset not found for code ${decodedQrCode}`,
@@ -126,20 +128,27 @@ exports.scanAsset = async (req, res) => {
     const oldAuditDate = asset.last_audit_date;
     const oldAuditedBy = asset.last_audited_by;
     
-    asset.last_audit_date = new Date();
-    asset.last_audited_by = req.user.id;
-    await asset.save();
-
-    // Re-populate after save to get user details
-    await asset.populate('last_audited_by', 'name email');
+    // Update asset document
+    const updatedAsset = await Asset.findByIdAndUpdate(
+      asset._id,
+      {
+        last_audit_date: new Date(),
+        last_audited_by: req.user.id
+      },
+      { new: true }
+    ).populate('assigned_user', 'name email department')
+     .populate('vendor', 'vendor_name email phone')
+     .populate('last_audited_by', 'name email');
 
     // Log successful scan
     await AuditLog.create({
       user_id: req.user.id,
+      performed_by: req.user.id,
       action: mode === 'audit' ? 'audit_scanned' : 
               mode === 'checkout' ? 'checkout_scanned' : 'qr_scan_success',
       entity_type: 'Asset',
       entity_id: asset._id,
+      asset_id: asset._id,
       description: `QR code scanned for asset ${asset.unique_asset_id} (${asset.name || asset.manufacturer + ' ' + asset.model})`,
       severity: 'info',
       ip_address: req.ip || req.connection.remoteAddress,
@@ -156,48 +165,49 @@ exports.scanAsset = async (req, res) => {
     });
 
     // Prepare response based on mode
+    const responseAsset = updatedAsset || asset;
     const response = {
       success: true,
       asset: {
-        id: asset._id,
-        unique_asset_id: asset.unique_asset_id,
-        qr_code: asset.qr_code,
-        name: asset.name,
-        manufacturer: asset.manufacturer,
-        model: asset.model,
-        serial_number: asset.serial_number,
-        category: asset.asset_type,
-        status: asset.status,
-        condition: asset.condition,
-        location: asset.location,
-        location_verified: asset.location_verified,
-        last_location_verification_date: asset.last_location_verification_date,
-        department: asset.department,
-        purchase_date: asset.purchase_date,
-        purchase_cost: asset.purchase_cost,
-        warranty_expiry: asset.warranty_expiry,
-        assigned_user: asset.assigned_user ? {
-          id: asset.assigned_user._id,
-          name: asset.assigned_user.name,
-          email: asset.assigned_user.email,
-          department: asset.assigned_user.department
+        id: responseAsset._id,
+        unique_asset_id: responseAsset.unique_asset_id,
+        qr_code: responseAsset.qr_code,
+        name: responseAsset.name,
+        manufacturer: responseAsset.manufacturer,
+        model: responseAsset.model,
+        serial_number: responseAsset.serial_number,
+        category: responseAsset.asset_type,
+        status: responseAsset.status,
+        condition: responseAsset.condition,
+        location: responseAsset.location,
+        location_verified: responseAsset.location_verified,
+        last_location_verification_date: responseAsset.last_location_verification_date,
+        department: responseAsset.department,
+        purchase_date: responseAsset.purchase_date,
+        purchase_cost: responseAsset.purchase_cost,
+        warranty_expiry: responseAsset.warranty_expiry,
+        assigned_user: responseAsset.assigned_user ? {
+          id: responseAsset.assigned_user._id,
+          name: responseAsset.assigned_user.name,
+          email: responseAsset.assigned_user.email,
+          department: responseAsset.assigned_user.department
         } : null,
-        vendor: asset.vendor ? {
-          id: asset.vendor._id,
-          name: asset.vendor.vendor_name,
-          email: asset.vendor.email,
-          phone: asset.vendor.phone
+        vendor: responseAsset.vendor ? {
+          id: responseAsset.vendor._id,
+          name: responseAsset.vendor.vendor_name,
+          email: responseAsset.vendor.email,
+          phone: responseAsset.vendor.phone
         } : null,
-        last_audit_date: asset.last_audit_date,
-        last_audited_by: asset.last_audited_by ? {
-          id: asset.last_audited_by._id,
-          name: asset.last_audited_by.name,
-          email: asset.last_audited_by.email
+        last_audit_date: responseAsset.last_audit_date,
+        last_audited_by: responseAsset.last_audited_by ? {
+          id: responseAsset.last_audited_by._id,
+          name: responseAsset.last_audited_by.name,
+          email: responseAsset.last_audited_by.email
         } : null,
-        last_maintenance_date: asset.last_maintenance_date,
-        images: asset.images || [],
-        notes: asset.notes,
-        quantity: asset.quantity
+        last_maintenance_date: responseAsset.last_maintenance_date,
+        images: responseAsset.images || [],
+        notes: responseAsset.notes,
+        quantity: responseAsset.quantity
       },
       scan_history: scanHistory,
       scanned_at: new Date(),
@@ -323,9 +333,11 @@ exports.batchScan = async (req, res) => {
           // Log scan
           await AuditLog.create({
             user_id: req.user.id,
+            performed_by: req.user.id,
             action: 'batch_scan',
             entity_type: 'Asset',
             entity_id: asset._id,
+            asset_id: asset._id,
             description: `Batch scan: ${asset.unique_asset_id}`,
             severity: 'info',
             ip_address: req.ip || req.connection.remoteAddress,
@@ -351,6 +363,7 @@ exports.batchScan = async (req, res) => {
     
     await AuditLog.create({
       user_id: req.user.id,
+      performed_by: req.user.id,
       action: 'batch_scan_completed',
       entity_type: 'System',
       description: `Batch scan completed: ${results.found} found, ${results.not_found} not found, ${results.invalid} invalid`,
@@ -656,6 +669,7 @@ exports.quickAuditScan = async (req, res) => {
       // Log failed audit
       await AuditLog.create({
         user_id: req.user.id,
+        performed_by: req.user.id,
         action: 'quick_audit_failed',
         entity_type: 'Asset',
         entity_id: null,
@@ -708,9 +722,11 @@ exports.quickAuditScan = async (req, res) => {
     // Log audit with detailed information
     const auditLog = await AuditLog.create({
       user_id: req.user.id,
+      performed_by: req.user.id,
       action: 'quick_audit_completed',
       entity_type: 'Asset',
       entity_id: asset._id,
+      asset_id: asset._id,
       description: `Quick audit completed for ${asset.unique_asset_id}: Condition=${condition || 'unchanged'}, Status=${status || 'unchanged'}`,
       severity: 'info',
       ip_address: req.ip || req.connection.remoteAddress,

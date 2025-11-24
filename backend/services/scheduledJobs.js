@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const assetDisposalAutomation = require('./assetDisposalAutomation');
+const assetLifecycleService = require('./assetLifecycleService');
 const AuditLog = require('../models/auditLog');
 
 /**
@@ -22,13 +23,16 @@ class ScheduledJobsManager {
     }
 
     try {
-      // Job 1: Daily Disposal Check (runs at 2 AM every day)
+      // Job 1: Daily Lifecycle Automation (runs at 1 AM every day)
+      this.scheduleLifecycleAutomation();
+
+      // Job 2: Daily Disposal Check (runs at 2 AM every day)
       this.scheduleDisposalCheck();
 
-      // Job 2: Weekly Statistics Update (runs at 3 AM every Monday)
+      // Job 3: Weekly Statistics Update (runs at 3 AM every Monday)
       this.scheduleWeeklyStats();
 
-      // Job 3: Audit Log Cleanup (runs at 4 AM on 1st of every month)
+      // Job 4: Audit Log Cleanup (runs at 4 AM on 1st of every month)
       this.scheduleAuditLogCleanup();
 
       this.isInitialized = true;
@@ -37,6 +41,32 @@ class ScheduledJobsManager {
       console.error('❌ Failed to initialize scheduled jobs:', error);
       throw error;
     }
+  }
+
+  /**
+   * 🔄 SCHEDULE LIFECYCLE AUTOMATION
+   * Runs at 1 AM every day - Moves outdated assets to dead stock, then to disposal
+   */
+  scheduleLifecycleAutomation() {
+    // Cron: "0 1 * * *" = At 01:00 (1 AM) every day
+    const job = cron.schedule('0 1 * * *', async () => {
+      console.log('⏰ [CRON] Running lifecycle automation...');
+      try {
+        const result = await assetLifecycleService.runFullLifecycleAutomation();
+        await this.logJobExecution('LIFECYCLE_AUTOMATION', result);
+      } catch (error) {
+        console.error('❌ [CRON] Lifecycle automation failed:', error);
+        await this.logJobExecution('LIFECYCLE_AUTOMATION', {
+          success: false,
+          error: error.message,
+        });
+      }
+    }, {
+      scheduled: true,
+      timezone: 'Asia/Kolkata',
+    });
+
+    this.jobs.set('lifecycle_automation', job);
   }
 
   /**
@@ -128,6 +158,25 @@ class ScheduledJobsManager {
   }
 
   /**
+   * 🔧 MANUAL TRIGGER FOR LIFECYCLE AUTOMATION
+   * Can be called via API endpoint for testing or manual runs
+   */
+  async triggerLifecycleNow() {
+    try {
+      console.log('🔧 [MANUAL] Running lifecycle automation...');
+      const result = await assetLifecycleService.runFullLifecycleAutomation();
+      await this.logJobExecution('LIFECYCLE_AUTOMATION_MANUAL', result);
+      return result;
+    } catch (error) {
+      await this.logJobExecution('LIFECYCLE_AUTOMATION_MANUAL', {
+        success: false,
+        error: error.message,
+      });
+      throw error;
+    }
+  }
+
+  /**
    * 🔧 MANUAL TRIGGER FOR DISPOSAL CHECK
    * Can be called via API endpoint for testing or manual runs
    */
@@ -169,6 +218,7 @@ class ScheduledJobsManager {
    */
   printSchedule() {
     console.log('\n📋 Scheduled Jobs:');
+    console.log('  • Lifecycle Automation: Daily 1 AM IST');
     console.log('  • Disposal Check: Daily 2 AM IST');
     console.log('  • Weekly Statistics: Mon 3 AM IST');
     console.log('  • Audit Cleanup: 1st 4 AM IST\n');

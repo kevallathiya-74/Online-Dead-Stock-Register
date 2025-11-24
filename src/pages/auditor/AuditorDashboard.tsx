@@ -188,9 +188,13 @@ const AuditorDashboard: React.FC = () => {
     setQrScannerOpen(false);
     setAssetDetailsOpen(true);
     
+    // Show only one success notification
     const assetName = asset.name || asset.unique_asset_id;
     console.log('📢 Showing success toast for:', assetName);
-    toast.success(`Asset found: ${assetName}`);
+    toast.success('Asset scanned successfully', {
+      autoClose: 2000,
+      position: 'top-center'
+    });
   };
 
   const handleAssetDetailsClose = () => {
@@ -199,8 +203,25 @@ const AuditorDashboard: React.FC = () => {
   };
 
   const handleNavigateToAsset = () => {
-    if (scannedAsset) {
-      navigate(`/assets/${scannedAsset.id}`);
+    if (!scannedAsset) {
+      toast.error('No asset selected');
+      return;
+    }
+    
+    if (!scannedAsset.id) {
+      toast.error('Invalid asset ID');
+      console.error('Asset missing ID:', scannedAsset);
+      return;
+    }
+    
+    try {
+      console.log('🔗 Navigating to asset details:', scannedAsset.id);
+      navigate(`/assets/${scannedAsset.id}`, {
+        state: { from: '/auditor/dashboard' }
+      });
+    } catch (error) {
+      console.error('❌ Navigation error:', error);
+      toast.error('Failed to navigate to asset details');
     }
   };
 
@@ -507,16 +528,6 @@ const AuditorDashboard: React.FC = () => {
               </Grid>
             )}
           </DialogContent>
-          <DialogActions>
-            <Button onClick={handleAssetDetailsClose}>Close</Button>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleNavigateToAsset}
-            >
-              View Full Details
-            </Button>
-          </DialogActions>
         </Dialog>
       </Box>
     </DashboardLayout>

@@ -80,7 +80,7 @@ const AuditListPage: React.FC = () => {
       setError(null);
       const data = await auditorService.getAuditItems();
       setAuditItems(data);
-      setFilteredItems(data);
+      // Don't call setFilteredItems here, let the useEffect handle it
     } catch (err: unknown) {
       setError((err as any).response?.data?.message || 'Failed to load audit items');
     } finally {
@@ -113,8 +113,8 @@ const AuditListPage: React.FC = () => {
   const handleEditClick = (item: AuditItem) => {
     setSelectedItem(item);
     setEditData({
-      condition: item.condition?.toLowerCase() || 'good',
-      status: item.status?.toLowerCase() || 'pending',
+      condition: (item.condition?.toLowerCase() || 'good').toLowerCase(),
+      status: (item.status?.toLowerCase() || 'pending').toLowerCase(),
       notes: item.notes || '',
     });
     setEditDialogOpen(true);
@@ -153,6 +153,7 @@ const AuditListPage: React.FC = () => {
           assetStatus = 'Available';
       }
 
+      // Update via API
       await auditorService.updateAuditStatus(selectedItem.id, {
         condition: editData.condition.toLowerCase(),
         status: assetStatus,
@@ -160,9 +161,26 @@ const AuditListPage: React.FC = () => {
         last_audit_date: new Date().toISOString(),
       });
 
+      // Update local state immediately for instant UI feedback
+      setAuditItems(prevItems => 
+        prevItems.map(item => 
+          item.id === selectedItem.id 
+            ? {
+                ...item,
+                condition: editData.condition.toLowerCase(),
+                status: editData.status.toLowerCase() as 'verified' | 'pending' | 'discrepancy' | 'missing',
+                notes: editData.notes,
+                last_audit_date: new Date().toISOString(),
+              }
+            : item
+        )
+      );
+
       toast.success('Audit status updated successfully');
       handleEditClose();
-      fetchAuditItems();
+      
+      // Fetch fresh data from server to ensure consistency
+      await fetchAuditItems();
     } catch (err: unknown) {
       toast.error((err as any).response?.data?.message || 'Failed to update audit status');
     }
@@ -180,7 +198,6 @@ const AuditListPage: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      toast.success('Audit report exported successfully as CSV');
     } catch (err) {
       toast.error('Failed to export audit report');
     }
@@ -245,7 +262,6 @@ const AuditListPage: React.FC = () => {
         toast.warning(`Import completed with ${result.errors.length} errors`);
       } else {
         setImportSuccess(`Successfully imported ${result.imported || 0} records`);
-        toast.success(`Successfully imported ${result.imported || 0} records`);
         
         // Refresh the audit list
         setTimeout(() => {
@@ -460,7 +476,14 @@ const AuditListPage: React.FC = () => {
         </TableContainer>
 
         {/* Edit Dialog */}
-        <Dialog open={editDialogOpen} onClose={handleEditClose} maxWidth="sm" fullWidth>
+        <Dialog 
+          open={editDialogOpen} 
+          onClose={handleEditClose} 
+          maxWidth="sm" 
+          fullWidth
+          disableEscapeKeyDown={false}
+          sx={{ zIndex: 1300 }}
+        >
           <DialogTitle>Update Audit Status</DialogTitle>
           <DialogContent>
             <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -477,11 +500,20 @@ const AuditListPage: React.FC = () => {
                 fullWidth
               />
               <FormControl fullWidth>
-                <InputLabel>Condition</InputLabel>
+                <InputLabel id="condition-select-label">Condition</InputLabel>
                 <Select
+                  labelId="condition-select-label"
+                  id="condition-select"
                   value={editData.condition}
                   label="Condition"
                   onChange={(e) => setEditData({ ...editData, condition: e.target.value })}
+                  MenuProps={{
+                    PaperProps: {
+                      style: {
+                        maxHeight: 300,
+                      },
+                    },
+                  }}
                 >
                   <MenuItem value="excellent">Excellent</MenuItem>
                   <MenuItem value="good">Good</MenuItem>
@@ -491,11 +523,20 @@ const AuditListPage: React.FC = () => {
                 </Select>
               </FormControl>
               <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
+                <InputLabel id="status-select-label">Status</InputLabel>
                 <Select
+                  labelId="status-select-label"
+                  id="status-select"
                   value={editData.status}
                   label="Status"
                   onChange={(e) => setEditData({ ...editData, status: e.target.value })}
+                  MenuProps={{
+                    PaperProps: {
+                      style: {
+                        maxHeight: 300,
+                      },
+                    },
+                  }}
                 >
                   <MenuItem value="verified">Verified</MenuItem>
                   <MenuItem value="pending">Pending</MenuItem>

@@ -32,6 +32,7 @@ const AdminAssetPage = lazy(() => import('./pages/admin/AdminAssetPage'));
 const AdminTransactionPage = lazy(() => import('./pages/admin/AdminTransactionPage'));
 const AdminAuditLogPage = lazy(() => import('./pages/admin/AdminAuditLogPage'));
 const AdminSystemSettingsPage = lazy(() => import('./pages/admin/AdminSystemSettingsPage'));
+const LifecycleManagementPage = lazy(() => import('./pages/admin/LifecycleManagementPage'));
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'));
 const AdminReportsPage = lazy(() => import('./pages/admin/AdminReportsPage'));
 const AdminCustomReportsPage = lazy(() => import('./pages/admin/AdminCustomReportsPage'));
@@ -81,7 +82,14 @@ const VendorProfilePage = lazy(() => import('./pages/vendor/VendorProfilePage'))
 // Generic Profile Page
 const UserProfilePage = lazy(() => import('./pages/profile/UserProfilePage'));
 
+// Debug Panel (only in development)
+import DebugPanel from './components/debug/DebugPanel';
+
 const App = () => {
+  // Only show debug panel in development or when explicitly enabled
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const debugEnabled = isDevelopment || localStorage.getItem('debug_mode') === 'true';
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -115,6 +123,7 @@ const App = () => {
               <Route path="/admin/analytics/reports" element={<AdminReportsPage />} />
               <Route path="/admin/analytics/custom" element={<AdminCustomReportsPage />} />
               <Route path="/admin/settings" element={<AdminSystemSettingsPage />} />
+              <Route path="/admin/lifecycle" element={<LifecycleManagementPage />} />
               <Route path="/admin/backups" element={<AdminBackupPage />} />
               <Route path="/admin/users" element={<AdminUsersPage />} />
               <Route path="/admin/users/add" element={<AdminAddUserPage />} />
@@ -180,6 +189,9 @@ const App = () => {
             </Suspense>
           </Router>
         </ErrorBoundary>
+        
+        {/* Debug Panel - Development Only */}
+        {debugEnabled && <DebugPanel enableQRDebug={true} />}
         
         {/* Toast Container for notifications - Optimized configuration */}
         <ToastContainer

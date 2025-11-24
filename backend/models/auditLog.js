@@ -2,14 +2,17 @@ const mongoose = require('mongoose');
 
 const auditLogSchema = new mongoose.Schema({
   user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  performed_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Alias for user_id (for scan history)
   action: { type: String, required: true },
   entity_type: { type: String },
   entity_id: { type: mongoose.Schema.Types.ObjectId },
+  asset_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Asset' }, // Specific reference for assets
   description: { type: String },
   severity: { type: String, enum: ['info', 'warning', 'error', 'critical'], default: 'info' },
   old_values: { type: Object },
   new_values: { type: Object },
   changes: { type: Object },
+  details: { type: Object },
   ip_address: { type: String },
   user_agent: { type: String },
   timestamp: { type: Date, default: Date.now }
