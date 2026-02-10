@@ -1,4 +1,4 @@
-import api from './api';
+import { apiGet, apiPost, apiPut, apiPatch } from '../utils/apiClient';
 
 export interface SecuritySettings {
   sessionTimeout: number;
@@ -114,16 +114,14 @@ class SettingsService {
    * Get all system settings
    */
   async getSettings(): Promise<SystemSettings> {
-    const response = await api.get('/settings');
-    return response.data.data;
+    return apiGet<SystemSettings>('/settings', undefined, 'Failed to fetch settings');
   }
 
   /**
    * Update all system settings
    */
   async updateSettings(updates: Partial<SystemSettings>): Promise<SystemSettings> {
-    const response = await api.put('/settings', updates);
-    return response.data.data;
+    return apiPut<SystemSettings>('/settings', updates, 'Failed to update settings');
   }
 
   /**
@@ -133,18 +131,14 @@ class SettingsService {
     category: 'security' | 'database' | 'email' | 'application',
     updates: Partial<SecuritySettings | DatabaseSettings | EmailSettings | ApplicationSettings>
   ): Promise<SystemSettings> {
-    const response = await api.patch(`/settings/${category}`, updates);
-    return response.data.data;
+    return apiPatch<SystemSettings>(`/settings/${category}`, updates, 'Failed to update category settings');
   }
 
   /**
    * Search settings
    */
   async searchSettings(query: string): Promise<SearchResult[]> {
-    const response = await api.get('/settings/search', {
-      params: { query },
-    });
-    return response.data.data;
+    return apiGet<SearchResult[]>('/settings/search', { query }, 'Failed to search settings');
   }
 
   /**
@@ -159,79 +153,56 @@ class SettingsService {
     page?: number;
     limit?: number;
   }): Promise<SettingsHistoryResponse> {
-    const response = await api.get('/settings/history', {
-      params: filters,
-    });
-    return {
-      history: response.data.data,
-      pagination: response.data.pagination,
-    };
+    return apiGet<SettingsHistoryResponse>('/settings/history', filters, 'Failed to fetch settings history');
   }
 
   /**
    * Get recent changes
    */
   async getRecentChanges(limit = 10): Promise<SettingsHistoryItem[]> {
-    const response = await api.get('/settings/history/recent', {
-      params: { limit },
-    });
-    return response.data.data;
+    return apiGet<SettingsHistoryItem[]>('/settings/history/recent', { limit }, 'Failed to fetch recent changes');
   }
 
   /**
    * Test database connection
    */
   async testDatabaseConnection(connectionString?: string): Promise<ConnectionTestResult> {
-    const response = await api.post('/settings/test/database', {
-      connectionString,
-    });
-    return response.data.data;
+    return apiPost<ConnectionTestResult>('/settings/test/database', { connectionString }, 'Failed to test database connection');
   }
 
   /**
    * Test email connection
    */
   async testEmailConnection(emailConfig?: Partial<EmailSettings>): Promise<ConnectionTestResult> {
-    const response = await api.post('/settings/test/email', {
-      emailConfig,
-    });
-    return response.data.data;
+    return apiPost<ConnectionTestResult>('/settings/test/email', { emailConfig }, 'Failed to test email connection');
   }
 
   /**
    * Test Redis connection
    */
   async testRedisConnection(redisUrl?: string): Promise<ConnectionTestResult> {
-    const response = await api.post('/settings/test/redis', {
-      redisUrl,
-    });
-    return response.data.data;
+    return apiPost<ConnectionTestResult>('/settings/test/redis', { redisUrl }, 'Failed to test Redis connection');
   }
 
   /**
    * Test all connections
    */
   async testAllConnections(): Promise<AllConnectionsTestResult> {
-    const response = await api.post('/settings/test/all');
-    return response.data.data;
+    return apiPost<AllConnectionsTestResult>('/settings/test/all', {}, 'Failed to test all connections');
   }
 
   /**
    * Send test email
    */
   async sendTestEmail(email: string): Promise<ConnectionTestResult> {
-    const response = await api.post('/settings/test/send-email', {
-      email,
-    });
-    return response.data.data;
+    return apiPost<ConnectionTestResult>('/settings/test/send-email', { email }, 'Failed to send test email');
   }
 
   /**
    * Reset settings to defaults
    */
   async resetToDefaults(): Promise<SystemSettings> {
-    const response = await api.post('/settings/reset');
-    return response.data.data;
+    return apiPost<SystemSettings>('/settings/reset', {}, 'Failed to reset settings to defaults');
   }
 
   /**
@@ -242,8 +213,11 @@ class SettingsService {
     version: string;
     settings: SystemSettings;
   }> {
-    const response = await api.get('/settings/export');
-    return response.data.data;
+    return apiGet<{
+      exportDate: string;
+      version: string;
+      settings: SystemSettings;
+    }>('/settings/export', undefined, 'Failed to export settings');
   }
 
   /**
@@ -252,24 +226,21 @@ class SettingsService {
   async importSettings(importData: {
     settings: Partial<SystemSettings>;
   }): Promise<SystemSettings> {
-    const response = await api.post('/settings/import', importData);
-    return response.data.data;
+    return apiPost<SystemSettings>('/settings/import', importData, 'Failed to import settings');
   }
 
   /**
    * Get accessible categories for current user
    */
   async getAccessibleCategories(): Promise<string[]> {
-    const response = await api.get('/settings/accessible-categories');
-    return response.data.data;
+    return apiGet<string[]>('/settings/accessible-categories', undefined, 'Failed to fetch accessible categories');
   }
 
   /**
    * Get role permissions configuration
    */
   async getRolePermissions(): Promise<Record<string, string[]>> {
-    const response = await api.get('/settings/role-permissions');
-    return response.data.data;
+    return apiGet<Record<string, string[]>>('/settings/role-permissions', undefined, 'Failed to fetch role permissions');
   }
 
   /**
@@ -279,11 +250,7 @@ class SettingsService {
     category: 'security' | 'database' | 'email' | 'application',
     roles: string[]
   ): Promise<Record<string, string[]>> {
-    const response = await api.put('/settings/role-permissions', {
-      category,
-      roles,
-    });
-    return response.data.data;
+    return apiPut<Record<string, string[]>>('/settings/role-permissions', { category, roles }, 'Failed to update role permissions');
   }
 }
 

@@ -1,4 +1,4 @@
-import api from './api';
+import { apiGet, apiPatch, apiDelete } from '../utils/apiClient';
 import { ApiResponse } from '../types';
 
 // Notification Service
@@ -41,65 +41,31 @@ class NotificationService {
     pagination: NotificationPagination;
     stats: NotificationStats;
   }> {
-    try {
-      const response = await api.get<ApiResponse<any>>(`/notifications?page=${page}&limit=${limit}`);
-      if (response.data.success && response.data.data) {
-        return response.data.data;
-      }
-      throw new Error(response.data.error || 'Failed to fetch notifications');
-    } catch (error: unknown) {
-      const err = error as Error & { response?: { data?: { message?: string } }; message: string };
-      throw new Error(err.response?.data?.message || err.message || 'Failed to fetch notifications');
-    }
+    return apiGet<{
+      notifications: Notification[];
+      pagination: NotificationPagination;
+      stats: NotificationStats;
+    }>('/notifications', { page, limit }, 'Failed to fetch notifications');
   }
 
   // Mark notification as read
   async markAsRead(notificationId: string): Promise<void> {
-    try {
-      const response = await api.patch<ApiResponse<any>>(`/notifications/${notificationId}/read`);
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'Failed to mark notification as read');
-      }
-    } catch (error: unknown) {
-      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to mark notification as read');
-    }
+    return apiPatch<void>(`/notifications/${notificationId}/read`, {}, 'Failed to mark notification as read');
   }
 
   // Mark all notifications as read
   async markAllAsRead(): Promise<void> {
-    try {
-      const response = await api.patch<ApiResponse<any>>('/notifications/mark-all-read');
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'Failed to mark all notifications as read');
-      }
-    } catch (error: unknown) {
-      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to mark all notifications as read');
-    }
+    return apiPatch<void>('/notifications/mark-all-read', {}, 'Failed to mark all notifications as read');
   }
 
   // Delete notification
   async deleteNotification(notificationId: string): Promise<void> {
-    try {
-      const response = await api.delete<ApiResponse<any>>(`/notifications/${notificationId}`);
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'Failed to delete notification');
-      }
-    } catch (error: unknown) {
-      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to delete notification');
-    }
+    return apiDelete(`/notifications/${notificationId}`, 'Failed to delete notification');
   }
 
   // Get notification stats
   async getNotificationStats(): Promise<NotificationStats> {
-    try {
-      const response = await api.get<ApiResponse<NotificationStats>>('/notifications/stats');
-      if (response.data.success && response.data.data) {
-        return response.data.data;
-      }
-      throw new Error(response.data.error || 'Failed to fetch notification stats');
-    } catch (error: unknown) {
-      throw new Error((error as any).response?.data?.message || (error as any).message || 'Failed to fetch notification stats');
-    }
+    return apiGet<NotificationStats>('/notifications/stats', undefined, 'Failed to fetch notification stats');
   }
 }
 
