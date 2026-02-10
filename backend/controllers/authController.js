@@ -1,6 +1,6 @@
 require('dotenv').config();
 const User = require('../models/user');
-const bcrypt = require('bcryptjs');
+const { hashPassword, comparePassword } = require('../utils/passwordHelper');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const emailService = require('../utils/emailService');
@@ -69,7 +69,7 @@ exports.signup = async (req, res) => {
     }
 
     // Hash password
-    const hashed = await bcrypt.hash(password, 10);
+    const hashed = await hashPassword(password);
     
     const userData = {
       name: name,
@@ -141,7 +141,7 @@ exports.login = async (req, res) => {
     logger.debug('User found', { id: user._id, email: user.email, role: user.role });
     
     // Verify password
-    const valid = await bcrypt.compare(password, user.password);
+    const valid = await comparePassword(password, user.password);
     
     if (!valid) {
       logger.warn('Login failed: Invalid password', { email });
@@ -256,7 +256,7 @@ exports.resetPassword = async (req, res) => {
     }
 
     // Ensure new password is different from current
-    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+    const isSamePassword = await comparePassword(newPassword, user.password);
     if (isSamePassword) {
       return res.status(400).json({
         message: 'New password must be different from current password'
@@ -264,8 +264,7 @@ exports.resetPassword = async (req, res) => {
     }
 
     // Hash new password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    const hashedPassword = await hashPassword(newPassword);
 
     // Update user password and clear reset token
     user.password = hashedPassword;

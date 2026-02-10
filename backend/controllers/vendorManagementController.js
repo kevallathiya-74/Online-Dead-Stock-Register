@@ -4,6 +4,7 @@ const Asset = require('../models/asset');
 const Transaction = require('../models/transaction');
 const AuditLog = require('../models/auditLog');
 const mongoose = require('mongoose');
+const { createAuditLog } = require('../utils/crudHandler');
 
 // Get all vendors with pagination and filtering
 exports.getAllVendors = async (req, res) => {
@@ -105,17 +106,15 @@ exports.createVendor = async (req, res) => {
     await vendor.save();
 
     // Create audit log
-    const auditLog = new AuditLog({
+    await createAuditLog(AuditLog, {
       action: 'vendor_created',
       performed_by: req.user.id,
       details: {
         vendor_id: vendor._id,
         vendor_name: vendor.vendor_name || vendor.name,
         vendor_code: vendor.vendor_code
-      },
-      timestamp: new Date()
+      }
     });
-    await auditLog.save();
 
     res.status(201).json({
       message: 'Vendor created successfully',
@@ -164,17 +163,15 @@ exports.updateVendor = async (req, res) => {
     );
 
     // Create audit log
-    const auditLog = new AuditLog({
+    await createAuditLog(AuditLog, {
       action: 'vendor_updated',
       performed_by: req.user.id,
       details: {
         vendor_id: id,
         vendor_name: updatedVendor.vendor_name || updatedVendor.name,
         updated_fields: Object.keys(updateData)
-      },
-      timestamp: new Date()
+      }
     });
-    await auditLog.save();
 
     res.json({
       message: 'Vendor updated successfully',
@@ -214,17 +211,15 @@ exports.deleteVendor = async (req, res) => {
     await vendor.save();
 
     // Create audit log
-    const auditLog = new AuditLog({
+    await createAuditLog(AuditLog, {
       action: 'vendor_deleted',
       performed_by: req.user.id,
       details: {
         vendor_id: id,
         vendor_name: vendor.vendor_name || vendor.name,
         vendor_code: vendor.vendor_code
-      },
-      timestamp: new Date()
+      }
     });
-    await auditLog.save();
 
     res.json({ message: 'Vendor deactivated successfully' });
   } catch (error) {
@@ -361,7 +356,7 @@ exports.updateVendorRating = async (req, res) => {
     await vendor.save();
 
     // Create audit log
-    const auditLog = new AuditLog({
+    await createAuditLog(AuditLog, {
       action: 'vendor_rating_updated',
       performed_by: req.user.id,
       details: {
@@ -370,10 +365,8 @@ exports.updateVendorRating = async (req, res) => {
         old_rating: oldRating,
         new_rating: rating,
         notes
-      },
-      timestamp: new Date()
+      }
     });
-    await auditLog.save();
 
     res.json({
       message: 'Vendor rating updated successfully',

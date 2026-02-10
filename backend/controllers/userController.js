@@ -1,5 +1,5 @@
 const User = require('../models/user');
-const bcrypt = require('bcryptjs');
+const { hashPassword, comparePassword } = require('../utils/passwordHelper');
 const logger = require('../utils/logger');
 
 // GET current user profile
@@ -229,8 +229,7 @@ exports.createUser = async (req, res) => {
 
     // Hash password (use provided password or generate default)
     const plainPassword = password || 'Password@123';
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(plainPassword, saltRounds);
+    const hashedPassword = await hashPassword(plainPassword);
 
     // Create new user
     const user = new User({
@@ -298,7 +297,7 @@ exports.changePassword = async (req, res) => {
     }
     
     // Verify current password
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    const isMatch = await comparePassword(currentPassword, user.password);
     if (!isMatch) {
       return res.status(401).json({
         success: false,
@@ -307,8 +306,7 @@ exports.changePassword = async (req, res) => {
     }
     
     // Hash new password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    const hashedPassword = await hashPassword(newPassword);
     
     // Update password
     user.password = hashedPassword;
@@ -347,8 +345,7 @@ exports.updateUser = async (req, res) => {
     
     // If password is being updated, hash it
     if (password) {
-      const saltRounds = 10;
-      updateData.password = await bcrypt.hash(password, saltRounds);
+      updateData.password = await hashPassword(password);
     }
     
     const updated = await User.findByIdAndUpdate(
