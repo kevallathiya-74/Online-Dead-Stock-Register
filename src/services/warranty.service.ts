@@ -57,10 +57,12 @@ class WarrantyService {
     
     // Map backend 'id' field to '_id' for frontend consistency
     if (response.data) {
-      response.data = response.data.map((warranty: Partial<WarrantyItem> & { id?: string }) => ({
-        ...warranty,
-        _id: warranty.id || warranty._id || '',
-      })) as WarrantyItem[];
+      response.data = response.data
+        .map((warranty: Partial<WarrantyItem> & { id?: string }) => ({
+          ...warranty,
+          _id: warranty.id || warranty._id || '',
+        }))
+        .filter((warranty: any) => warranty._id !== '') as WarrantyItem[];
     }
     
     return { success: true, ...response };
