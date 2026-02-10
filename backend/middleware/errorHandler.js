@@ -1,4 +1,4 @@
-const { AppError } = require('../utils/AppError');
+const { AppError } = require('../utils/responseHandler');
 const logger = require('../utils/logger');
 
 const errorHandler = (err, req, res, next) => {

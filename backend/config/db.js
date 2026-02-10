@@ -82,8 +82,10 @@ const connectDB = async (retries = 5) => {
       await new Promise(resolve => setTimeout(resolve, 5000));
       return connectDB(retries - 1);
     } else {
-      console.error('💥 All connection attempts failed. Exiting...');
-      process.exit(1);
+      console.error('💥 All connection attempts failed.');
+      console.warn('⚠️  Server will continue running without MongoDB.');
+      console.warn('⚠️  Database-dependent features will not be available.');
+      return null;
     }
   }
 };

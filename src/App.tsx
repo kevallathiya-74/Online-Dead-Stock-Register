@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -9,6 +9,7 @@ import { theme } from './config/theme';
 import { UserRole } from './types';
 import Loading from './components/common/Loading';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import { initializeSession, cleanupSession } from './utils/sessionManagement';
 
 // Auth Pages (keep these eagerly loaded for faster initial auth experience)
 import Landing from './pages/auth/Landing';
@@ -89,6 +90,17 @@ const App = () => {
   // Only show debug panel in development or when explicitly enabled
   const isDevelopment = process.env.NODE_ENV === 'development';
   const debugEnabled = isDevelopment || localStorage.getItem('debug_mode') === 'true';
+
+  // ✅ Initialize session management (timeout, inactivity tracking)
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      initializeSession();
+    }
+    
+    // Cleanup on unmount
+    return () => cleanupSession();
+  }, []);
 
   return (
     <ThemeProvider theme={theme}>

@@ -439,6 +439,16 @@ app.get('/ping', (req, res) => {
   res.status(200).send('pong');
 });
 
+// Lightweight health check for keep-alive service (minimal overhead)
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()),
+    service: 'DSR-Backend'
+  });
+});
+
 // API root endpoint - Backend only (no static files)
 app.get('/', (req, res) => {
   res.status(200).json({
@@ -512,6 +522,12 @@ const startServer = () => {
 let connectionCheckInterval = null;
 
 const startConnectionMonitor = () => {
+  // Only monitor if we have a successful MongoDB connection
+  if (mongoose.connection.readyState !== 1) {
+    logger.warn('Skipping connection monitor - MongoDB not connected');
+    return;
+  }
+  
   // Check every 30 seconds
   connectionCheckInterval = setInterval(async () => {
     try {
@@ -547,6 +563,15 @@ const startConnectionMonitor = () => {
 // Graceful shutdown handler
 const gracefulShutdown = async (signal) => {
   logger.info(`${signal} signal received: closing HTTP server and database connection`);
+  
+  // Stop keep-alive service
+  try {
+    const keepAliveService = require('./services/keepAliveService');
+    keepAliveService.stop();
+    logger.info('Keep-alive service stopped');
+  } catch (err) {
+    logger.warn('Keep-alive service stop skipped - may not be initialized');
+  }
   
   // Stop connection monitor
   if (connectionCheckInterval) {
@@ -622,23 +647,33 @@ process.on('uncaughtException', (err) => {
 // INITIALIZE APPLICATION
 // ========================================
 // Connect to MongoDB and start server
-connectDB().then(() => {
-  logger.info('Database connection established');
+connectDB().then((connection) => {
+  if (connection) {
+    logger.info('Database connection established');
+    
+    // Initialize cron jobs for scheduled audits
+    const { initializeCronJobs } = require('./services/cronService');
+    initializeCronJobs();
+    
+    // Initialize disposal automation scheduler
+    const scheduledJobs = require('./services/scheduledJobs');
+    scheduledJobs.initialize().catch(err => {
+      console.error('❌ Failed to initialize disposal automation:', err);
+    });
+    
+    // Initialize keep-alive service (prevents Render spin-down)
+    const keepAliveService = require('./services/keepAliveService');
+    keepAliveService.start();
+  } else {
+    logger.warn('⚠️  Starting server without database connection');
+    console.warn('⚠️  Database-dependent features will not be available');
+  }
   
-  // Initialize cron jobs for scheduled audits
-  const { initializeCronJobs } = require('./services/cronService');
-  initializeCronJobs();
-  
-  // Initialize disposal automation scheduler ✅ NEW
-  const scheduledJobs = require('./services/scheduledJobs');
-  scheduledJobs.initialize().catch(err => {
-    console.error('❌ Failed to initialize disposal automation:', err);
-  });
-  
-  // Start the HTTP server after DB connection and cron initialization
+  // Start the HTTP server after DB connection attempt
   startServer();
 }).catch(err => {
   console.error('❌ Database connection error in server.js:', err);
   logger.error('Database connection error:', err);
-  process.exit(1);
+  console.warn('⚠️  Starting server anyway...');
+  startServer();
 });

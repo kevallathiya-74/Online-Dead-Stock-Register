@@ -6,59 +6,9 @@
     "auditLog": "D:\\Online-Dead-Stock-Register\\backend\\logs\\.a835ac3e39a941742e45cf5d0de0cb5c05dbba1a-audit.json",
     "files": [
         {
-            "date": 1762839387601,
-            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\application-2025-11-11.log",
-            "hash": "b24bf748652c3893c4eed0b1f02e3ece7cd0fc768a08038754c278acc28757b8"
-        },
-        {
-            "date": 1762925601439,
-            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\application-2025-11-12.log",
-            "hash": "a1cb1bd61cc22d88c4ba2436008c99eb6812c8c7d191ac91ef62c38728d52ebf"
-        },
-        {
-            "date": 1763016522599,
-            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\application-2025-11-13.log",
-            "hash": "e9b8f5ab6494f71eac722d880fedb50e2dd4ade085e78d2c4858b33d9b5f1acb"
-        },
-        {
-            "date": 1763098797852,
-            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\application-2025-11-14.log",
-            "hash": "bd07353aff44d62cca66e5db9b7483fed8b3240a06d3bcccb77f3f2aacc9ded8"
-        },
-        {
-            "date": 1763355938579,
-            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\application-2025-11-17.log",
-            "hash": "6bd3190709005483b28d0f654faba663b1698caf4558213a0d4ea93a36c97c2e"
-        },
-        {
-            "date": 1763455981511,
-            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\application-2025-11-18.log",
-            "hash": "7153631730d20dc3562f7d4abdcc096ec933a7419fffbb1898a7516b92560f33"
-        },
-        {
-            "date": 1763535922901,
-            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\application-2025-11-19.log",
-            "hash": "91b852d7132c6c2cce4d0cd3f3c10934d50a21a265ef4a010f43e04aac841c43"
-        },
-        {
-            "date": 1763624979193,
-            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\application-2025-11-20.log",
-            "hash": "d488848f803f6acf5f9116e5377ed63f6449e7ee697fcb63d38c7edb87de1c7f"
-        },
-        {
-            "date": 1763701013500,
-            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\application-2025-11-21.log",
-            "hash": "979fcd428d3ecf29edb2cc9ebed809b6d5eba9a1dd5cc893345bd3671089baa2"
-        },
-        {
-            "date": 1763789416642,
-            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\application-2025-11-22.log",
-            "hash": "1fbe62bff36987aab3739a0a9e1182908768e9cdc0e67769f9eb3c09a12d7493"
-        },
-        {
-            "date": 1763958179290,
-            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\application-2025-11-24.log",
-            "hash": "8f6e7095062854d648d2f29bc3afe229b468eacbf77c64d1f0d6f85835b1f80f"
+            "date": 1770720212471,
+            "name": "D:\\Online-Dead-Stock-Register\\backend\\logs\\application-2026-02-10.log",
+            "hash": "70ffd68f8694a1f2f05b4dbf9d523b7391c2d2a388ffceaea957f36a6bff780e"
         }
     ],
     "hashType": "sha256"

@@ -2,6 +2,7 @@ import axios from 'axios';
 import { API_BASE_URL } from '../config/api.config';
 import { toast } from 'react-toastify';
 import { getNotificationConfig, shouldShowNotification, NotificationTier } from '../utils/notificationConfig';
+import { clearSession, extendSession } from '../utils/sessionManagement';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -25,30 +26,34 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor with standardized error handling
+// Response interceptor with centralized error handling & session management
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Extend session on successful API calls
+    extendSession();
+    return response;
+  },
   (error) => {
     const notificationConfig = getNotificationConfig(error);
     
+    // Handle authentication errors (401)
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      
-      // Critical notification for auth failure
+      clearSession('Your session has expired. Please log in again.');
+      return Promise.reject(error);
+    }
+    
+    // Handle authorization errors (403)
+    if (error.response?.status === 403) {
       if (notificationConfig.tier === NotificationTier.CRITICAL) {
-        toast.error(notificationConfig.message, {
+        toast.error('You do not have permission to perform this action', {
           position: 'top-center',
-          autoClose: false,
-          closeOnClick: false,
+          autoClose: 5000,
         });
       }
-      
-      // Delay redirect to allow user to see message
-      setTimeout(() => {
-        window.location.href = '/login';
-      }, 2000);
-    } else if (shouldShowNotification(notificationConfig.message)) {
-      // Show notification only if not a duplicate
+    }
+    
+    // Show notification only if not a duplicate
+    else if (shouldShowNotification(notificationConfig.message)) {
       const toastMethod = notificationConfig.type === 'error' ? toast.error : 
                          notificationConfig.type === 'warning' ? toast.warning :
                          toast.info;

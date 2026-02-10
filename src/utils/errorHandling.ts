@@ -1,8 +1,11 @@
 import { toast } from 'react-toastify';
 
 /**
- * Standardized error handling utility
- * Extracts meaningful error messages from various error formats
+ * ✅ CENTRALIZED FRONTEND ERROR HANDLING
+ * ========================================
+ * ONE FILE CONTROLS ALL ERROR MESSAGES
+ * NEVER SHOW RAW BACKEND ERRORS TO USERS
+ * ALWAYS USER-FRIENDLY & ACTIONABLE
  */
 
 export interface ApiError {
@@ -11,38 +14,70 @@ export interface ApiError {
   message?: string;
   details?: string;
   statusCode?: number;
+  errors?: Array<{ field: string; message: string }>;
 }
 
 /**
- * Extract error message from various error response formats
+ * Extract user-friendly error message from various error formats
+ * ✅ ALWAYS returns a safe, user-friendly message
+ * ❌ NEVER exposes technical details or stack traces
  */
 export const getErrorMessage = (error: unknown): string => {
-  // Axios error response
+  // Handle Axios errors with response
   if (error && typeof error === 'object' && 'response' in error) {
-    const axiosError = error as { response?: { data?: ApiError } };
+    const axiosError = error as { response?: { data?: ApiError; status?: number } };
+    
     if (axiosError.response?.data) {
       const data = axiosError.response.data;
-      return data.error || data.message || data.details || 'An error occurred';
+      
+      // Return server error message (already user-friendly from backend)
+      if (data.error) return data.error;
+      if (data.message) return data.message;
+      if (data.details) return data.details;
+      
+      // Handle validation errors
+      if (data.errors && Array.isArray(data.errors) && data.errors.length > 0) {
+        return data.errors.map(e => e.message).join(', ');
+      }
     }
+    
+    // Handle HTTP status codes with meaningful messages
+    const status = axiosError.response?.status;
+    if (status === 401) return 'Your session has expired. Please log in again.';
+    if (status === 403) return 'You do not have permission to perform this action.';
+    if (status === 404) return 'The requested resource was not found.';
+    if (status === 429) return 'Too many requests. Please try again later.';
+    if (status === 503) return 'Service temporarily unavailable. Please try again later.';
+    if (status && status >= 500) return 'A server error occurred. Please try again later.';
   }
 
-  // Axios error without response
+  // Handle network errors (no response from server)
   if (error && typeof error === 'object' && 'request' in error) {
-    return 'Network error. Please check your connection.';
+    return 'Unable to connect to the server. Please check your internet connection.';
   }
 
-  // Standard Error object
+  // Handle standard Error objects
   if (error instanceof Error) {
+    // Don't expose technical error messages
+    const technicalKeywords = ['undefined', 'null', 'cannot read', 'TypeError', 'ReferenceError'];
+    const isTechnical = technicalKeywords.some(keyword => 
+      error.message.toLowerCase().includes(keyword.toLowerCase())
+    );
+    
+    if (isTechnical) {
+      return 'An unexpected error occurred. Please try again.';
+    }
+    
     return error.message;
   }
 
-  // String error
+  // Handle string errors
   if (typeof error === 'string') {
     return error;
   }
 
-  // Fallback
-  return 'An unexpected error occurred';
+  // Fallback for unknown error types
+  return 'An unexpected error occurred. Please try again.';
 };
 
 /**
