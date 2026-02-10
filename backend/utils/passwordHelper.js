@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 /**
  * Password utility functions to eliminate duplication across controllers
@@ -79,25 +80,45 @@ exports.validatePasswordStrength = (password) => {
 };
 
 /**
- * Generate a random password
+ * Generate a random password using cryptographically secure random values
  * @param {number} length - Length of password (default: 12)
  * @returns {string} Random password
  */
 exports.generateRandomPassword = (length = 12) => {
-  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
-  let password = '';
+  const uppercaseChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lowercaseChars = 'abcdefghijklmnopqrstuvwxyz';
+  const numberChars = '0123456789';
+  const specialChars = '!@#$%^&*';
+  const allChars = uppercaseChars + lowercaseChars + numberChars + specialChars;
   
-  // Ensure at least one of each required character type
-  password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)];
-  password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)];
-  password += '0123456789'[Math.floor(Math.random() * 10)];
-  password += '!@#$%^&*'[Math.floor(Math.random() * 8)];
-  
-  // Fill the rest randomly
-  for (let i = password.length; i < length; i++) {
-    password += charset[Math.floor(Math.random() * charset.length)];
+  if (length < 4) {
+    throw new Error('Password length must be at least 4 characters');
   }
   
-  // Shuffle the password
-  return password.split('').sort(() => Math.random() - 0.5).join('');
+  // Use crypto.randomInt for cryptographically secure random selection
+  const getRandomChar = (chars) => {
+    const randomIndex = crypto.randomInt(0, chars.length);
+    return chars[randomIndex];
+  };
+  
+  // Ensure at least one of each required character type
+  let password = '';
+  password += getRandomChar(uppercaseChars);
+  password += getRandomChar(lowercaseChars);
+  password += getRandomChar(numberChars);
+  password += getRandomChar(specialChars);
+  
+  // Fill the rest with random characters from all character sets
+  for (let i = password.length; i < length; i++) {
+    password += getRandomChar(allChars);
+  }
+  
+  // Shuffle the password using Fisher-Yates algorithm with crypto random
+  const passwordArray = password.split('');
+  for (let i = passwordArray.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(0, i + 1);
+    [passwordArray[i], passwordArray[j]] = [passwordArray[j], passwordArray[i]];
+  }
+  
+  return passwordArray.join('');
 };

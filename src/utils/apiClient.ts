@@ -7,6 +7,22 @@ import { ApiResponse } from '../types';
  */
 
 /**
+ * Helper to build query parameters string
+ * @param params - Object with query parameters
+ * @returns Query string
+ */
+export function buildQueryString(params: Record<string, any>): string {
+  const filtered = Object.entries(params).reduce((acc, [key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      acc[key] = String(value);
+    }
+    return acc;
+  }, {} as Record<string, string>);
+  
+  return new URLSearchParams(filtered).toString();
+}
+
+/**
  * Generic GET request handler
  * @param endpoint - API endpoint
  * @param params - Query parameters
@@ -19,14 +35,7 @@ export async function apiGet<T>(
   errorMessage = 'Failed to fetch data'
 ): Promise<T> {
   try {
-    const queryParams = params ? new URLSearchParams(
-      Object.entries(params).reduce((acc, [key, value]) => {
-        if (value !== undefined && value !== null) {
-          acc[key] = String(value);
-        }
-        return acc;
-      }, {} as Record<string, string>)
-    ).toString() : '';
+    const queryParams = params ? buildQueryString(params) : '';
     
     const url = queryParams ? `${endpoint}?${queryParams}` : endpoint;
     const response = await api.get<ApiResponse<T>>(url);
@@ -140,22 +149,6 @@ export async function apiDelete(
     const message = error instanceof Error ? error.message : errorMessage;
     throw new Error(message);
   }
-}
-
-/**
- * Helper to build query parameters string
- * @param params - Object with query parameters
- * @returns Query string
- */
-export function buildQueryString(params: Record<string, any>): string {
-  const filtered = Object.entries(params).reduce((acc, [key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      acc[key] = String(value);
-    }
-    return acc;
-  }, {} as Record<string, string>);
-  
-  return new URLSearchParams(filtered).toString();
 }
 
 /**
