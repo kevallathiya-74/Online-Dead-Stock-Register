@@ -3,6 +3,7 @@ const User = require('../models/user');
 const mongoose = require('mongoose');
 const AuditLog = require('../models/auditLog');
 const Notification = require('../models/notification');
+const { createAuditLog } = require('../utils/crudHandler');
 
 // Create new asset request
 exports.createAssetRequest = async (req, res) => {
@@ -46,7 +47,7 @@ exports.createAssetRequest = async (req, res) => {
     await assetRequest.populate('requester', 'full_name email employee_id');
 
     // Create audit log
-    const auditLog = new AuditLog({
+    await createAuditLog(AuditLog, {
       action: 'asset_request_created',
       performed_by: userId,
       details: {
@@ -54,10 +55,8 @@ exports.createAssetRequest = async (req, res) => {
         asset_type,
         priority,
         required_by_date
-      },
-      timestamp: new Date()
+      }
     });
-    await auditLog.save();
 
     // Create notification for inventory managers
     const inventoryManagers = await User.find({ 
@@ -213,16 +212,14 @@ exports.updateAssetRequest = async (req, res) => {
     ).populate('requester', 'full_name email employee_id');
 
     // Create audit log
-    const auditLog = new AuditLog({
+    await createAuditLog(AuditLog, {
       action: 'asset_request_updated',
       performed_by: userId,
       details: {
         request_id: id,
         updated_fields: Object.keys(filteredUpdateData)
-      },
-      timestamp: new Date()
+      }
     });
-    await auditLog.save();
 
     res.json({
       message: 'Asset request updated successfully',
@@ -264,16 +261,14 @@ exports.cancelAssetRequest = async (req, res) => {
     await request.save();
 
     // Create audit log
-    const auditLog = new AuditLog({
+    await createAuditLog(AuditLog, {
       action: 'asset_request_cancelled',
       performed_by: userId,
       details: {
         request_id: id,
         cancellation_reason
-      },
-      timestamp: new Date()
+      }
     });
-    await auditLog.save();
 
     res.json({
       message: 'Asset request cancelled successfully',
