@@ -1,7 +1,8 @@
 const User = require('../models/user');
 const logger = require('../utils/logger');
 const AuditLog = require('../models/auditLog');
-const bcrypt = require('bcryptjs');
+const { hashPassword } = require('../utils/passwordHelper');
+const { createAuditLog } = require('../utils/crudHandler');
 
 // Get all users with pagination and filtering
 exports.getAllUsers = async (req, res) => {
@@ -79,8 +80,7 @@ exports.createUser = async (req, res) => {
     }
 
     // Hash password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const hashedPassword = await hashPassword(password);
 
     // Create new user
     const newUser = new User({
@@ -98,17 +98,15 @@ exports.createUser = async (req, res) => {
     await newUser.save();
 
     // Create audit log
-    const auditLog = new AuditLog({
+    await createAuditLog(AuditLog, {
       action: 'user_created',
       performed_by: req.user.id,
       details: {
         created_user_id: newUser._id,
         created_user_email: email,
         created_user_role: role
-      },
-      timestamp: new Date()
+      }
     });
-    await auditLog.save();
 
     // Return user without password
     const userResponse = newUser.toObject();
@@ -172,16 +170,14 @@ exports.updateUser = async (req, res) => {
     );
 
     // Create audit log
-    const auditLog = new AuditLog({
+    await createAuditLog(AuditLog, {
       action: 'user_updated',
       performed_by: req.user.id,
       details: {
         updated_user_id: id,
         updated_fields: Object.keys(updateData)
-      },
-      timestamp: new Date()
+      }
     });
-    await auditLog.save();
 
     res.json({
       message: 'User updated successfully',
@@ -215,17 +211,15 @@ exports.changeUserRole = async (req, res) => {
     await user.save();
 
     // Create audit log
-    const auditLog = new AuditLog({
+    await createAuditLog(AuditLog, {
       action: 'user_role_changed',
       performed_by: req.user.id,
       details: {
         user_id: id,
         old_role: oldRole,
         new_role: role
-      },
-      timestamp: new Date()
+      }
     });
-    await auditLog.save();
 
     res.json({
       message: 'User role changed successfully',
@@ -259,17 +253,15 @@ exports.changeUserStatus = async (req, res) => {
     await user.save();
 
     // Create audit log
-    const auditLog = new AuditLog({
+    await createAuditLog(AuditLog, {
       action: 'user_status_changed',
       performed_by: req.user.id,
       details: {
         user_id: id,
         old_status: oldStatus,
         new_status: status
-      },
-      timestamp: new Date()
+      }
     });
-    await auditLog.save();
 
     res.json({
       message: 'User status changed successfully',
@@ -302,16 +294,14 @@ exports.deleteUser = async (req, res) => {
     await user.save();
 
     // Create audit log
-    const auditLog = new AuditLog({
+    await createAuditLog(AuditLog, {
       action: 'user_deleted',
       performed_by: req.user.id,
       details: {
         deleted_user_id: id,
         deleted_user_email: user.email
-      },
-      timestamp: new Date()
+      }
     });
-    await auditLog.save();
 
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
@@ -362,24 +352,21 @@ exports.resetUserPassword = async (req, res) => {
     }
 
     // Hash new password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(new_password, saltRounds);
+    const hashedPassword = await hashPassword(new_password);
 
     user.password = hashedPassword;
     user.updated_at = new Date();
     await user.save();
 
     // Create audit log
-    const auditLog = new AuditLog({
+    await createAuditLog(AuditLog, {
       action: 'password_reset_by_admin',
       performed_by: req.user.id,
       details: {
         target_user_id: id,
         target_user_email: user.email
-      },
-      timestamp: new Date()
+      }
     });
-    await auditLog.save();
 
     res.json({ message: 'Password reset successfully' });
   } catch (error) {
