@@ -59,8 +59,8 @@ class WarrantyService {
     if (response.data) {
       response.data = response.data.map((warranty: Partial<WarrantyItem> & { id?: string }) => ({
         ...warranty,
-        _id: warranty.id || warranty._id,
-      }));
+        _id: warranty.id || warranty._id || '',
+      })) as WarrantyItem[];
     }
     
     return { success: true, ...response };
