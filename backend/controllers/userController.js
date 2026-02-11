@@ -1,30 +1,36 @@
-const User = require('../models/user');
+const getSupabase = require('../config/db');
 const { hashPassword, comparePassword } = require('../utils/passwordHelper');
 const logger = require('../utils/logger');
+const { validate: isValidUUID } = require('uuid');
 
 // GET current user profile
 exports.getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id)
-      .select('-password')
-      .populate('vendor_id', 'company_name vendor_name email phone address');
+    const supabase = getSupabase();
     
-    if (!user) {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', req.user.id)
+      .single();
+    
+    if (error || !user) {
       return res.status(404).json({ 
         success: false,
         message: 'User not found' 
       });
     }
+
     res.json({ 
       success: true,
       user: {
-        id: user._id,
+        id: user.id,
         email: user.email,
         name: user.name,
         role: user.role,
         department: user.department,
         employee_id: user.employee_id,
-        vendor_id: user.vendor_id?._id || user.vendor_id || null,
+        vendor_id: user.vendor_id || null,
         phone: user.phone,
         is_active: user.is_active,
         created_at: user.created_at,
@@ -44,21 +50,28 @@ exports.getProfile = async (req, res) => {
 // PUT update current user profile
 exports.updateProfile = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const { name, phone, department, employee_id } = req.body;
     
     // Find the current user
-    const user = await User.findById(req.user.id);
+    const { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', req.user.id)
+      .single();
     
-    if (!user) {
+    if (fetchError || !user) {
       return res.status(404).json({ 
         success: false,
         message: 'User not found' 
       });
     }
 
-    // Update allowed fields for all users
-    if (name) user.name = name;
-    if (phone !== undefined) user.phone = phone;
+    // Build update object with allowed fields for all users
+    const updateData = { updated_at: new Date().toISOString() };
+    
+    if (name) updateData.name = name;
+    if (phone !== undefined) updateData.phone = phone;
     
     // Only ADMIN can update department and employee_id
     const isAdmin = req.user.role === 'ADMIN';
@@ -70,7 +83,7 @@ exports.updateProfile = async (req, res) => {
           message: 'Only administrators can update department' 
         });
       }
-      user.department = department;
+      updateData.department = department;
     }
     
     if (employee_id !== undefined) {
@@ -80,27 +93,41 @@ exports.updateProfile = async (req, res) => {
           message: 'Only administrators can update employee ID' 
         });
       }
-      user.employee_id = employee_id;
+      updateData.employee_id = employee_id;
     }
 
-    await user.save();
+    const { data: updatedUser, error } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', req.user.id)
+      .select()
+      .single();
 
-    logger.info('User profile updated', { userId: user._id, email: user.email });
+    if (error) {
+      logger.error('Error updating user profile', { error: error.message });
+      return res.status(500).json({ 
+        success: false,
+        message: 'Error updating user profile',
+        error: error.message 
+      });
+    }
+
+    logger.info('User profile updated', { userId: updatedUser.id, email: updatedUser.email });
 
     res.json({ 
       success: true,
       message: 'Profile updated successfully',
       user: {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        department: user.department,
-        employee_id: user.employee_id,
-        phone: user.phone,
-        is_active: user.is_active,
-        created_at: user.created_at,
-        last_login: user.last_login
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        role: updatedUser.role,
+        department: updatedUser.department,
+        employee_id: updatedUser.employee_id,
+        phone: updatedUser.phone,
+        is_active: updatedUser.is_active,
+        created_at: updatedUser.created_at,
+        last_login: updatedUser.last_login
       }
     });
   } catch (err) {
@@ -116,12 +143,26 @@ exports.updateProfile = async (req, res) => {
 // GET users
 exports.getUsers = async (req, res) => {
   try {
-    const users = await User.find().select('-password').sort({ created_at: -1 });
+    const supabase = getSupabase();
     
-    const mappedUsers = users.map(user => ({
-      ...user.toObject(),
-      id: user._id
-    }));
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      logger.error('Error fetching users', { error: error.message });
+      return res.status(500).json({ 
+        success: false,
+        message: error.message 
+      });
+    }
+    
+    // Remove password field from all users
+    const sanitizedUsers = users.map(user => {
+      const { password, reset_password_token, reset_password_expires, ...userWithoutSensitive } = user;
+      return userWithoutSensitive;
+    });
     
     // Add cache control headers to prevent stale data
     res.set({
@@ -132,8 +173,8 @@ exports.getUsers = async (req, res) => {
     
     res.json({
       success: true,
-      data: mappedUsers,
-      count: mappedUsers.length
+      data: sanitizedUsers,
+      count: sanitizedUsers.length
     });
   } catch (err) {
     logger.error('Error fetching users', { error: err.message });
@@ -147,21 +188,35 @@ exports.getUsers = async (req, res) => {
 // GET user by id
 exports.getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password');
+    const supabase = getSupabase();
+    const { id } = req.params;
     
-    if (!user) {
+    if (!isValidUUID(id)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid user ID format' 
+      });
+    }
+    
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error || !user) {
       return res.status(404).json({ 
         success: false,
         message: 'User not found' 
       });
     }
     
+    // Remove sensitive fields
+    const { password, reset_password_token, reset_password_expires, ...userWithoutSensitive } = user;
+    
     res.json({
       success: true,
-      data: {
-        ...user.toObject(),
-        id: user._id
-      }
+      data: userWithoutSensitive
     });
   } catch (err) {
     logger.error('Error fetching user', { error: err.message });
@@ -175,6 +230,7 @@ exports.getUserById = async (req, res) => {
 // CREATE user
 exports.createUser = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const { name, email, password, role, department, employee_id, phone, location, manager, is_active } = req.body;
 
     // Validate required fields
@@ -186,7 +242,12 @@ exports.createUser = async (req, res) => {
     }
 
     // Check if email already exists
-    const existingUserByEmail = await User.findOne({ email });
+    const { data: existingUserByEmail } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .single();
+      
     if (existingUserByEmail) {
       return res.status(400).json({ 
         success: false,
@@ -199,13 +260,23 @@ exports.createUser = async (req, res) => {
     
     if (!finalEmployeeId || finalEmployeeId.trim() === '') {
       const year = new Date().getFullYear();
-      const userCount = await User.countDocuments();
-      const sequentialNumber = (userCount + 1).toString().padStart(4, '0');
+      
+      // Get user count for sequential number
+      const { count } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true });
+        
+      const sequentialNumber = (count + 1).toString().padStart(4, '0');
       finalEmployeeId = `EMP-${year}-${sequentialNumber}`;
     }
 
     // Check if employee_id already exists
-    const existingUserById = await User.findOne({ employee_id: finalEmployeeId });
+    const { data: existingUserById } = await supabase
+      .from('users')
+      .select('id')
+      .eq('employee_id', finalEmployeeId)
+      .single();
+      
     if (existingUserById) {
       return res.status(400).json({ 
         success: false,
@@ -231,8 +302,8 @@ exports.createUser = async (req, res) => {
     const plainPassword = password || 'Password@123';
     const hashedPassword = await hashPassword(plainPassword);
 
-    // Create new user
-    const user = new User({
+    // Create user data
+    const userData = {
       name,
       email,
       password: hashedPassword,
@@ -240,21 +311,32 @@ exports.createUser = async (req, res) => {
       department: normalizedDepartment,
       employee_id: finalEmployeeId,
       phone,
-      is_active: is_active !== undefined ? is_active : true
-    });
+      is_active: is_active !== undefined ? is_active : true,
+      created_at: new Date().toISOString()
+    };
 
-    const saved = await user.save();
-    
+    const { data: user, error } = await supabase
+      .from('users')
+      .insert([userData])
+      .select()
+      .single();
+
+    if (error) {
+      logger.error('Error creating user', { error: error.message });
+      return res.status(400).json({ 
+        success: false,
+        message: error.message 
+      });
+    }
+
     // Return user without password
-    const userResponse = saved.toObject();
-    delete userResponse.password;
+    const { password: _, ...userResponse } = user;
 
     res.status(201).json({
       success: true,
       message: 'User created successfully',
       data: {
         ...userResponse,
-        id: userResponse._id,
         generated_employee_id: !employee_id // Flag to indicate if ID was auto-generated
       }
     });
@@ -270,6 +352,7 @@ exports.createUser = async (req, res) => {
 // CHANGE PASSWORD (for current user)
 exports.changePassword = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const { currentPassword, newPassword } = req.body;
     
     // Validation
@@ -288,8 +371,13 @@ exports.changePassword = async (req, res) => {
     }
     
     // Get user with password
-    const user = await User.findById(req.user.id).select('+password');
-    if (!user) {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', req.user.id)
+      .single();
+      
+    if (error || !user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
@@ -309,8 +397,22 @@ exports.changePassword = async (req, res) => {
     const hashedPassword = await hashPassword(newPassword);
     
     // Update password
-    user.password = hashedPassword;
-    await user.save();
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ 
+        password: hashedPassword,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', req.user.id);
+      
+    if (updateError) {
+      logger.error('Error updating password', { error: updateError.message });
+      return res.status(500).json({
+        success: false,
+        message: 'Error changing password',
+        error: updateError.message
+      });
+    }
     
     res.json({
       success: true,
@@ -329,11 +431,20 @@ exports.changePassword = async (req, res) => {
 // UPDATE user
 exports.updateUser = async (req, res) => {
   try {
-    logger.debug('Updating user', { userId: req.params.id, updateData: req.body });
-    
+    const supabase = getSupabase();
+    const { id } = req.params;
     const { name, email, role, department, employee_id, phone, is_active, password } = req.body;
     
-    const updateData = {};
+    logger.debug('Updating user', { userId: id, updateData: req.body });
+    
+    if (!isValidUUID(id)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid user ID format' 
+      });
+    }
+    
+    const updateData = { updated_at: new Date().toISOString() };
     
     if (name) updateData.name = name;
     if (email) updateData.email = email;
@@ -348,11 +459,20 @@ exports.updateUser = async (req, res) => {
       updateData.password = await hashPassword(password);
     }
     
-    const updated = await User.findByIdAndUpdate(
-      req.params.id, 
-      updateData, 
-      { new: true, runValidators: true }
-    ).select('-password');
+    const { data: updated, error } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) {
+      logger.error('Error updating user', { error: error.message });
+      return res.status(400).json({ 
+        success: false,
+        message: error.message 
+      });
+    }
     
     if (!updated) {
       return res.status(404).json({ 
@@ -361,13 +481,13 @@ exports.updateUser = async (req, res) => {
       });
     }
     
+    // Remove sensitive fields
+    const { password: _, reset_password_token: __, reset_password_expires: ___, ...userResponse } = updated;
+    
     res.json({
       success: true,
       message: 'User updated successfully',
-      data: {
-        ...updated.toObject(),
-        id: updated._id
-      }
+      data: userResponse
     });
   } catch (err) {
     logger.error('Error updating user', { error: err.message });
@@ -381,7 +501,30 @@ exports.updateUser = async (req, res) => {
 // DELETE user
 exports.deleteUser = async (req, res) => {
   try {
-    const deleted = await User.findByIdAndDelete(req.params.id);
+    const supabase = getSupabase();
+    const { id } = req.params;
+    
+    if (!isValidUUID(id)) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid user ID format' 
+      });
+    }
+    
+    const { data: deleted, error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) {
+      logger.error('Error deleting user', { error: error.message });
+      return res.status(500).json({ 
+        success: false,
+        message: error.message 
+      });
+    }
     
     if (!deleted) {
       return res.status(404).json({ 
@@ -394,7 +537,7 @@ exports.deleteUser = async (req, res) => {
       success: true,
       message: 'User deleted successfully',
       data: {
-        id: deleted._id,
+        id: deleted.id,
         email: deleted.email,
         name: deleted.name
       }

@@ -1,23 +1,25 @@
 /**
- * MongoDB Connection Utilities
- * Provides helper functions to maintain stable database connections
+ * Supabase Database Utilities
+ * Provides helper functions for database operations with Supabase PostgreSQL
  */
 
-const mongoose = require('mongoose');
+const getSupabase = require('../config/db');
 const logger = require('../utils/logger');
 
 /**
- * Check if MongoDB connection is healthy
+ * Check if Supabase connection is healthy
  * @returns {Promise<boolean>}
  */
 const isConnectionHealthy = async () => {
   try {
-    if (mongoose.connection.readyState !== 1) {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('users').select('count').limit(1);
+    
+    if (error) {
+      logger.error('Connection health check failed:', error.message);
       return false;
     }
     
-    // Perform actual ping to verify connection
-    await mongoose.connection.db.admin().ping();
     return true;
   } catch (error) {
     logger.error('Connection health check failed:', error.message);
@@ -30,15 +32,12 @@ const isConnectionHealthy = async () => {
  * @returns {string}
  */
 const getConnectionState = () => {
-  const states = {
-    0: 'disconnected',
-    1: 'connected',
-    2: 'connecting',
-    3: 'disconnecting',
-    99: 'uninitialized'
-  };
-  
-  return states[mongoose.connection.readyState] || 'unknown';
+  try {
+    const supabase = getSupabase();
+    return supabase ? 'connected' : 'disconnected';
+  } catch (error) {
+    return 'error';
+  }
 };
 
 /**
@@ -46,39 +45,27 @@ const getConnectionState = () => {
  * @returns {object}
  */
 const getConnectionInfo = () => {
-  return {
-    state: getConnectionState(),
-    readyState: mongoose.connection.readyState,
-    host: mongoose.connection.host || 'N/A',
-    name: mongoose.connection.name || 'N/A',
-    models: Object.keys(mongoose.connection.models).length,
-    collections: Object.keys(mongoose.connection.collections).length
-  };
+  try {
+    const supabase = getSupabase();
+    return {
+      state: 'connected',
+      database: 'PostgreSQL (Supabase)',
+      url: process.env.SUPABASE_URL ? process.env.SUPABASE_URL.substring(0, 30) + '...' : 'Not configured'
+    };
+  } catch (error) {
+    return {
+      state: 'error',
+      error: error.message
+    };
+  }
 };
 
 /**
- * Ensure connection is active, reconnect if needed
+ * Ensure connection is active
  * @returns {Promise<boolean>}
  */
 const ensureConnection = async () => {
-  try {
-    const healthy = await isConnectionHealthy();
-    
-    if (!healthy) {
-      logger.warn('Connection not healthy, attempting reconnection...');
-      // Mongoose will handle reconnection automatically with the configured options
-      // Just wait a bit for reconnection
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Check again
-      return await isConnectionHealthy();
-    }
-    
-    return true;
-  } catch (error) {
-    logger.error('Error ensuring connection:', error.message);
-    return false;
-  }
+  return await isConnectionHealthy();
 };
 
 /**
@@ -92,15 +79,6 @@ const withRetry = async (operation, maxRetries = 3) => {
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      // Ensure connection is healthy before operation
-      const connected = await ensureConnection();
-      
-      if (!connected && attempt < maxRetries) {
-        logger.warn(`Connection not ready, retry ${attempt}/${maxRetries}`);
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-        continue;
-      }
-      
       // Execute the operation
       return await operation();
       
@@ -108,8 +86,8 @@ const withRetry = async (operation, maxRetries = 3) => {
       lastError = error;
       logger.error(`Operation failed (attempt ${attempt}/${maxRetries}):`, error.message);
       
-      // Check if it's a connection error
-      if (error.name === 'MongoNetworkError' || error.name === 'MongooseServerSelectionError') {
+      // Check if it's a network/connection error
+      if (error.code === 'PGRST301' || error.message?.includes('network') || error.message?.includes('timeout')) {
         if (attempt < maxRetries) {
           logger.warn(`Retrying after connection error...`);
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
@@ -133,22 +111,43 @@ const withRetry = async (operation, maxRetries = 3) => {
  */
 const getPoolStats = () => {
   try {
-    const client = mongoose.connection.getClient();
-    const topology = client?.topology;
-    
-    if (!topology) {
-      return { available: 'N/A', message: 'Connection not established' };
-    }
-    
     return {
-      state: getConnectionState(),
-      poolSize: topology.s?.poolOptions?.maxPoolSize || 'N/A',
-      availableConnections: topology.s?.pool?.availableConnectionCount || 'N/A',
-      currentConnections: topology.s?.pool?.currentConnectionCount || 'N/A',
+      status: 'Supabase manages connection pooling automatically',
+      type: 'PostgreSQL via Supabase',
+      pooler: 'PgBouncer (managed by Supabase)'
     };
   } catch (error) {
     return { error: error.message };
   }
+};
+
+/**
+ * Convert MongoDB-style filter to PostgreSQL where clause
+ * @param {object} filter - MongoDB-style filter
+ * @returns {object} - PostgreSQL filter for Supabase
+ */
+const normalizeFilter = (filter) => {
+  // Convert common MongoDB operators to PostgreSQL equivalents
+  const normalized = {};
+  
+  for (const [key, value] of Object.entries(filter)) {
+    if (typeof value === 'object' && value !== null) {
+      // Handle MongoDB operators
+      if (value.$eq) normalized[key] = { eq: value.$eq };
+      else if (value.$ne) normalized[key] = { neq: value.$ne };
+      else if (value.$gt) normalized[key] = { gt: value.$gt };
+      else if (value.$gte) normalized[key] = { gte: value.$gte };
+      else if (value.$lt) normalized[key] = { lt: value.$lt };
+      else if (value.$lte) normalized[key] = { lte: value.$lte };
+      else if (value.$in) normalized[key] = { in: value.$in };
+      else if (value.$nin) normalized[key] = { not: { in: value.$nin } };
+      else normalized[key] = value;
+    } else {
+      normalized[key] = value;
+    }
+  }
+  
+  return normalized;
 };
 
 module.exports = {
@@ -157,5 +156,6 @@ module.exports = {
   getConnectionInfo,
   ensureConnection,
   withRetry,
-  getPoolStats
+  getPoolStats,
+  normalizeFilter
 };

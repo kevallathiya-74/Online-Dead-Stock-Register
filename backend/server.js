@@ -5,12 +5,10 @@ const validateEnv = require('./config/validateEnv');
 validateEnv();
 
 const express = require('express');
-const mongoose = require('mongoose');
-const connectDB = require('./config/db');
+const getSupabase = require('./config/db');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const mongoSanitize = require('express-mongo-sanitize');
 const compression = require('compression');
 const path = require('path');
 const errorHandler = require('./middleware/errorHandler');
@@ -102,18 +100,6 @@ app.use(compression({
 // Body parser middleware - Must come before security middleware
 app.use(express.json({ limit: '100kb' })); 
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
-
-// NoSQL Injection Protection - CRITICAL SECURITY
-app.use(mongoSanitize({
-  replaceWith: '_', 
-  onSanitize: ({ req, key }) => {
-    logger.warn('Potential NoSQL injection attempt blocked', {
-      ip: req.ip,
-      key: key,
-      url: req.originalUrl
-    });
-  }
-}));
 
 // Security Middleware
 app.use(helmet({
@@ -239,47 +225,53 @@ app.use('/uploads', express.static(path.join(__dirname, process.env.UPLOAD_DIR |
 
 // Import route files
 // Load routes one by one with error handling
-let assetRoutes, userRoutes, txnRoutes, approvalRoutes, auditRoutes, docRoutes;
-let vendorRoutes, maintRoutes, authRoutes, dashboardRoutes, assetRequestRoutes;
-let assetTransferRoutes, purchaseManagementRoutes, notificationRoutes, uploadRoutes;
-let exportImportRoutes, userManagementRoutes, vendorManagementRoutes, vendorPortalRoutes;
-let qrScanRoutes, photoRoutes, bulkOperationsRoutes, customFiltersRoutes;
-let scheduledAuditsRoutes, inventoryRoutes, reportsRoutes, backupsRoutes, settingsRoutes;
-let assetIssueRoutes, automationRoutes;  // ✅ Added automation routes
+// ✅ MIGRATED: auth, assets
+// ❌ PENDING: All other routes await migration
+let authRoutes, assetRoutes;
+// let userRoutes, txnRoutes, approvalRoutes, auditRoutes, docRoutes;
+// let vendorRoutes, maintRoutes, dashboardRoutes, assetRequestRoutes;
+// let assetTransferRoutes, purchaseManagementRoutes, notificationRoutes, uploadRoutes;
+// let exportImportRoutes, userManagementRoutes, vendorManagementRoutes, vendorPortalRoutes;
+// let qrScanRoutes, photoRoutes, bulkOperationsRoutes, customFiltersRoutes;
+// let scheduledAuditsRoutes, inventoryRoutes, reportsRoutes, backupsRoutes, settingsRoutes;
+// let assetIssueRoutes, automationRoutes, lifecycleRoutes, seedRoutes;
 
 try {
-  assetRoutes = require('./routes/assets');
-  userRoutes = require('./routes/users');
-  txnRoutes = require('./routes/transactions');
-  approvalRoutes = require('./routes/approvals');
-  auditRoutes = require('./routes/auditLogs');
-  docRoutes = require('./routes/documents');
-  vendorRoutes = require('./routes/vendors');
-  maintRoutes = require('./routes/maintenance');
+  // ✅ MIGRATED - Working with Supabase
   authRoutes = require('./routes/auth');
-  dashboardRoutes = require('./routes/dashboard');
-  assetRequestRoutes = require('./routes/assetRequests');
-  assetTransferRoutes = require('./routes/assetTransfers');
-  purchaseManagementRoutes = require('./routes/purchaseManagement');
-  notificationRoutes = require('./routes/notifications');
-  uploadRoutes = require('./routes/upload');
-  exportImportRoutes = require('./routes/exportImport');
-  userManagementRoutes = require('./routes/userManagement');
-  vendorManagementRoutes = require('./routes/vendorManagement');
-  vendorPortalRoutes = require('./routes/vendorPortal');
-  qrScanRoutes = require('./routes/qrScan');
-  photoRoutes = require('./routes/photos');
-  bulkOperationsRoutes = require('./routes/bulkOperations');
-  customFiltersRoutes = require('./routes/customFilters');
-  scheduledAuditsRoutes = require('./routes/scheduledAudits');
-  inventoryRoutes = require('./routes/inventory');
-  reportsRoutes = require('./routes/reports');
-  backupsRoutes = require('./routes/backups');
-  settingsRoutes = require('./routes/settings');
-  assetIssueRoutes = require('./routes/assetIssues');
-  automationRoutes = require('./routes/automation');  // ✅ Added automation routes
-  lifecycleRoutes = require('./routes/lifecycleRoutes');  // ✅ Lifecycle automation routes
-  seedRoutes = require('./routes/seed');  // Development only - seed database
+  assetRoutes = require('./routes/assets');
+  
+  // ❌ DISABLED - Awaiting migration to Supabase
+  // userRoutes = require('./routes/users');
+  // txnRoutes = require('./routes/transactions');
+  // approvalRoutes = require('./routes/approvals');
+  // auditRoutes = require('./routes/auditLogs');
+  // docRoutes = require('./routes/documents');
+  // vendorRoutes = require('./routes/vendors');
+  // maintRoutes = require('./routes/maintenance');
+  // dashboardRoutes = require('./routes/dashboard');
+  // assetRequestRoutes = require('./routes/assetRequests');
+  // assetTransferRoutes = require('./routes/assetTransfers');
+  // purchaseManagementRoutes = require('./routes/purchaseManagement');
+  // notificationRoutes = require('./routes/notifications');
+  // uploadRoutes = require('./routes/upload');
+  // exportImportRoutes = require('./routes/exportImport');
+  // userManagementRoutes = require('./routes/userManagement');
+  // vendorManagementRoutes = require('./routes/vendorManagement');
+  // vendorPortalRoutes = require('./routes/vendorPortal');
+  // qrScanRoutes = require('./routes/qrScan');
+  // photoRoutes = require('./routes/photos');
+  // bulkOperationsRoutes = require('./routes/bulkOperations');
+  // customFiltersRoutes = require('./routes/customFilters');
+  // scheduledAuditsRoutes = require('./routes/scheduledAudits');
+  // inventoryRoutes = require('./routes/inventory');
+  // reportsRoutes = require('./routes/reports');
+  // backupsRoutes = require('./routes/backups');
+  // settingsRoutes = require('./routes/settings');
+  // assetIssueRoutes = require('./routes/assetIssues');
+  // automationRoutes = require('./routes/automation');
+  // lifecycleRoutes = require('./routes/lifecycleRoutes');
+  // seedRoutes = require('./routes/seed');
 } catch (error) {
   console.error('❌ Error loading route modules:', error.message);
   console.error('Stack:', error.stack);
@@ -297,46 +289,57 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 // ========================================
 const v1Router = express.Router();
 
-// Auth routes with strict rate limiting
+// ========================================
+// ACTIVE ROUTES (Supabase-migrated)
+// ========================================
+
+// Auth routes with strict rate limiting - ✅ WORKING
 v1Router.use('/auth/login', loginLimiter);
 v1Router.use('/auth/register', authLimiter);
 v1Router.use('/auth/forgot-password', passwordResetLimiter);
 v1Router.use('/auth/reset-password', passwordResetLimiter);
 v1Router.use('/auth', authRoutes);
 
-// Protected routes
+// Asset routes - ✅ WORKING
 v1Router.use('/assets', assetRoutes);
-v1Router.use('/users', userRoutes);
-v1Router.use('/transactions', txnRoutes);
-v1Router.use('/approvals', approvalRoutes);
-v1Router.use('/audit-logs', auditRoutes);
-v1Router.use('/documents', docRoutes);
-v1Router.use('/vendors', vendorRoutes);
-v1Router.use('/maintenance', maintRoutes);
-v1Router.use('/dashboard', dashboardRoutes);
-v1Router.use('/asset-requests', assetRequestRoutes);
-v1Router.use('/asset-transfers', assetTransferRoutes);
-v1Router.use('/purchase-management', purchaseManagementRoutes);
-v1Router.use('/notifications', notificationRoutes);
-v1Router.use('/upload', uploadRoutes);
-v1Router.use('/export-import', exportImportRoutes);
-v1Router.use('/user-management', userManagementRoutes);
-v1Router.use('/vendor-management', vendorManagementRoutes);
-v1Router.use('/vendor', vendorPortalRoutes);
-v1Router.use('/qr', qrScanRoutes);
-v1Router.use('/photos', photoRoutes);
-v1Router.use('/bulk', bulkOperationsRoutes);
-v1Router.use('/bulk-operations', bulkOperationsRoutes); 
-v1Router.use('/filters', customFiltersRoutes);
-v1Router.use('/scheduled-audits', scheduledAuditsRoutes);
-v1Router.use('/inventory', inventoryRoutes);
-v1Router.use('/reports', reportsRoutes);
-v1Router.use('/backups', backupsRoutes);
-v1Router.use('/', assetIssueRoutes); // Asset issues routes (includes /assets/:id/issues)
-v1Router.use('/settings', settingsRoutes);
-v1Router.use('/automation', automationRoutes);  // ✅ Added automation routes
-v1Router.use('/lifecycle', lifecycleRoutes);  // ✅ Lifecycle automation routes
-v1Router.use('/dev', seedRoutes);  // Development only - seed database
+
+// ========================================
+// DISABLED ROUTES - Awaiting Migration
+// ========================================
+// These routes are temporarily disabled during MongoDB → Supabase migration
+// They will be re-enabled one by one as their controllers/services are migrated
+
+// v1Router.use('/users', userRoutes);
+// v1Router.use('/transactions', txnRoutes);
+// v1Router.use('/approvals', approvalRoutes);
+// v1Router.use('/audit-logs', auditRoutes);
+// v1Router.use('/documents', docRoutes);
+// v1Router.use('/vendors', vendorRoutes);
+// v1Router.use('/maintenance', maintRoutes);
+// v1Router.use('/dashboard', dashboardRoutes);
+// v1Router.use('/asset-requests', assetRequestRoutes);
+// v1Router.use('/asset-transfers', assetTransferRoutes);
+// v1Router.use('/purchase-management', purchaseManagementRoutes);
+// v1Router.use('/notifications', notificationRoutes);
+// v1Router.use('/upload', uploadRoutes);
+// v1Router.use('/export-import', exportImportRoutes);
+// v1Router.use('/user-management', userManagementRoutes);
+// v1Router.use('/vendor-management', vendorManagementRoutes);
+// v1Router.use('/vendor', vendorPortalRoutes);
+// v1Router.use('/qr', qrScanRoutes);
+// v1Router.use('/photos', photoRoutes);
+// v1Router.use('/bulk', bulkOperationsRoutes);
+// v1Router.use('/bulk-operations', bulkOperationsRoutes);
+// v1Router.use('/filters', customFiltersRoutes);
+// v1Router.use('/scheduled-audits', scheduledAuditsRoutes);
+// v1Router.use('/inventory', inventoryRoutes);
+// v1Router.use('/reports', reportsRoutes);
+// v1Router.use('/backups', backupsRoutes);
+// v1Router.use('/', assetIssueRoutes);
+// v1Router.use('/settings', settingsRoutes);
+// v1Router.use('/automation', automationRoutes);
+// v1Router.use('/lifecycle', lifecycleRoutes);
+// v1Router.use('/dev', seedRoutes);
 
 // Mount v1 router
 app.use('/api/v1', v1Router);
@@ -360,18 +363,29 @@ app.get('/health', async (req, res) => {
   try {
     // Check database connection with timing
     const dbStartTime = Date.now();
-    if (mongoose.connection.readyState === 1) {
-      await mongoose.connection.db.admin().ping();
-      healthcheck.checks.database = {
-        status: 'connected',
-        responseTime: `${Date.now() - dbStartTime}ms`,
-        state: mongoose.connection.readyState
-      };
-    } else {
+    try {
+      const supabase = getSupabase();
+      const { data, error } = await supabase.from('users').select('count').limit(1);
+      
+      if (error) {
+        healthcheck.checks.database = {
+          status: 'error',
+          responseTime: `${Date.now() - dbStartTime}ms`,
+          error: error.message
+        };
+        healthcheck.status = 'DEGRADED';
+      } else {
+        healthcheck.checks.database = {
+          status: 'connected',
+          responseTime: `${Date.now() - dbStartTime}ms`,
+          type: 'PostgreSQL (Supabase)'
+        };
+      }
+    } catch (dbError) {
       healthcheck.checks.database = {
         status: 'disconnected',
         responseTime: null,
-        state: mongoose.connection.readyState
+        error: dbError.message
       };
       healthcheck.status = 'DEGRADED';
     }
@@ -516,53 +530,32 @@ const startServer = () => {
 // Server will be started after DB connection
 
 // ========================================
-// MONGODB CONNECTION HEALTH MONITOR
+// SUPABASE CONNECTION HEALTH MONITOR
 // ========================================
-// Periodically check MongoDB connection and reconnect if needed
+// Periodically check Supabase connection
 let connectionCheckInterval = null;
 
 const startConnectionMonitor = () => {
-  // Only monitor if we have a successful MongoDB connection
-  if (mongoose.connection.readyState !== 1) {
-    logger.warn('Skipping connection monitor - MongoDB not connected');
-    return;
-  }
-  
-  // Check every 30 seconds
+  // Check every 60 seconds (Supabase is more stable, check less frequently)
   connectionCheckInterval = setInterval(async () => {
     try {
-      const state = mongoose.connection.readyState;
-      /*
-       * 0 = disconnected
-       * 1 = connected
-       * 2 = connecting
-       * 3 = disconnecting
-       */
+      const supabase = getSupabase();
+      const { error } = await supabase.from('users').select('count').limit(1);
       
-      if (state === 0) {
-        logger.warn('MongoDB connection lost. Attempting to reconnect...');
-        await connectDB();
-      } else if (state === 1) {
-        // Verify connection with ping
-        try {
-          await mongoose.connection.db.admin().ping();
-          // Connection is healthy, no action needed
-        } catch (pingError) {
-          logger.error('MongoDB ping failed, connection may be stale');
-          // Mongoose will attempt auto-reconnect
-        }
+      if (error) {
+        logger.warn('Supabase connection check failed:', error.message);
       }
     } catch (error) {
       logger.error('Connection monitor error:', error.message);
     }
-  }, 30000); // Check every 30 seconds
+  }, 60000); // Check every 60 seconds
   
-  logger.info('🔍 MongoDB connection health monitor started (checks every 30s)');
+  logger.info('🔍 Supabase connection health monitor started (checks every 60s)');
 };
 
 // Graceful shutdown handler
 const gracefulShutdown = async (signal) => {
-  logger.info(`${signal} signal received: closing HTTP server and database connection`);
+  logger.info(`${signal} signal received: closing HTTP server`);
   
   // Stop keep-alive service
   try {
@@ -580,27 +573,14 @@ const gracefulShutdown = async (signal) => {
   }
   
   if (server) {
-    server.close(async () => {
+    server.close(() => {
       logger.info('HTTP server closed');
-      
-      try {
-        await mongoose.connection.close();
-        logger.info('MongoDB connection closed');
-        process.exit(0);
-      } catch (err) {
-        logger.error('Error closing MongoDB connection:', err);
-        process.exit(1);
-      }
+      logger.info('Supabase client will be cleaned up automatically');
+      process.exit(0);
     });
   } else {
-    try {
-      await mongoose.connection.close();
-      logger.info('MongoDB connection closed');
-      process.exit(0);
-    } catch (err) {
-      logger.error('Error closing MongoDB connection:', err);
-      process.exit(1);
-    }
+    logger.info('Supabase client will be cleaned up automatically');
+    process.exit(0);
   }
 
   // Force close after 10 seconds
@@ -646,34 +626,52 @@ process.on('uncaughtException', (err) => {
 // ========================================
 // INITIALIZE APPLICATION
 // ========================================
-// Connect to MongoDB and start server
-connectDB().then((connection) => {
-  if (connection) {
-    logger.info('Database connection established');
+// Initialize Supabase and start server
+(async () => {
+  try {
+    // Initialize Supabase connection
+    const { initSupabase, testConnection } = require('./config/db');
+    initSupabase();
     
-    // Initialize cron jobs for scheduled audits
-    const { initializeCronJobs } = require('./services/cronService');
-    initializeCronJobs();
+    const isConnected = await testConnection();
     
-    // Initialize disposal automation scheduler
-    const scheduledJobs = require('./services/scheduledJobs');
-    scheduledJobs.initialize().catch(err => {
-      console.error('❌ Failed to initialize disposal automation:', err);
-    });
+    if (isConnected) {
+      logger.info('Database connection established with Supabase');
+      
+      // Initialize cron jobs for scheduled audits
+      try {
+        const { initializeCronJobs } = require('./services/cronService');
+        initializeCronJobs();
+      } catch (err) {
+        logger.warn('Cron service initialization skipped:', err.message);
+      }
+      
+      // Initialize disposal automation scheduler
+      try {
+        const scheduledJobs = require('./services/scheduledJobs');
+        await scheduledJobs.initialize();
+      } catch (err) {
+        logger.warn('Scheduled jobs initialization skipped:', err.message);
+      }
+      
+      // Initialize keep-alive service (prevents Render spin-down)
+      try {
+        const keepAliveService = require('./services/keepAliveService');
+        keepAliveService.start();
+      } catch (err) {
+        logger.warn('Keep-alive service initialization skipped:', err.message);
+      }
+    } else {
+      logger.warn('⚠️  Starting server with degraded database connection');
+      console.warn('⚠️  Some database-dependent features may not be available');
+    }
     
-    // Initialize keep-alive service (prevents Render spin-down)
-    const keepAliveService = require('./services/keepAliveService');
-    keepAliveService.start();
-  } else {
-    logger.warn('⚠️  Starting server without database connection');
-    console.warn('⚠️  Database-dependent features will not be available');
+    // Start the HTTP server
+    startServer();
+  } catch (err) {
+    console.error('❌ Database connection error in server.js:', err);
+    logger.error('Database connection error:', err);
+    console.warn('⚠️  Starting server anyway...');
+    startServer();
   }
-  
-  // Start the HTTP server after DB connection attempt
-  startServer();
-}).catch(err => {
-  console.error('❌ Database connection error in server.js:', err);
-  logger.error('Database connection error:', err);
-  console.warn('⚠️  Starting server anyway...');
-  startServer();
-});
+})();

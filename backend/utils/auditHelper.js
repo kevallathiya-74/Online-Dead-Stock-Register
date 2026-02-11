@@ -1,4 +1,4 @@
-const AuditLog = require('../models/auditLog');
+const getSupabase = require('../config/db');
 const logger = require('./logger');
 
 /**
@@ -55,10 +55,12 @@ const getUserAgent = (req) => {
  * @param {Object} req - Express request object (optional)
  */
 const createAuditLog = async (data, req = null) => {
+  const supabase = getSupabase();
+  
   try {
     const auditData = {
       ...data,
-      timestamp: data.timestamp || new Date()
+      created_at: data.created_at || new Date().toISOString()
     };
 
     // Add IP and user agent if request object provided
@@ -71,11 +73,23 @@ const createAuditLog = async (data, req = null) => {
       auditData.user_agent = data.user_agent || 'System Process';
     }
 
-    // Ensure severity is set
-    auditData.severity = data.severity || 'info';
+    // Ensure status is set (maps to severity)
+    auditData.status = data.severity || data.status || 'info';
+
+    // Remove severity field if it exists (use status instead)
+    delete auditData.severity;
 
     // Create the audit log
-    const auditLog = await AuditLog.create(auditData);
+    const { data: auditLog, error } = await supabase
+      .from('audit_logs')
+      .insert([auditData])
+      .select()
+      .single();
+    
+    if (error) {
+      logger.error('Error creating audit log:', error);
+      return null;
+    }
     
     return auditLog;
   } catch (error) {
@@ -91,16 +105,31 @@ const createAuditLog = async (data, req = null) => {
  * @param {Object} req - Express request object (optional)
  */
 const createAuditLogs = async (logs, req = null) => {
+  const supabase = getSupabase();
+  
   try {
     const auditLogs = logs.map(log => ({
       ...log,
       ip_address: log.ip_address || (req ? getClientIp(req) : 'System'),
       user_agent: log.user_agent || (req ? getUserAgent(req) : 'System Process'),
-      severity: log.severity || 'info',
-      timestamp: log.timestamp || new Date()
-    }));
+      status: log.severity || log.status || 'info',
+      created_at: log.created_at || new Date().toISOString()
+    })).map(log => {
+      // Remove severity field if it exists (use status instead)
+      const { severity, timestamp, ...cleanLog } = log;
+      return cleanLog;
+    });
 
-    const result = await AuditLog.create(auditLogs);
+    const { data: result, error } = await supabase
+      .from('audit_logs')
+      .insert(auditLogs)
+      .select();
+    
+    if (error) {
+      logger.error('Error creating batch audit logs:', error);
+      return null;
+    }
+    
     return result;
   } catch (error) {
     logger.error('Error creating batch audit logs:', error);

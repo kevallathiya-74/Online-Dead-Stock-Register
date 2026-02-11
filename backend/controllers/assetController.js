@@ -1,8 +1,8 @@
 const assetService = require('../services/assetService');
+const getSupabase = require('../config/db');
 const logger = require('../utils/logger');
 const { logUserAction } = require('../utils/auditHelper');
-const Asset = require('../models/asset');
-const mongoose = require('mongoose');
+const { validate: isValidUUID } = require('uuid');
 
 // GET all assets with pagination and filtering
 exports.getAssets = async (req, res, next) => {
@@ -107,14 +107,23 @@ exports.createAsset = async (req, res, next) => {
 // UPDATE asset
 exports.updateAsset = async (req, res) => {
   try {
+    const supabase = getSupabase();
+    
     // Fetch the asset first
-    const asset = await Asset.findById(req.params.id);
-    if (!asset) return res.status(404).json({ message: 'Asset not found' });
+    const { data: asset, error: fetchError } = await supabase
+      .from('assets')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+      
+    if (fetchError || !asset) {
+      return res.status(404).json({ message: 'Asset not found' });
+    }
 
     // Check if the user is the assigned user or an Admin
     if (
       asset.assigned_user &&
-      asset.assigned_user.toString() !== req.user.id &&
+      asset.assigned_user !== req.user.id &&
       req.user.role !== 'ADMIN'
     ) {
       return res.status(403).json({
@@ -124,25 +133,23 @@ exports.updateAsset = async (req, res) => {
 
     // If assigned_user is being updated and it's a string (email or employee_id), look up the user
     if (req.body.assigned_user && typeof req.body.assigned_user === 'string') {
-      // Check if it's already a valid ObjectId
-      if (!mongoose.Types.ObjectId.isValid(req.body.assigned_user)) {
+      // Check if it's already a valid UUID
+      if (!isValidUUID(req.body.assigned_user)) {
         // Try to find user by email or employee_id
-        const User = require('../models/user');
-        const user = await User.findOne({
-          $or: [
-            { email: req.body.assigned_user },
-            { employee_id: req.body.assigned_user }
-          ]
-        });
+        const { data: user, error: userError } = await supabase
+          .from('users')
+          .select('id, name, email')
+          .or(`email.eq.${req.body.assigned_user},employee_id.eq.${req.body.assigned_user}`)
+          .single();
         
-        if (!user) {
+        if (userError || !user) {
           return res.status(400).json({ 
             message: `User not found with email or employee ID: ${req.body.assigned_user}` 
           });
         }
         
-        // Replace with the ObjectId
-        req.body.assigned_user = user._id;
+        // Replace with the UUID
+        req.body.assigned_user = user.id;
       }
     }
 
@@ -150,24 +157,23 @@ exports.updateAsset = async (req, res) => {
     const originalLocation = asset.location;
     const originalAssignedUser = asset.assigned_user;
     
-    // Update only the fields provided in req.body
-    Object.keys(req.body).forEach(key => {
-      asset[key] = req.body[key];
-    });
+    // Use assetService to update (includes audit logging)
+    const updatedAsset = await assetService.updateAsset(req.params.id, req.body, req.user.id);
     
-    await asset.save();
-    
-    // Create audit log if location changed (asset transfer)
+    // Create additional audit log if location changed (asset transfer)
     if (req.body.location && originalLocation !== req.body.location) {
       try {
-        const User = require('../models/user');
-        
-        // Get assigned user name if ObjectId provided
+        // Get assigned user name if UUID provided
         let assignedUserName = 'Unassigned';
         if (req.body.assigned_user) {
-          const assignedUser = await User.findById(req.body.assigned_user);
+          const { data: assignedUser } = await supabase
+            .from('users')
+            .select('name, email')
+            .eq('id', req.body.assigned_user)
+            .single();
+            
           if (assignedUser) {
-            assignedUserName = assignedUser.full_name || assignedUser.email;
+            assignedUserName = assignedUser.name || assignedUser.email;
           }
         }
         
@@ -178,19 +184,19 @@ exports.updateAsset = async (req, res) => {
           req,
           'asset_transferred',
           'Asset',
-          asset._id,
+          asset.id,
           description,
           'info'
         );
         
-        logger.info('Audit log created for asset transfer', { assetId: asset._id });
+        logger.info('Audit log created for asset transfer', { assetId: asset.id });
       } catch (auditErr) {
         logger.error('Audit log creation failed', { error: auditErr.message });
         // Don't fail the request if audit log fails
       }
     }
     
-    res.json(asset);
+    res.json(updatedAsset);
 
   } catch (err) {
     logger.error('Update asset error', { error: err.message, assetId: req.params.id });
@@ -201,46 +207,28 @@ exports.updateAsset = async (req, res) => {
 // DELETE asset
 exports.deleteAsset = async (req, res) => {
   try {
-    const deleted = await Asset.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ message: 'Asset not found' });
-    res.json({ message: 'Asset deleted' });
+    await assetService.deleteAsset(req.params.id, req.user.id);
+    res.json({ 
+      success: true,
+      message: 'Asset deleted successfully' 
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    logger.error('Delete asset error', { error: err.message, assetId: req.params.id });
+    if (err.message === 'Asset not found') {
+      return res.status(404).json({ success: false, message: err.message });
+    }
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// GET asset statistics - DYNAMIC STATS FIX
+// GET asset statistics - Uses assetService
 exports.getAssetStats = async (req, res) => {
   try {
-    // Count total assets
-    const totalAssets = await Asset.countDocuments();
-    
-    // Count active assets (status = 'Active')
-    const activeAssets = await Asset.countDocuments({ status: 'Active' });
-    
-    // Count under maintenance
-    const underMaintenance = await Asset.countDocuments({ status: 'Under Maintenance' });
-    
-    // Calculate total value (sum of purchase_cost for all assets)
-    const valueResult = await Asset.aggregate([
-      {
-        $group: {
-          _id: null,
-          totalValue: { $sum: '$purchase_cost' }
-        }
-      }
-    ]);
-    
-    const totalValue = valueResult.length > 0 ? valueResult[0].totalValue : 0;
+    const stats = await assetService.getAssetStats(req.user);
     
     res.json({
       success: true,
-      data: {
-        totalAssets,
-        activeAssets,
-        underMaintenance,
-        totalValue
-      }
+      data: stats
     });
   } catch (err) {
     logger.error('Get asset stats error', { error: err.message });

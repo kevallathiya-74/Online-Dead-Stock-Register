@@ -1,6 +1,6 @@
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
-const User = require('../models/user');
+const getSupabase = require('../config/db');
 
 // Middleware to verify JWT token and attach user to req
 const authMiddleware = async (req, res, next) => {
@@ -21,10 +21,16 @@ const authMiddleware = async (req, res, next) => {
       // Verify token using ONLY JWT_SECRET from .env (no fallback)
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       
-      // Fetch user from database (exclude password for security)
-      const user = await User.findById(decoded.id).select('-password');
+      // Fetch user from Supabase database (exclude password for security)
+      const supabase = getSupabase();
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('id, email, name, role, department, employee_id, phone, is_active')
+        .eq('id', decoded.id)
+        .eq('is_active', true)
+        .single();
       
-      if (!user) {
+      if (error || !user) {
         return res.status(401).json({ message: 'Invalid token. User not found.' });
       }
   

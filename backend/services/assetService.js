@@ -2,23 +2,21 @@
  * Asset Service Layer
  * Handles all business logic related to assets
  * Separates business logic from controllers for better maintainability
+ * ✅ MIGRATED TO SUPABASE
  */
 
-const Asset = require('../models/asset');
-const AuditLog = require('../models/auditLog');
-const mongoose = require('mongoose');
+const getSupabase = require('../config/db');
 const logger = require('../utils/logger');
 
 class AssetService {
   /**
-   * Create a new asset with transaction support
+   * Create a new asset with audit logging
    * @param {Object} assetData - Asset data
    * @param {String} userId - User ID creating the asset
    * @returns {Promise<Object>} Created asset
    */
   async createAsset(assetData, userId) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const supabase = getSupabase();
     
     try {
       // Auto-generate unique_asset_id if not provided
@@ -29,23 +27,34 @@ class AssetService {
         assetData.unique_asset_id = `${prefix}-${timestamp}${random}`;
       }
       
+      // Ensure timestamps are set
+      const now = new Date().toISOString();
+      assetData.created_at = now;
+      assetData.updated_at = now;
+      
       // Create asset
-      const asset = new Asset(assetData);
-      await asset.save({ session });
+      const { data: asset, error: assetError } = await supabase
+        .from('assets')
+        .insert([assetData])
+        .select()
+        .single();
+      
+      if (assetError) {
+        logger.error('Error creating asset', { error: assetError, assetData });
+        throw assetError;
+      }
       
       // Create audit log
-      await AuditLog.create([{
+      await supabase.from('audit_logs').insert([{
         entity_type: 'Asset',
-        entity_id: asset._id,
+        entity_id: asset.id,
         action: 'asset_created',
         user_id: userId,
         changes: {
           new_values: assetData
         },
-        timestamp: new Date()
-      }], { session });
-      
-      await session.commitTransaction();
+        created_at: now
+      }]);
       
       logger.info('Asset created successfully', {
         assetId: asset._id,
@@ -55,11 +64,8 @@ class AssetService {
       
       return asset;
     } catch (error) {
-      await session.abortTransaction();
       logger.error('Error creating asset', { error: error.message, userId });
       throw error;
-    } finally {
-      session.endSession();
     }
   }
   
@@ -71,84 +77,91 @@ class AssetService {
    * @returns {Promise<Object>} Assets and pagination info
    */
   async getAssets(filters = {}, pagination = {}, user) {
+    const supabase = getSupabase();
+    
     try {
-      const { page = 1, limit = 50, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
-      const skip = (page - 1) * limit;
+      const { page = 1, limit = 50, sortBy = 'created_at', sortOrder = 'desc' } = pagination;
+      const offset = (page - 1) * limit;
       
       // Validate limits
       if (limit > 100) {
         throw new Error('Limit cannot exceed 100 items per page');
       }
       
-      let query = {};
+      // Start building query
+      let query = supabase.from('assets').select(`
+        *,
+        assigned_user:users!assigned_user(id, name, email, department),
+        last_audited_by:users!last_audited_by(id, name, email),
+        vendor:vendors(id, name, contact_person, email)
+      `, { count: 'exact' });
       
       // Filter by department if not admin
       if (user.role !== 'ADMIN') {
-        query.department = user.department;
+        query = query.eq('department', user.department);
       }
       
       // Apply additional filters
       if (filters.status) {
-        query.status = filters.status;
+        query = query.eq('status', filters.status);
       }
       
       if (filters.department && user.role === 'ADMIN') {
-        query.department = filters.department;
+        query = query.eq('department', filters.department);
       }
       
       if (filters.asset_type) {
-        query.asset_type = filters.asset_type;
+        query = query.eq('asset_type', filters.asset_type);
       }
       
       if (filters.location) {
-        query.location = { $regex: filters.location, $options: 'i' };
+        query = query.ilike('location', `%${filters.location}%`);
       }
       
-      // Text search
+      // Text search across multiple fields
       if (filters.search) {
-        const searchRegex = { $regex: filters.search, $options: 'i' };
-        query.$or = [
-          { unique_asset_id: searchRegex },
-          { manufacturer: searchRegex },
-          { model: searchRegex },
-          { serial_number: searchRegex }
-        ];
+        query = query.or(`unique_asset_id.ilike.%${filters.search}%,manufacturer.ilike.%${filters.search}%,model.ilike.%${filters.search}%,serial_number.ilike.%${filters.search}%`);
       }
       
       // Date range filters
-      if (filters.purchaseStartDate || filters.purchaseEndDate) {
-        query.purchase_date = {};
-        if (filters.purchaseStartDate) {
-          query.purchase_date.$gte = new Date(filters.purchaseStartDate);
-        }
-        if (filters.purchaseEndDate) {
-          query.purchase_date.$lte = new Date(filters.purchaseEndDate);
-        }
+      if (filters.purchaseStartDate) {
+        query = query.gte('purchase_date', filters.purchaseStartDate);
+      }
+      if (filters.purchaseEndDate) {
+        query = query.lte('purchase_date', filters.purchaseEndDate);
+      }
+      
+      // Cost range filters
+      if (filters.minCost) {
+        query = query.gte('purchase_cost', filters.minCost);
+      }
+      if (filters.maxCost) {
+        query = query.lte('purchase_cost', filters.maxCost);
       }
       
       // Sorting
-      const sort = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
+      const ascending = sortOrder === 'asc';
+      query = query.order(sortBy, { ascending });
       
-      // Execute query with pagination
-      const [assets, total] = await Promise.all([
-        Asset.find(query)
-          .populate('assigned_user', 'name email department')
-          .populate('last_audited_by', 'name email')
-          .sort(sort)
-          .skip(skip)
-          .limit(limit)
-          .lean(),
-        Asset.countDocuments(query)
-      ]);
+      // Apply pagination
+      query = query.range(offset, offset + limit - 1);
+      
+      // Execute query
+      const { data: assets, error, count } = await query;
+      
+      if (error) {
+        logger.error('Error fetching assets', { error, filters });
+        throw new Error(error.message || 'Failed to fetch assets');
+      }
       
       return {
-        data: assets,
+        data: assets || [],
         pagination: {
           page,
           limit,
-          total,
-          pages: Math.ceil(total / limit),
-          hasNext: page < Math.ceil(total / limit),
+          total: count || 0,
+          pages: Math.ceil((count || 0) / limit),
+          hasNext: page < Math.ceil((count || 0) / limit),
           hasPrev: page > 1
         }
       };
@@ -164,71 +177,53 @@ class AssetService {
    * @returns {Promise<Object>} Asset with audit history
    */
   async getAssetById(assetId) {
+    const supabase = getSupabase();
+    
     try {
-      // Use aggregation for better performance
-      const result = await Asset.aggregate([
-        { $match: { _id: new mongoose.Types.ObjectId(assetId) } },
-        {
-          $lookup: {
-            from: 'users',
-            localField: 'assigned_user',
-            foreignField: '_id',
-            as: 'assigned_user'
-          }
-        },
-        {
-          $lookup: {
-            from: 'users',
-            localField: 'last_audited_by',
-            foreignField: '_id',
-            as: 'last_audited_by'
-          }
-        },
-        {
-          $lookup: {
-            from: 'vendors',
-            localField: 'vendor',
-            foreignField: '_id',
-            as: 'vendor'
-          }
-        },
-        {
-          $lookup: {
-            from: 'auditlogs',
-            let: { assetId: '$_id' },
-            pipeline: [
-              {
-                $match: {
-                  $expr: { $eq: ['$entity_id', '$$assetId'] },
-                  entity_type: 'Asset',
-                  action: { $in: ['quick_audit_completed', 'audit_scanned', 'asset_updated', 'audit_completed'] }
-                }
-              },
-              { $sort: { timestamp: -1 } },
-              { $limit: 10 },
-              {
-                $lookup: {
-                  from: 'users',
-                  localField: 'user_id',
-                  foreignField: '_id',
-                  as: 'user'
-                }
-              },
-              { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } }
-            ],
-            as: 'audit_history'
-          }
-        },
-        { $unwind: { path: '$assigned_user', preserveNullAndEmptyArrays: true } },
-        { $unwind: { path: '$last_audited_by', preserveNullAndEmptyArrays: true } },
-        { $unwind: { path: '$vendor', preserveNullAndEmptyArrays: true } }
-      ]);
+      // Fetch asset with related data
+      const { data: asset, error: assetError } = await supabase
+        .from('assets')
+        .select(`
+          *,
+          assigned_user:users!assigned_user(id, name, email, department, phone),
+          last_audited_by:users!last_audited_by(id, name, email, department),
+          vendor:vendors(id, name, contact_person, email, phone)
+        `)
+        .eq('id', assetId)
+        .single();
       
-      if (!result || result.length === 0) {
-        return null;
+      if (assetError) {
+        if (assetError.code === 'PGRST116') {
+          return null; // Asset not found
+        }
+        logger.error('Error fetching asset', { error: assetError, assetId });
+        throw new Error(assetError.message || 'Failed to fetch asset');
       }
       
-      return result[0];
+      // Fetch audit history
+      const { data: auditHistory, error: auditError } = await supabase
+        .from('audit_logs')
+        .select(`
+          id,
+          action,
+          changes,
+          created_at,
+          user:users(id, name, email)
+        `)
+        .eq('entity_id', assetId)
+        .eq('entity_type', 'Asset')
+        .in('action', ['quick_audit_completed', 'audit_scanned', 'asset_updated', 'audit_completed', 'asset_created'])
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (auditError) {
+        logger.warn('Failed to fetch audit history', { error: auditError, assetId });
+      }
+      
+      // Attach audit history to asset
+      asset.audit_history = auditHistory || [];
+      
+      return asset;
     } catch (error) {
       logger.error('Error fetching asset by ID', { error: error.message, assetId });
       throw error;
@@ -236,45 +231,59 @@ class AssetService {
   }
   
   /**
-   * Update asset with transaction support
+   * Update asset with audit logging
    * @param {String} assetId - Asset ID
    * @param {Object} updateData - Update data
    * @param {String} userId - User ID making the update
    * @returns {Promise<Object>} Updated asset
    */
   async updateAsset(assetId, updateData, userId) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const supabase = getSupabase();
     
     try {
       // Get old asset data for audit log
-      const oldAsset = await Asset.findById(assetId).session(session);
+      const { data: oldAsset, error: fetchError } = await supabase
+        .from('assets')
+        .select('*')
+        .eq('id', assetId)
+        .single();
       
-      if (!oldAsset) {
+      if (fetchError || !oldAsset) {
         throw new Error('Asset not found');
       }
       
+      // Ensure updated_at is set
+      updateData.updated_at = new Date().toISOString();
+      
       // Update asset
-      const updatedAsset = await Asset.findByIdAndUpdate(
-        assetId,
-        updateData,
-        { new: true, session }
-      );
+      const { data: updatedAsset, error: updateError } = await supabase
+        .from('assets')
+        .update(updateData)
+        .eq('id', assetId)
+        .select()
+        .single();
+      
+      if (updateError) {
+        logger.error('Error updating asset', { error: updateError, assetId });
+        throw new Error(updateError.message || 'Failed to update asset');
+      }
       
       // Create audit log
-      await AuditLog.create([{
+      const { error: auditError } = await supabase.from('audit_logs').insert([{
         entity_type: 'Asset',
         entity_id: assetId,
         action: 'asset_updated',
         user_id: userId,
         changes: {
-          old_values: oldAsset.toObject(),
+          old_values: oldAsset,
           new_values: updateData
         },
-        timestamp: new Date()
-      }], { session });
+        created_at: new Date().toISOString()
+      }]);
       
-      await session.commitTransaction();
+      if (auditError) {
+        logger.warn('Failed to create audit log for asset update', { error: auditError });
+      }
       
       logger.info('Asset updated successfully', {
         assetId,
@@ -284,55 +293,63 @@ class AssetService {
       
       return updatedAsset;
     } catch (error) {
-      await session.abortTransaction();
       logger.error('Error updating asset', { error: error.message, assetId, userId });
       throw error;
-    } finally {
-      session.endSession();
     }
   }
   
   /**
-   * Delete asset with transaction support
+   * Delete asset with audit logging
    * @param {String} assetId - Asset ID
    * @param {String} userId - User ID deleting the asset
    * @returns {Promise<void>}
    */
   async deleteAsset(assetId, userId) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    const supabase = getSupabase();
     
     try {
-      const asset = await Asset.findById(assetId).session(session);
+      // Get asset data before deletion for audit log
+      const { data: asset, error: fetchError } = await supabase
+        .from('assets')
+        .select('*')
+        .eq('id', assetId)
+        .single();
       
-      if (!asset) {
+      if (fetchError || !asset) {
         throw new Error('Asset not found');
       }
       
-      // Delete asset
-      await Asset.findByIdAndDelete(assetId).session(session);
-      
-      // Create audit log
-      await AuditLog.create([{
+      // Create audit log before deletion
+      const { error: auditError } = await supabase.from('audit_logs').insert([{
         entity_type: 'Asset',
         entity_id: assetId,
         action: 'asset_deleted',
         user_id: userId,
         changes: {
-          old_values: asset.toObject()
+          old_values: asset
         },
-        timestamp: new Date()
-      }], { session });
+        created_at: new Date().toISOString()
+      }]);
       
-      await session.commitTransaction();
+      if (auditError) {
+        logger.warn('Failed to create audit log for asset deletion', { error: auditError });
+      }
+      
+      // Delete asset
+      const { error: deleteError } = await supabase
+        .from('assets')
+        .delete()
+        .eq('id', assetId);
+      
+      if (deleteError) {
+        logger.error('Error deleting asset', { error: deleteError, assetId });
+        throw new Error(deleteError.message || 'Failed to delete asset');
+      }
       
       logger.info('Asset deleted successfully', { assetId, userId });
     } catch (error) {
-      await session.abortTransaction();
       logger.error('Error deleting asset', { error: error.message, assetId, userId });
       throw error;
-    } finally {
-      session.endSession();
     }
   }
   
@@ -342,14 +359,25 @@ class AssetService {
    * @returns {Promise<Array>} User's assets
    */
   async getUserAssets(userId) {
+    const supabase = getSupabase();
+    
     try {
-      const assets = await Asset.find({ assigned_user: userId })
-        .populate('assigned_user', 'name email department')
-        .populate('last_audited_by', 'name email')
-        .sort({ createdAt: -1 })
-        .lean();
+      const { data: assets, error } = await supabase
+        .from('assets')
+        .select(`
+          *,
+          assigned_user:users!assigned_user(id, name, email, department),
+          last_audited_by:users!last_audited_by(id, name, email)
+        `)
+        .eq('assigned_user', userId)
+        .order('created_at', { ascending: false });
       
-      return assets;
+      if (error) {
+        logger.error('Error fetching user assets', { error, userId });
+        throw new Error(error.message || 'Failed to fetch user assets');
+      }
+      
+      return assets || [];
     } catch (error) {
       logger.error('Error fetching user assets', { error: error.message, userId });
       throw error;
@@ -362,53 +390,71 @@ class AssetService {
    * @returns {Promise<Object>} Asset statistics
    */
   async getAssetStats(user) {
+    const supabase = getSupabase();
+    
     try {
-      let matchQuery = {};
+      // Build base query based on user role
+      let baseQuery = supabase.from('assets').select('*', { count: 'exact', head: true });
       
-      // Filter by department if not admin
       if (user.role !== 'ADMIN') {
-        matchQuery.department = user.department;
+        baseQuery = baseQuery.eq('department', user.department);
       }
       
-      const stats = await Asset.aggregate([
-        { $match: matchQuery },
-        {
-          $facet: {
-            totalAssets: [{ $count: 'count' }],
-            activeAssets: [
-              { $match: { status: 'Active' } },
-              { $count: 'count' }
-            ],
-            underMaintenance: [
-              { $match: { status: 'Under Maintenance' } },
-              { $count: 'count' }
-            ],
-            totalValue: [
-              { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
-            ],
-            byStatus: [
-              { $group: { _id: '$status', count: { $sum: 1 } } }
-            ],
-            byDepartment: [
-              { $group: { _id: '$department', count: { $sum: 1 } } }
-            ],
-            byType: [
-              { $group: { _id: '$asset_type', count: { $sum: 1 } } }
-            ]
-          }
-        }
-      ]);
+      // Get total assets count
+      const { count: totalAssets } = await baseQuery;
       
-      const result = stats[0];
+      // Get status counts
+      const statusCounts = {};
+      const statuses = ['Active', 'Under Maintenance', 'Available', 'Damaged', 'Ready for Scrap', 'Disposed'];
+      
+      for (const status of statuses) {
+        let statusQuery = supabase.from('assets').select('*', { count: 'exact', head: true }).eq('status', status);
+        if (user.role !== 'ADMIN') {
+          statusQuery = statusQuery.eq('department', user.department);
+        }
+        const { count } = await statusQuery;
+        statusCounts[status] = count || 0;
+      }
+      
+      // Get total value (this requires fetching data, not just count)
+      let valueQuery = supabase.from('assets').select('purchase_cost');
+      if (user.role !== 'ADMIN') {
+        valueQuery = valueQuery.eq('department', user.department);
+      }
+      const { data: assetsWithCost } = await valueQuery;
+      const totalValue = (assetsWithCost || []).reduce((sum, asset) => sum + (asset.purchase_cost || 0), 0);
+      
+      // Get department distribution
+      const { data: departmentData } = await supabase
+        .from('assets')
+        .select('department')
+        .eq('department', user.role === 'ADMIN' ? undefined : user.department);
+      
+      const byDepartment = (departmentData || []).reduce((acc, item) => {
+        acc[item.department] = (acc[item.department] || 0) + 1;
+        return acc;
+      }, {});
+      
+      // Get asset type distribution
+      let typeQuery = supabase.from('assets').select('asset_type');
+      if (user.role !== 'ADMIN') {
+        typeQuery = typeQuery.eq('department', user.department);
+      }
+      const { data: typeData } = await typeQuery;
+      
+      const byType = (typeData || []).reduce((acc, item) => {
+        acc[item.asset_type] = (acc[item.asset_type] || 0) + 1;
+        return acc;
+      }, {});
       
       return {
-        totalAssets: result.totalAssets[0]?.count || 0,
-        activeAssets: result.activeAssets[0]?.count || 0,
-        underMaintenance: result.underMaintenance[0]?.count || 0,
-        totalValue: result.totalValue[0]?.total || 0,
-        byStatus: result.byStatus,
-        byDepartment: result.byDepartment,
-        byType: result.byType
+        totalAssets: totalAssets || 0,
+        activeAssets: statusCounts['Active'] || 0,
+        underMaintenance: statusCounts['Under Maintenance'] || 0,
+        totalValue: totalValue,
+        byStatus: Object.entries(statusCounts).map(([_id, count]) => ({ _id, count })),
+        byDepartment: Object.entries(byDepartment).map(([_id, count]) => ({ _id, count })),
+        byType: Object.entries(byType).map(([_id, count]) => ({ _id, count }))
       };
     } catch (error) {
       logger.error('Error fetching asset stats', { error: error.message });

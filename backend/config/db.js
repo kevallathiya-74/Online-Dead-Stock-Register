@@ -1,93 +1,86 @@
-const mongoose = require('mongoose');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
-// Use native promises
-mongoose.Promise = global.Promise;
+let supabaseClient = null;
 
-// Configure mongoose settings for better stability
-mongoose.set('strictQuery', false);
-
-const connectDB = async (retries = 5) => {
+const initSupabase = () => {
   try {
-    console.log('Connecting to MongoDB Atlas...');
-    console.log('MongoDB URI:', process.env.MONGODB_URI ? 'Set (length: ' + process.env.MONGODB_URI.length + ')' : 'Not Set');
+    console.log('🚀 Initializing Supabase connection...');
     
-    // Optimized connection options for MongoDB Atlas
-    const options = {
-      // Connection timeout settings
-      serverSelectionTimeoutMS: 30000, // 30 seconds for initial connection
-      socketTimeoutMS: 45000, // 45 seconds
-      connectTimeoutMS: 30000, // 30 seconds for connection establishment
-      
-      // Connection pool settings
-      maxPoolSize: 10, // Maximum concurrent connections
-      minPoolSize: 2, // Minimum persistent connections
-      maxIdleTimeMS: 60000, // 1 minute idle timeout
-      
-      // Automatic reconnection
-      retryWrites: true,
-      retryReads: true,
-      
-      // Network settings
-      family: 4, // Use IPv4, skip trying IPv6
-      heartbeatFrequencyMS: 10000, // Check connection health every 10 seconds
-      
-      // Compression
-      compressors: ['zlib'],
-    };
-
-    console.log('Attempting MongoDB connection...');
-    const conn = await mongoose.connect(process.env.MONGODB_URI, options);
-    console.log('Connection successful!');
-
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-    console.log(`📊 Database: ${conn.connection.name}`);
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
     
-    // Set up connection event handlers (only once)
-    if (!mongoose.connection._hasEventListeners) {
-      mongoose.connection.on('error', err => {
-        console.error('❌ MongoDB connection error:', err.message);
-      });
-
-      mongoose.connection.on('disconnected', () => {
-        console.warn('⚠️ MongoDB disconnected - will attempt to reconnect...');
-      });
-
-      mongoose.connection.on('reconnected', () => {
-        console.log('✅ MongoDB reconnected successfully');
-      });
-
-      mongoose.connection.on('connected', () => {
-        console.log('🔗 MongoDB connection established');
-      });
-
-      mongoose.connection._hasEventListeners = true;
+    // Validate environment variables
+    if (!supabaseUrl) {
+      throw new Error('SUPABASE_URL is not defined in environment variables');
     }
-
-    return conn;
+    if (!supabaseKey) {
+      throw new Error('SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY is not defined in environment variables');
+    }
+    
+    console.log('Supabase URL:', supabaseUrl ? 'Set (' + supabaseUrl.substring(0, 30) + '...)' : 'Not Set');
+    console.log('Supabase Key:', supabaseKey ? 'Set (length: ' + supabaseKey.length + ')' : 'Not Set');
+    
+    // Create Supabase client with optimized configuration
+    supabaseClient = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: false, // Server doesn't need persistent sessions
+        detectSessionInUrl: false
+      },
+      db: {
+        schema: 'public'
+      },
+      global: {
+        headers: {
+          'X-Client-Info': 'dsr-backend'
+        }
+      }
+    });
+    
+    console.log('✅ Supabase client initialized successfully');
+    console.log('📊 Database: PostgreSQL via Supabase');
+    
+    return supabaseClient;
   } catch (error) {
-    console.error('❌ MongoDB connection failed:', error.message);
+    console.error('❌ Supabase initialization failed:', error.message);
+    console.error('\n🔧 Troubleshooting steps:');
+    console.error('1. Check if SUPABASE_URL is set in .env file');
+    console.error('2. Check if SUPABASE_SERVICE_ROLE_KEY is set in .env file');
+    console.error('3. Verify credentials from Supabase dashboard');
+    console.error('4. Ensure Supabase project is active\n');
     
-    // Provide helpful error messages
-    if (error.name === 'MongooseServerSelectionError') {
-      console.error('\n🔧 Troubleshooting steps:');
-      console.error('1. Check if your IP address is whitelisted in MongoDB Atlas');
-      console.error('2. Verify your MONGODB_URI in .env file');
-      console.error('3. Ensure your network connection is stable');
-      console.error('4. Check if MongoDB Atlas cluster is active\n');
-    }
-    
-    if (retries > 0) {
-      console.log(`🔄 Retrying connection... (${retries} attempts remaining)`);
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      return connectDB(retries - 1);
-    } else {
-      console.error('💥 All connection attempts failed.');
-      console.warn('⚠️  Server will continue running without MongoDB.');
-      console.warn('⚠️  Database-dependent features will not be available.');
-      return null;
-    }
+    throw error;
   }
 };
 
-module.exports = connectDB;
+// Get Supabase client instance (singleton pattern)
+const getSupabase = () => {
+  if (!supabaseClient) {
+    return initSupabase();
+  }
+  return supabaseClient;
+};
+
+// Test database connection
+const testConnection = async () => {
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('users').select('count').limit(1);
+    
+    if (error) {
+      console.error('❌ Database connection test failed:', error.message);
+      return false;
+    }
+    
+    console.log('✅ Database connection test successful');
+    return true;
+  } catch (error) {
+    console.error('❌ Database connection test error:', error.message);
+    return false;
+  }
+};
+
+module.exports = getSupabase;
+module.exports.initSupabase = initSupabase;
+module.exports.testConnection = testConnection;

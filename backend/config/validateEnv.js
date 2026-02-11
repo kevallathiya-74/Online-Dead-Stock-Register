@@ -7,7 +7,8 @@
 const logger = require('../utils/logger');
 
 const requiredEnvVars = [
-  'MONGODB_URI',
+  'SUPABASE_URL',
+  'SUPABASE_SERVICE_ROLE_KEY',
   'JWT_SECRET',
   'NODE_ENV',
   'PORT'
@@ -17,7 +18,7 @@ const recommendedEnvVars = [
   'ALLOWED_ORIGINS',
   'EMAIL_USER',
   'EMAIL_PASSWORD',
-  'FRONTEND_URL'
+  'SUPABASE_ANON_KEY'
 ];
 
 const validateEnv = () => {
@@ -47,7 +48,9 @@ const validateEnv = () => {
       logger.error(`   - ${varName}`);
     });
     logger.error('\n📝 Please check your .env file and ensure all required variables are set.');
-    logger.error('   See backend/.env.example for reference.\n');
+    logger.error('   Required for Supabase connection:');
+    logger.error('   - SUPABASE_URL (from Supabase Dashboard)');
+    logger.error('   - SUPABASE_SERVICE_ROLE_KEY (from Supabase Dashboard → Settings → API)\n');
     process.exit(1);
   }
   
@@ -58,11 +61,18 @@ const validateEnv = () => {
     process.exit(1);
   }
   
-  // Validate MONGODB_URI format
-  if (process.env.MONGODB_URI && !process.env.MONGODB_URI.startsWith('mongodb')) {
-    logger.error('❌ FATAL ERROR: MONGODB_URI appears to be invalid.');
-    logger.error('   It should start with "mongodb://" or "mongodb+srv://"\n');
+  // Validate SUPABASE_URL format
+  if (process.env.SUPABASE_URL && !process.env.SUPABASE_URL.startsWith('https://')) {
+    logger.error('❌ FATAL ERROR: SUPABASE_URL appears to be invalid.');
+    logger.error('   It should start with "https://" (e.g., https://your-project.supabase.co)\n');
     process.exit(1);
+  }
+  
+  // Validate SUPABASE_SERVICE_ROLE_KEY format (basic check)
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.length < 100) {
+    logger.warn('⚠️  WARNING: SUPABASE_SERVICE_ROLE_KEY seems too short.');
+    logger.warn('   Make sure you\'re using the service_role key, not the anon key.');
+    logger.warn('   Get it from: Supabase Dashboard → Settings → API → service_role key\n');
   }
   
   // Warn about missing recommended variables

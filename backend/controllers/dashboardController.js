@@ -1,16 +1,11 @@
-const mongoose = require('mongoose');
-const Asset = require('../models/asset');
-const User = require('../models/user');
-const Approval = require('../models/approval');
-const AuditLog = require('../models/auditLog');
-const Transaction = require('../models/transaction');
-const Maintenance = require('../models/maintenance');
-const Vendor = require('../models/vendor');
+const { getSupabase } = require('../config/db');
 const logger = require('../utils/logger');
 
 // Get dashboard statistics
 const getDashboardStats = async (req, res) => {
   try {
+    const supabase = getSupabase();
+    
     // Get current date and calculate periods
     const currentDate = new Date();
     const lastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
@@ -18,119 +13,100 @@ const getDashboardStats = async (req, res) => {
 
     // Fetch stats in parallel
     const [
-      totalAssets,
-      totalValue,
-      activeUsers,
-      pendingApprovals,
-      scrapAssets,
-      monthlyPurchase,
-      lastMonthPurchase,
-      assetsLastMonth,
-      usersLastMonth
+      totalAssetsResult,
+      totalValueResult,
+      activeUsersResult,
+      pendingApprovalsResult,
+      scrapAssetsResult,
+      monthlyPurchaseResult,
+      lastMonthPurchaseResult,
+      assetsLastMonthResult,
+      usersLastMonthResult
     ] = await Promise.all([
       // Total assets count
-      Asset.countDocuments({ status: { $ne: 'Disposed' } }),
+      supabase.from('assets').select('*', { count: 'exact', head: true }).neq('status', 'Disposed'),
       
       // Total asset value
-      Asset.aggregate([
-        { $match: { status: { $ne: 'Disposed' } } },
-        { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
-      ]),
+      supabase.from('assets').select('purchase_cost').neq('status', 'Disposed'),
       
       // Active users count
-      User.countDocuments({ is_active: true }),
+      supabase.from('users').select('*', { count: 'exact', head: true }).eq('is_active', true),
       
       // Pending approvals count
-      Approval.countDocuments({ status: 'Pending' }),
+      supabase.from('approvals').select('*', { count: 'exact', head: true }).eq('status', 'Pending'),
       
       // Assets ready for scrap
-      Asset.countDocuments({ 
-        $or: [
-          { status: 'Disposed' },
-          { condition: 'Poor' },
-          { warranty_expiry: { $lt: currentDate } }
-        ]
-      }),
+      supabase.from('assets').select('*', { count: 'exact', head: true })
+        .or('status.eq.Disposed,condition.eq.Poor,warranty_expiry.lt.' + currentDate.toISOString()),
       
       // Monthly purchase value (current month)
-      Asset.aggregate([
-        { 
-          $match: { 
-            purchase_date: { $gte: currentMonth },
-            status: { $ne: 'Disposed' }
-          } 
-        },
-        { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
-      ]),
+      supabase.from('assets').select('purchase_cost')
+        .gte('purchase_date', currentMonth.toISOString().split('T')[0])
+        .neq('status', 'Disposed'),
       
       // Last month purchase for comparison
-      Asset.aggregate([
-        { 
-          $match: { 
-            purchase_date: { $gte: lastMonth, $lt: currentMonth },
-            status: { $ne: 'Disposed' }
-          } 
-        },
-        { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
-      ]),
+      supabase.from('assets').select('purchase_cost')
+        .gte('purchase_date', lastMonth.toISOString().split('T')[0])
+        .lt('purchase_date', currentMonth.toISOString().split('T')[0])
+        .neq('status', 'Disposed'),
       
       // Assets count last month for trend
-      Asset.countDocuments({ 
-        createdAt: { $lt: currentMonth },
-        status: { $ne: 'Disposed' }
-      }),
+      supabase.from('assets').select('*', { count: 'exact', head: true })
+        .lt('created_at', currentMonth.toISOString())
+        .neq('status', 'Disposed'),
       
       // Users count last month for trend
-      User.countDocuments({ 
-        createdAt: { $lt: currentMonth },
-        is_active: true 
-      })
+      supabase.from('users').select('*', { count: 'exact', head: true })
+        .lt('created_at', currentMonth.toISOString())
+        .eq('is_active', true)
     ]);
 
-    // Calculate trends
-    const currentTotalValue = totalValue[0]?.total || 0;
-    const currentMonthlyPurchase = monthlyPurchase[0]?.total || 0;
-    const lastMonthlyPurchase = lastMonthPurchase[0]?.total || 0;
+    // Process results
+    const totalAssets = totalAssetsResult.count || 0;
+    const totalValue = totalValueResult.data?.reduce((sum, asset) => sum + (asset.purchase_cost || 0), 0) || 0;
+    const activeUsers = activeUsersResult.count || 0;
+    const pendingApprovals = pendingApprovalsResult.count || 0;
+    const scrapAssets = scrapAssetsResult.count || 0;
+    const monthlyPurchase = monthlyPurchaseResult.data?.reduce((sum, asset) => sum + (asset.purchase_cost || 0), 0) || 0;
+    const lastMonthPurchase = lastMonthPurchaseResult.data?.reduce((sum, asset) => sum + (asset.purchase_cost || 0), 0) || 0;
+    const assetsLastMonth = assetsLastMonthResult.count || 0;
+    const usersLastMonth = usersLastMonthResult.count || 0;
 
+    // Calculate trends
     const assetsTrend = assetsLastMonth > 0 ? 
       Math.round(((totalAssets - assetsLastMonth) / assetsLastMonth) * 100) : 0;
     
     const usersTrend = usersLastMonth > 0 ? 
       Math.round(((activeUsers - usersLastMonth) / usersLastMonth) * 100) : 0;
     
-    const purchaseTrend = lastMonthlyPurchase > 0 ? 
-      Math.round(((currentMonthlyPurchase - lastMonthlyPurchase) / lastMonthlyPurchase) * 100) : 0;
+    const purchaseTrend = lastMonthPurchase > 0 ? 
+      Math.round(((monthlyPurchase - lastMonthPurchase) / lastMonthPurchase) * 100) : 0;
 
     // Calculate asset value trend from last month
-    const lastMonthValue = await Asset.aggregate([
-      { 
-        $match: { 
-          createdAt: { $lt: currentMonth },
-          status: { $ne: 'Disposed' }
-        } 
-      },
-      { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
-    ]);
+    const { data: lastMonthValueData } = await supabase.from('assets')
+      .select('purchase_cost')
+      .lt('created_at', currentMonth.toISOString())
+      .neq('status', 'Disposed');
     
-    const lastMonthTotalValue = lastMonthValue[0]?.total || 0;
+    const lastMonthTotalValue = lastMonthValueData?.reduce((sum, asset) => sum + (asset.purchase_cost || 0), 0) || 0;
     const valueTrend = lastMonthTotalValue > 0 ? 
-      Math.round(((currentTotalValue - lastMonthTotalValue) / lastMonthTotalValue) * 100) : 0;
+      Math.round(((totalValue - lastMonthTotalValue) / lastMonthTotalValue) * 100) : 0;
 
     // Calculate system health metrics
     const systemHealth = {
       serverHealth: 100,
-      databasePerformance: mongoose.connection.readyState === 1 ? 100 : 0,
+      databasePerformance: 100, // Supabase is always ready
       storageUsage: 0,
-      lastBackup: 'Not configured'
+      lastBackup: 'Managed by Supabase'
     };
 
     const stats = {
       totalAssets,
-      totalValue: currentTotalValue,
+      totalValue,
       activeUsers,
       pendingApprovals,
       scrapAssets,
-      monthlyPurchase: currentMonthlyPurchase,
+      monthlyPurchase,
       trends: {
         assets: {
           value: Math.abs(assetsTrend),
@@ -168,18 +144,20 @@ const getDashboardStats = async (req, res) => {
 // Get recent activities
 const getRecentActivities = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const limit = parseInt(req.query.limit) || 10;
 
-    const activities = await AuditLog.find()
-      .populate('user_id', 'name email')
-      .sort({ timestamp: -1 })
-      .limit(limit)
-      .lean();
+    // Get recent activities with user information
+    const { data: activities } = await supabase
+      .from('audit_logs')
+      .select('*, user:user_id(name, email)')
+      .order('timestamp', { ascending: false })
+      .limit(limit);
 
-    const formattedActivities = activities.map(activity => ({
-      id: activity._id,
-      user: activity.user_id?.name || 'Unknown User',
-      userId: activity.user_id?._id,
+    const formattedActivities = (activities || []).map(activity => ({
+      id: activity.id,
+      user: activity.user?.name || 'Unknown User',
+      userId: activity.user?.id,
       action: activity.action,
       asset: activity.entity_type || 'System',
       assetId: activity.entity_id,
@@ -201,36 +179,40 @@ const getRecentActivities = async (req, res) => {
     });
   }
 };
+    });
+  }
+};
 
 // Get pending approvals
 const getPendingApprovals = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const limit = parseInt(req.query.limit) || 10;
     const status = req.query.status || 'Pending';
 
-    const approvals = await Approval.find({ status })
-      .populate('requested_by', 'name email')
-      .populate('asset_id', 'unique_asset_id purchase_cost')
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
+    const { data: approvals } = await supabase
+      .from('approvals')
+      .select('*, requested_by:requested_by(name, email), asset:asset_id(unique_asset_id, purchase_cost)')
+      .eq('status', status)
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
-    const formattedApprovals = approvals.map(approval => {
+    const formattedApprovals = (approvals || []).map(approval => {
       const requestData = approval.request_data || {};
       const priority = requestData.priority || 'Medium';
       
       return {
-        id: approval._id,
+        id: approval.id,
         type: approval.request_type,
         requestor: approval.requested_by?.name || 'Unknown User',
-        requestorId: approval.requested_by?._id,
-        amount: requestData.estimated_cost || requestData.cost_estimate || approval.asset_id?.purchase_cost || 0,
+        requestorId: approval.requested_by?.id,
+        amount: requestData.estimated_cost || requestData.cost_estimate || approval.asset?.purchase_cost || 0,
         status: approval.status.toLowerCase(),
         priority: priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase(),
-        createdAt: approval.createdAt,
+        createdAt: approval.created_at,
         description: approval.comments || requestData.description || '',
         photo: requestData.photo || requestData.image || null,
-        asset_id: approval.asset_id?._id
+        asset_id: approval.asset?.id
       };
     });
 
@@ -276,49 +258,37 @@ const getSystemOverview = async (req, res) => {
 
 // Helper functions to get data without HTTP response
 const getDashboardStatsData = async () => {
+  const supabase = getSupabase();
   const currentDate = new Date();
   const lastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
   const currentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
 
   const [
-    totalAssets,
-    totalValue,
-    activeUsers,
-    pendingApprovals,
-    scrapAssets,
-    monthlyPurchase
+    totalAssetsResult,
+    totalValueResult,
+    activeUsersResult,
+    pendingApprovalsResult,
+    scrapAssetsResult,
+    monthlyPurchaseResult
   ] = await Promise.all([
-    Asset.countDocuments({ status: { $ne: 'Disposed' } }),
-    Asset.aggregate([
-      { $match: { status: { $ne: 'Disposed' } } },
-      { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
-    ]),
-    User.countDocuments({ is_active: true }),
-    Approval.countDocuments({ status: 'Pending' }),
-    Asset.countDocuments({ 
-      $or: [
-        { status: 'Disposed' },
-        { condition: 'Poor' }
-      ]
-    }),
-    Asset.aggregate([
-      { 
-        $match: { 
-          purchase_date: { $gte: currentMonth },
-          status: { $ne: 'Disposed' }
-        } 
-      },
-      { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
-    ])
+    supabase.from('assets').select('*', { count: 'exact', head: true }).neq('status', 'Disposed'),
+    supabase.from('assets').select('purchase_cost').neq('status', 'Disposed'),
+    supabase.from('users').select('*', { count: 'exact', head: true }).eq('is_active', true),
+    supabase.from('approvals').select('*', { count: 'exact', head: true }).eq('status', 'Pending'),
+    supabase.from('assets').select('*', { count: 'exact', head: true })
+      .or('status.eq.Disposed,condition.eq.Poor'),
+    supabase.from('assets').select('purchase_cost')
+      .gte('purchase_date', currentMonth.toISOString().split('T')[0])
+      .neq('status', 'Disposed')
   ]);
 
   return {
-    totalAssets,
-    totalValue: totalValue[0]?.total || 0,
-    activeUsers,
-    pendingApprovals,
-    scrapAssets,
-    monthlyPurchase: monthlyPurchase[0]?.total || 0,
+    totalAssets: totalAssetsResult.count || 0,
+    totalValue: totalValueResult.data?.reduce((sum, asset) => sum + (asset.purchase_cost || 0), 0) || 0,
+    activeUsers: activeUsersResult.count || 0,
+    pendingApprovals: pendingApprovalsResult.count || 0,
+    scrapAssets: scrapAssetsResult.count || 0,
+    monthlyPurchase: monthlyPurchaseResult.data?.reduce((sum, asset) => sum + (asset.purchase_cost || 0), 0) || 0,
     trends: {
       assets: { value: 12, isPositive: true },
       value: { value: 8, isPositive: true },
@@ -329,16 +299,18 @@ const getDashboardStatsData = async () => {
 };
 
 const getRecentActivitiesData = async (limit = 10) => {
-  const activities = await AuditLog.find()
-    .populate('user_id', 'name email')
-    .sort({ timestamp: -1 })
-    .limit(limit)
-    .lean();
+  const supabase = getSupabase();
+  
+  const { data: activities } = await supabase
+    .from('audit_logs')
+    .select('*, user:user_id(name, email)')
+    .order('timestamp', { ascending: false })
+    .limit(limit);
 
-  return activities.map(activity => ({
-    id: activity._id,
-    user: activity.user_id?.name || 'Unknown User',
-    userId: activity.user_id?._id,
+  return (activities || []).map(activity => ({
+    id: activity.id,
+    user: activity.user?.name || 'Unknown User',
+    userId: activity.user?.id,
     action: activity.action,
     asset: activity.entity_type || 'System',
     assetId: activity.entity_id,
@@ -350,29 +322,31 @@ const getRecentActivitiesData = async (limit = 10) => {
 };
 
 const getPendingApprovalsData = async (limit = 10) => {
-  const approvals = await Approval.find({ status: 'Pending' })
-    .populate('requested_by', 'name email')
-    .populate('asset_id', 'unique_asset_id purchase_cost')
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .lean();
+  const supabase = getSupabase();
+  
+  const { data: approvals } = await supabase
+    .from('approvals')
+    .select('*, requested_by:requested_by(name, email), asset:asset_id(unique_asset_id, purchase_cost)')
+    .eq('status', 'Pending')
+    .order('created_at', { ascending: false })
+    .limit(limit);
 
-  return approvals.map(approval => {
+  return (approvals || []).map(approval => {
     const requestData = approval.request_data || {};
     const priority = requestData.priority || 'Medium';
     
     return {
-      id: approval._id,
+      id: approval.id,
       type: approval.request_type,
       requestor: approval.requested_by?.name || 'Unknown User',
-      requestorId: approval.requested_by?._id,
-      amount: requestData.estimated_cost || requestData.cost_estimate || approval.asset_id?.purchase_cost || 0,
+      requestorId: approval.requested_by?.id,
+      amount: requestData.estimated_cost || requestData.cost_estimate || approval.asset?.purchase_cost || 0,
       status: approval.status.toLowerCase(),
       priority: priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase(),
-      createdAt: approval.createdAt,
+      createdAt: approval.created_at,
       description: approval.comments || requestData.description || '',
       photo: requestData.photo || requestData.image || null,
-      asset_id: approval.asset_id?._id
+      asset_id: approval.asset?.id
     };
   });
 };
@@ -380,13 +354,15 @@ const getPendingApprovalsData = async (limit = 10) => {
 // Get users by role statistics
 const getUsersByRole = async (req, res) => {
   try {
-    const usersByRole = await User.aggregate([
-      { $match: { is_active: true } },
-      { $group: { _id: '$role', count: { $sum: 1 } } }
-    ]);
+    const supabase = getSupabase();
+    
+    const { data: users } = await supabase
+      .from('users')
+      .select('role')
+      .eq('is_active', true);
 
-    const result = usersByRole.reduce((acc, item) => {
-      acc[item._id] = item.count;
+    const result = (users || []).reduce((acc, user) => {
+      acc[user.role] = (acc[user.role] || 0) + 1;
       return acc;
     }, {});
 
@@ -402,17 +378,23 @@ const getUsersByRole = async (req, res) => {
     });
   }
 };
+      error: 'Failed to fetch users by role'
+    });
+  }
+};
 
 // Get assets by category statistics
 const getAssetsByCategory = async (req, res) => {
   try {
-    const assetsByCategory = await Asset.aggregate([
-      { $match: { status: { $ne: 'Disposed' } } },
-      { $group: { _id: '$asset_type', count: { $sum: 1 } } }
-    ]);
+    const supabase = getSupabase();
+    
+    const { data: assets } = await supabase
+      .from('assets')
+      .select('asset_type')
+      .neq('status', 'Disposed');
 
-    const result = assetsByCategory.reduce((acc, item) => {
-      acc[item._id] = item.count;
+    const result = (assets || []).reduce((acc, asset) => {
+      acc[asset.asset_type] = (acc[asset.asset_type] || 0) + 1;
       return acc;
     }, {});
 
@@ -432,38 +414,35 @@ const getAssetsByCategory = async (req, res) => {
 // Get monthly trends
 const getMonthlyTrends = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const currentDate = new Date();
     const monthsBack = 6;
     
     // Get last 6 months data
-    const trends = {};
+    const trends = {
+      assets: [],
+      purchases: []
+    };
     
-    for (let i = 0; i < monthsBack; i++) {
+    for (let i = monthsBack - 1; i >= 0; i--) {
       const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
       const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() - i + 1, 0);
       
-      const [assets, purchases] = await Promise.all([
-        Asset.countDocuments({
-          createdAt: { $gte: monthStart, $lte: monthEnd },
-          status: { $ne: 'Disposed' }
-        }),
-        Asset.aggregate([
-          {
-            $match: {
-              purchase_date: { $gte: monthStart, $lte: monthEnd },
-              status: { $ne: 'Disposed' }
-            }
-          },
-          { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
-        ])
+      const [assetsResult, purchasesResult] = await Promise.all([
+        supabase.from('assets')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', monthStart.toISOString())
+          .lte('created_at', monthEnd.toISOString())
+          .neq('status', 'Disposed'),
+        supabase.from('assets')
+          .select('purchase_cost')
+          .gte('purchase_date', monthStart.toISOString().split('T')[0])
+          .lte('purchase_date', monthEnd.toISOString().split('T')[0])
+          .neq('status', 'Disposed')
       ]);
       
-      const monthKey = monthStart.toISOString().substring(0, 7); // YYYY-MM format
-      if (!trends.assets) trends.assets = [];
-      if (!trends.purchases) trends.purchases = [];
-      
-      trends.assets.unshift(assets);
-      trends.purchases.unshift(purchases[0]?.total || 0);
+      trends.assets.push(assetsResult.count || 0);
+      trends.purchases.push(purchasesResult.data?.reduce((sum, asset) => sum + (asset.purchase_cost || 0), 0) || 0);
     }
 
     res.json({
@@ -484,61 +463,64 @@ const getMonthlyTrends = async (req, res) => {
 // Get inventory manager dashboard statistics
 const getInventoryStats = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const currentDate = new Date();
     const lastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
     const currentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
 
     const [
-      totalAssets,
-      activeAssets,
-      inMaintenanceAssets,
-      disposedAssets,
-      totalValue,
-      locationCount,
-      warrantyExpiring,
-      maintenanceDue,
-      monthlyPurchases,
-      lastMonthPurchases,
-      topVendorsCount,
-      assetsLastMonth
+      totalAssetsResult,
+      activeAssetsResult,
+      inMaintenanceAssetsResult,
+      disposedAssetsResult,
+      totalValueResult,
+      locationsResult,
+      warrantyExpiringResult,
+      maintenanceDueResult,
+      monthlyPurchasesResult,
+      lastMonthPurchasesResult,
+      topVendorsResult,
+      assetsLastMonthResult
     ] = await Promise.all([
-      Asset.countDocuments({ status: { $ne: 'Disposed' } }),
-      Asset.countDocuments({ status: 'Active' }),
-      Asset.countDocuments({ status: 'Under Maintenance' }),
-      Asset.countDocuments({ status: 'Ready for Scrap' }),
-      Asset.aggregate([
-        { $match: { status: { $ne: 'Disposed' } } },
-        { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
-      ]),
-      Asset.distinct('location').then(locations => locations.length).catch(err => {
-        logger.error('Failed to get distinct locations', { error: err.message });
-        return 0;
-      }),
-      Asset.countDocuments({
-        warranty_expiry: { 
-          $gte: currentDate,
-          $lte: new Date(currentDate.getTime() + (90 * 24 * 60 * 60 * 1000)) // Next 90 days
-        }
-      }),
-      Maintenance.countDocuments({
-        status: { $in: ['Scheduled', 'In Progress'] },
-        maintenance_date: { 
-          $gte: currentDate,
-          $lte: new Date(currentDate.getTime() + (7 * 24 * 60 * 60 * 1000)) 
-        }
-      }),
-      Asset.countDocuments({
-        purchase_date: { $gte: currentMonth }
-      }),
-      Asset.countDocuments({
-        purchase_date: { $gte: lastMonth, $lt: currentMonth }
-      }),
-      Vendor.countDocuments({ is_active: true }),
-      Asset.countDocuments({ 
-        createdAt: { $lt: currentMonth },
-        status: { $ne: 'Disposed' }
-      })
+      supabase.from('assets').select('*', { count: 'exact', head: true }).neq('status', 'Disposed'),
+      supabase.from('assets').select('*', { count: 'exact', head: true }).eq('status', 'Active'),
+      supabase.from('assets').select('*', { count: 'exact', head: true }).eq('status', 'Under Maintenance'),
+      supabase.from('assets').select('*', { count: 'exact', head: true }).eq('status', 'Ready for Scrap'),
+      supabase.from('assets').select('purchase_cost').neq('status', 'Disposed'),
+      supabase.from('assets').select('location').neq('status', 'Disposed'),
+      supabase.from('assets').select('*', { count: 'exact', head: true })
+        .gte('warranty_expiry', currentDate.toISOString().split('T')[0])
+        .lte('warranty_expiry', new Date(currentDate.getTime() + (90 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]),
+      supabase.from('maintenances').select('*', { count: 'exact', head: true })
+        .in('status', ['Scheduled', 'In Progress'])
+        .gte('maintenance_date', currentDate.toISOString().split('T')[0])
+        .lte('maintenance_date', new Date(currentDate.getTime() + (7 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]),
+      supabase.from('assets').select('*', { count: 'exact', head: true })
+        .gte('purchase_date', currentMonth.toISOString().split('T')[0]),
+      supabase.from('assets').select('*', { count: 'exact', head: true })
+        .gte('purchase_date', lastMonth.toISOString().split('T')[0])
+        .lt('purchase_date', currentMonth.toISOString().split('T')[0]),
+      supabase.from('vendors').select('*', { count: 'exact', head: true }).eq('is_active', true),
+      supabase.from('assets').select('*', { count: 'exact', head: true })
+        .lt('created_at', currentMonth.toISOString())
+        .neq('status', 'Disposed')
     ]);
+
+    // Calculate unique locations
+    const uniqueLocations = new Set((locationsResult.data || []).map(asset => asset.location).filter(Boolean));
+    const locationCount = uniqueLocations.size;
+
+    const totalAssets = totalAssetsResult.count || 0;
+    const activeAssets = activeAssetsResult.count || 0;
+    const inMaintenanceAssets = inMaintenanceAssetsResult.count || 0;
+    const disposedAssets = disposedAssetsResult.count || 0;
+    const totalValue = totalValueResult.data?.reduce((sum, asset) => sum + (asset.purchase_cost || 0), 0) || 0;
+    const warrantyExpiring = warrantyExpiringResult.count || 0;
+    const maintenanceDue = maintenanceDueResult.count || 0;
+    const monthlyPurchases = monthlyPurchasesResult.count || 0;
+    const lastMonthPurchases = lastMonthPurchasesResult.count || 0;
+    const topVendorsCount = topVendorsResult.count || 0;
+    const assetsLastMonth = assetsLastMonthResult.count || 0;
 
     const purchaseTrend = lastMonthPurchases > 0 ? 
       Math.round(((monthlyPurchases - lastMonthPurchases) / lastMonthPurchases) * 100) : 0;
@@ -551,7 +533,7 @@ const getInventoryStats = async (req, res) => {
       activeAssets,
       inMaintenanceAssets,
       disposedAssets,
-      totalValue: totalValue[0]?.total || 0,
+      totalValue,
       locationCount,
       warrantyExpiring,
       maintenanceDue,
@@ -585,27 +567,39 @@ const getInventoryStats = async (req, res) => {
 // Get assets grouped by location
 const getAssetsByLocationDetailed = async (req, res) => {
   try {
-    const assetsByLocation = await Asset.aggregate([
-      { $match: { status: { $ne: 'Disposed' } } },
-      {
-        $group: {
-          _id: '$location',
-          count: { $sum: 1 },
-          assets: { $push: '$unique_asset_id' }
-        }
-      },
-      { $sort: { count: -1 } },
-      { $limit: 10 }
-    ]);
+    const supabase = getSupabase();
+    
+    const { data: assets } = await supabase
+      .from('assets')
+      .select('location, unique_asset_id')
+      .neq('status', 'Disposed');
 
-    const totalAssets = await Asset.countDocuments({ status: { $ne: 'Disposed' } });
+    // Group assets by location
+    const locationGroups = (assets || []).reduce((acc, asset) => {
+      const location = asset.location || 'Unknown';
+      if (!acc[location]) {
+        acc[location] = {
+          location,
+          count: 0,
+          assets: []
+        };
+      }
+      acc[location].count++;
+      acc[location].assets.push(asset.unique_asset_id);
+      return acc;
+    }, {});
 
-    const result = assetsByLocation.map(location => ({
-      location: location._id,
-      count: location.count,
-      percentage: totalAssets > 0 ? Math.round((location.count / totalAssets) * 100) : 0,
-      assets: location.assets.slice(0, 5) // First 5 assets for preview
-    }));
+    const totalAssets = assets?.length || 0;
+    
+    const result = Object.values(locationGroups)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10)
+      .map(location => ({
+        location: location.location,
+        count: location.count,
+        percentage: totalAssets > 0 ? Math.round((location.count / totalAssets) * 100) : 0,
+        assets: location.assets.slice(0, 5) // First 5 assets for preview
+      }));
 
     res.json({
       success: true,
@@ -623,28 +617,27 @@ const getAssetsByLocationDetailed = async (req, res) => {
 // Get assets with expiring warranties
 const getWarrantyExpiringAssets = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const currentDate = new Date();
     const threeMonthsFromNow = new Date(currentDate.getTime() + (90 * 24 * 60 * 60 * 1000));
 
-    const expiringAssets = await Asset.find({
-      warranty_expiry: {
-        $gte: currentDate,
-        $lte: threeMonthsFromNow
-      },
-      status: { $ne: 'Disposed' }
-    })
-    .populate('assigned_user', 'name email')
-    .sort({ warranty_expiry: 1 })
-    .limit(20);
+    const { data: expiringAssets } = await supabase
+      .from('assets')
+      .select('*, assigned_user:assigned_user(name)')
+      .gte('warranty_expiry', currentDate.toISOString().split('T')[0])
+      .lte('warranty_expiry', threeMonthsFromNow.toISOString().split('T')[0])
+      .neq('status', 'Disposed')
+      .order('warranty_expiry', { ascending: true })
+      .limit(20);
 
-    const result = expiringAssets.map(asset => {
+    const result = (expiringAssets || []).map(asset => {
       const daysLeft = Math.ceil((new Date(asset.warranty_expiry) - currentDate) / (1000 * 60 * 60 * 24));
       return {
-        id: asset._id,
+        id: asset.id,
         asset: asset.unique_asset_id,
-        assetId: asset._id,
+        assetId: asset.id,
         category: asset.asset_type,
-        expiryDate: asset.warranty_expiry.toISOString().split('T')[0],
+        expiryDate: asset.warranty_expiry,
         daysLeft,
         priority: daysLeft <= 30 ? 'high' : daysLeft <= 60 ? 'medium' : 'low',
         assignedUser: asset.assigned_user?.name
@@ -667,28 +660,26 @@ const getWarrantyExpiringAssets = async (req, res) => {
 // Get maintenance schedule
 const getMaintenanceScheduleDetailed = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const currentDate = new Date();
     const nextMonth = new Date(currentDate.getTime() + (30 * 24 * 60 * 60 * 1000));
 
-    const maintenanceItems = await Maintenance.find({
-      maintenance_date: {
-        $gte: currentDate,
-        $lte: nextMonth
-      },
-      status: { $in: ['Scheduled', 'In Progress'] }
-    })
-    .populate('asset_id', 'unique_asset_id asset_type')
-    .populate('vendor_id', 'vendor_name contact_person')
-    .sort({ maintenance_date: 1 })
-    .limit(15);
+    const { data: maintenanceItems } = await supabase
+      .from('maintenances')
+      .select('*, asset:asset_id(unique_asset_id, asset_type), vendor:vendor_id(vendor_name, contact_person)')
+      .gte('maintenance_date', currentDate.toISOString().split('T')[0])
+      .lte('maintenance_date', nextMonth.toISOString().split('T')[0])
+      .in('status', ['Scheduled', 'In Progress'])
+      .order('maintenance_date', { ascending: true })
+      .limit(15);
 
-    const result = maintenanceItems.map(item => ({
-      id: item._id,
-      asset: item.asset_id?.unique_asset_id || 'Unknown Asset',
-      assetId: item.asset_id?._id,
+    const result = (maintenanceItems || []).map(item => ({
+      id: item.id,
+      asset: item.asset?.unique_asset_id || 'Unknown Asset',
+      assetId: item.asset?.id,
       type: item.maintenance_type,
-      scheduledDate: item.maintenance_date.toISOString().split('T')[0],
-      technician: item.performed_by || item.vendor_id?.contact_person || 'TBD',
+      scheduledDate: item.maintenance_date,
+      technician: item.performed_by || item.vendor?.contact_person || 'TBD',
       status: item.status === 'Scheduled' ? 'scheduled' : item.status.toLowerCase().replace(' ', '_'),
       cost: item.cost,
       description: item.description
@@ -710,28 +701,30 @@ const getMaintenanceScheduleDetailed = async (req, res) => {
 // Get top vendors by performance
 const getTopVendorsDetailed = async (req, res) => {
   try {
-    const vendors = await Vendor.find({ is_active: true })
-      .sort({ performance_rating: -1 })
+    const supabase = getSupabase();
+    
+    const { data: vendors } = await supabase
+      .from('vendors')
+      .select('*')
+      .eq('is_active', true)
+      .order('performance_rating', { ascending: false })
       .limit(10);
 
-    const result = await Promise.all(vendors.map(async (vendor) => {
-      const assetsCount = await Asset.countDocuments({ vendor: vendor._id });
-      const maintenanceCount = await Maintenance.countDocuments({ vendor_id: vendor._id });
-      
-      // Calculate actual total value from assets
-      const assetValue = await Asset.aggregate([
-        { $match: { vendor: vendor._id, status: { $ne: 'Disposed' } } },
-        { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
+    const result = await Promise.all((vendors || []).map(async (vendor) => {
+      const [assetsCountResult, maintenanceCountResult, assetValueResult] = await Promise.all([
+        supabase.from('assets').select('*', { count: 'exact', head: true }).eq('vendor', vendor.id),
+        supabase.from('maintenances').select('*', { count: 'exact', head: true }).eq('vendor_id', vendor.id),
+        supabase.from('assets').select('purchase_cost').eq('vendor', vendor.id).neq('status', 'Disposed')
       ]);
       
       return {
-        id: vendor._id,
+        id: vendor.id,
         name: vendor.vendor_name || vendor.name,
-        orders: assetsCount + maintenanceCount,
-        value: assetValue[0]?.total || 0,
+        orders: (assetsCountResult.count || 0) + (maintenanceCountResult.count || 0),
+        value: assetValueResult.data?.reduce((sum, asset) => sum + (asset.purchase_cost || 0), 0) || 0,
         rating: vendor.performance_rating || 3,
         categories: vendor.categories || [],
-        activeContracts: maintenanceCount
+        activeContracts: maintenanceCountResult.count || 0
       };
     }));
 
@@ -751,30 +744,31 @@ const getTopVendorsDetailed = async (req, res) => {
 // Get pending approvals for inventory manager
 const getInventoryApprovals = async (req, res) => {
   try {
-    const approvals = await Approval.find({ 
-      status: 'Pending',
-      request_type: { $in: ['Repair', 'Upgrade', 'New Asset', 'Other'] }
-    })
-    .populate('requested_by', 'name email')
-    .populate('asset_id', 'unique_asset_id')
-    .sort({ createdAt: -1 })
-    .limit(10);
+    const supabase = getSupabase();
+    
+    const { data: approvals } = await supabase
+      .from('approvals')
+      .select('*, requested_by:requested_by(name), asset:asset_id(unique_asset_id)')
+      .eq('status', 'Pending')
+      .in('request_type', ['Repair', 'Upgrade', 'New Asset', 'Other'])
+      .order('created_at', { ascending: false })
+      .limit(10);
 
-    const result = approvals.map(approval => {
-      const daysAgo = Math.floor((new Date() - new Date(approval.createdAt)) / (1000 * 60 * 60 * 24));
+    const result = (approvals || []).map(approval => {
+      const daysAgo = Math.floor((new Date() - new Date(approval.created_at)) / (1000 * 60 * 60 * 24));
       const requestData = approval.request_data || {};
       const priority = requestData.priority || 'Medium';
       
       return {
-        id: approval._id,
+        id: approval.id,
         type: approval.request_type,
         requester: approval.requested_by?.name || 'Unknown User',
-        requestorId: approval.requested_by?._id,
+        requestorId: approval.requested_by?.id,
         priority: priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase(),
         daysAgo,
         amount: requestData.cost_estimate || requestData.estimated_cost,
         description: approval.comments || requestData.description,
-        assetId: approval.asset_id?._id
+        assetId: approval.asset?.id
       };
     });
 
@@ -825,59 +819,57 @@ const getInventoryOverview = async (req, res) => {
 
 // Helper functions for inventory data (similar to admin dashboard helpers)
 const getInventoryStatsData = async () => {
+  const supabase = getSupabase();
   const currentDate = new Date();
   const lastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
   const currentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
 
   const [
-    totalAssets,
-    activeAssets,
-    inMaintenanceAssets,
-    disposedAssets,
-    totalValue,
-    locationCount,
-    warrantyExpiring,
-    maintenanceDue,
-    monthlyPurchases,
-    topVendorsCount,
-    lastMonthAssets,
-    lastMonthActive
+    totalAssetsResult,
+    activeAssetsResult,
+    inMaintenanceAssetsResult,
+    disposedAssetsResult,
+    totalValueResult,
+    locationsResult,
+    warrantyExpiringResult,
+    maintenanceDueResult,
+    monthlyPurchasesResult,
+    topVendorsResult,
+    lastMonthAssetsResult,
+    lastMonthActiveResult
   ] = await Promise.all([
-    Asset.countDocuments({ status: { $ne: 'Disposed' } }),
-    Asset.countDocuments({ status: 'Active' }),
-    Asset.countDocuments({ status: 'Under Maintenance' }),
-    Asset.countDocuments({ status: 'Ready for Scrap' }),
-    Asset.aggregate([
-      { $match: { status: { $ne: 'Disposed' } } },
-      { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
-    ]),
-    Asset.distinct('location').then(locations => locations.length),
-    Asset.countDocuments({
-      warranty_expiry: { 
-        $gte: currentDate,
-        $lte: new Date(currentDate.getTime() + (90 * 24 * 60 * 60 * 1000))
-      }
-    }),
-    Maintenance.countDocuments({
-      status: { $in: ['Scheduled', 'In Progress'] },
-      maintenance_date: { 
-        $gte: currentDate,
-        $lte: new Date(currentDate.getTime() + (7 * 24 * 60 * 60 * 1000)) 
-      }
-    }),
-    Asset.countDocuments({
-      purchase_date: { $gte: currentMonth }
-    }),
-    Vendor.countDocuments({ is_active: true }),
-    Asset.countDocuments({ 
-      status: { $ne: 'Disposed' },
-      createdAt: { $lt: currentMonth }
-    }),
-    Asset.countDocuments({ 
-      status: 'Active',
-      createdAt: { $lt: currentMonth }
-    })
+    supabase.from('assets').select('*', { count: 'exact', head: true }).neq('status', 'Disposed'),
+    supabase.from('assets').select('*', { count: 'exact', head: true }).eq('status', 'Active'),
+    supabase.from('assets').select('*', { count: 'exact', head: true }).eq('status', 'Under Maintenance'),
+    supabase.from('assets').select('*', { count: 'exact', head: true }).eq('status', 'Ready for Scrap'),
+    supabase.from('assets').select('purchase_cost').neq('status', 'Disposed'),
+    supabase.from('assets').select('location').neq('status', 'Disposed'),
+    supabase.from('assets').select('*', { count: 'exact', head: true })
+      .gte('warranty_expiry', currentDate.toISOString().split('T')[0])
+      .lte('warranty_expiry', new Date(currentDate.getTime() + (90 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]),
+    supabase.from('maintenances').select('*', { count: 'exact', head: true })
+      .in('status', ['Scheduled', 'In Progress'])
+      .gte('maintenance_date', currentDate.toISOString().split('T')[0])
+      .lte('maintenance_date', new Date(currentDate.getTime() + (7 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]),
+    supabase.from('assets').select('*', { count: 'exact', head: true })
+      .gte('purchase_date', currentMonth.toISOString().split('T')[0]),
+    supabase.from('vendors').select('*', { count: 'exact', head: true }).eq('is_active', true),
+    supabase.from('assets').select('*', { count: 'exact', head: true })
+      .neq('status', 'Disposed')
+      .lt('created_at', currentMonth.toISOString()),
+    supabase.from('assets').select('*', { count: 'exact', head: true })
+      .eq('status', 'Active')
+      .lt('created_at', currentMonth.toISOString())
   ]);
+
+  // Calculate unique locations
+  const uniqueLocations = new Set((locationsResult.data || []).map(asset => asset.location).filter(Boolean));
+  const locationCount = uniqueLocations.size;
+  
+  const totalAssets = totalAssetsResult.count || 0;
+  const activeAssets = activeAssetsResult.count || 0;
+  const lastMonthAssets = lastMonthAssetsResult.count || 0;
+  const lastMonthActive = lastMonthActiveResult.count || 0;
 
   // Calculate trends
   const assetsTrend = lastMonthAssets > 0 ? 
@@ -888,14 +880,14 @@ const getInventoryStatsData = async () => {
   return {
     totalAssets,
     activeAssets,
-    inMaintenanceAssets,
-    disposedAssets,
-    totalValue: totalValue[0]?.total || 0,
+    inMaintenanceAssets: inMaintenanceAssetsResult.count || 0,
+    disposedAssets: disposedAssetsResult.count || 0,
+    totalValue: totalValueResult.data?.reduce((sum, asset) => sum + (asset.purchase_cost || 0), 0) || 0,
     locationCount,
-    warrantyExpiring,
-    maintenanceDue,
-    monthlyPurchases,
-    topVendorsCount,
+    warrantyExpiring: warrantyExpiringResult.count || 0,
+    maintenanceDue: maintenanceDueResult.count || 0,
+    monthlyPurchases: monthlyPurchasesResult.count || 0,
+    topVendorsCount: topVendorsResult.count || 0,
     trends: {
       assets: { 
         value: Math.abs(assetsTrend), 
@@ -910,52 +902,63 @@ const getInventoryStatsData = async () => {
 };
 
 const getAssetsByLocationData = async () => {
-  const assetsByLocation = await Asset.aggregate([
-    { $match: { status: { $ne: 'Disposed' } } },
-    {
-      $group: {
-        _id: '$location',
-        count: { $sum: 1 },
-        assets: { $push: '$unique_asset_id' }
-      }
-    },
-    { $sort: { count: -1 } },
-    { $limit: 8 }
-  ]);
+  const supabase = getSupabase();
+  
+  const { data: assets } = await supabase
+    .from('assets')
+    .select('location, unique_asset_id')
+    .neq('status', 'Disposed');
 
-  const totalAssets = await Asset.countDocuments({ status: { $ne: 'Disposed' } });
+  // Group assets by location
+  const locationGroups = (assets || []).reduce((acc, asset) => {
+    const location = asset.location || 'Unknown';
+    if (!acc[location]) {
+      acc[location] = {
+        location,
+        count: 0,
+        assets: []
+      };
+    }
+    acc[location].count++;
+    acc[location].assets.push(asset.unique_asset_id);
+    return acc;
+  }, {});
 
-  return assetsByLocation.map(location => ({
-    location: location._id,
-    count: location.count,
-    percentage: totalAssets > 0 ? Math.round((location.count / totalAssets) * 100) : 0,
-    assets: location.assets.slice(0, 3)
-  }));
+  const totalAssets = assets?.length || 0;
+  
+  return Object.values(locationGroups)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8)
+    .map(location => ({
+      location: location.location,
+      count: location.count,
+      percentage: totalAssets > 0 ? Math.round((location.count / totalAssets) * 100) : 0,
+      assets: location.assets.slice(0, 3)
+    }));
 };
 
 const getWarrantyExpiringData = async () => {
+  const supabase = getSupabase();
   const currentDate = new Date();
   const threeMonthsFromNow = new Date(currentDate.getTime() + (90 * 24 * 60 * 60 * 1000));
 
-  const expiringAssets = await Asset.find({
-    warranty_expiry: {
-      $gte: currentDate,
-      $lte: threeMonthsFromNow
-    },
-    status: { $ne: 'Disposed' }
-  })
-  .populate('assigned_user', 'name')
-  .sort({ warranty_expiry: 1 })
-  .limit(10);
+  const { data: expiringAssets } = await supabase
+    .from('assets')
+    .select('*, assigned_user:assigned_user(name)')
+    .gte('warranty_expiry', currentDate.toISOString().split('T')[0])
+    .lte('warranty_expiry', threeMonthsFromNow.toISOString().split('T')[0])
+    .neq('status', 'Disposed')
+    .order('warranty_expiry', { ascending: true })
+    .limit(10);
 
-  return expiringAssets.map(asset => {
+  return (expiringAssets || []).map(asset => {
     const daysLeft = Math.ceil((new Date(asset.warranty_expiry) - currentDate) / (1000 * 60 * 60 * 24));
     return {
-      id: asset._id,
+      id: asset.id,
       asset: asset.unique_asset_id,
-      assetId: asset._id,
+      assetId: asset.id,
       category: asset.asset_type,
-      expiryDate: asset.warranty_expiry.toISOString().split('T')[0],
+      expiryDate: asset.warranty_expiry,
       daysLeft,
       priority: daysLeft <= 30 ? 'high' : daysLeft <= 60 ? 'medium' : 'low',
       assignedUser: asset.assigned_user?.name
@@ -964,77 +967,80 @@ const getWarrantyExpiringData = async () => {
 };
 
 const getMaintenanceScheduleData = async () => {
+  const supabase = getSupabase();
   const currentDate = new Date();
   const nextMonth = new Date(currentDate.getTime() + (30 * 24 * 60 * 60 * 1000));
 
-  const maintenanceItems = await Maintenance.find({
-    maintenance_date: {
-      $gte: currentDate,
-      $lte: nextMonth
-    },
-    status: { $in: ['Scheduled', 'In Progress'] }
-  })
-  .populate('asset_id', 'unique_asset_id')
-  .sort({ maintenance_date: 1 })
-  .limit(10);
+  const { data: maintenanceItems } = await supabase
+    .from('maintenances')
+    .select('*, asset:asset_id(unique_asset_id)')
+    .gte('maintenance_date', currentDate.toISOString().split('T')[0])
+    .lte('maintenance_date', nextMonth.toISOString().split('T')[0])
+    .in('status', ['Scheduled', 'In Progress'])
+    .order('maintenance_date', { ascending: true })
+    .limit(10);
 
-  return maintenanceItems.map(item => ({
-    id: item._id,
-    asset: item.asset_id?.unique_asset_id || 'Unknown',
-    assetId: item.asset_id?._id,
+  return (maintenanceItems || []).map(item => ({
+    id: item.id,
+    asset: item.asset?.unique_asset_id || 'Unknown',
+    assetId: item.asset?.id,
     type: item.maintenance_type,
-    scheduledDate: item.maintenance_date.toISOString().split('T')[0],
+    scheduledDate: item.maintenance_date,
     technician: item.performed_by || 'TBD',
     status: item.status === 'Scheduled' ? 'scheduled' : item.status.toLowerCase().replace(' ', '_')
   }));
 };
 
 const getTopVendorsData = async () => {
-  const vendors = await Vendor.find({ is_active: true })
-    .sort({ performance_rating: -1 })
+  const supabase = getSupabase();
+  
+  const { data: vendors } = await supabase
+    .from('vendors')
+    .select('*')
+    .eq('is_active', true)
+    .order('performance_rating', { ascending: false })
     .limit(8);
 
-  return Promise.all(vendors.map(async (vendor) => {
-    const assetsCount = await Asset.countDocuments({ vendor: vendor._id });
-    const maintenanceCount = await Maintenance.countDocuments({ vendor_id: vendor._id });
-    
-    // Get actual total value from assets purchased from this vendor
-    const assetValue = await Asset.aggregate([
-      { $match: { vendor: vendor._id, status: { $ne: 'Disposed' } } },
-      { $group: { _id: null, total: { $sum: '$purchase_cost' } } }
+  return Promise.all((vendors || []).map(async (vendor) => {
+    const [assetsCountResult, maintenanceCountResult, assetValueResult] = await Promise.all([
+      supabase.from('assets').select('*', { count: 'exact', head: true }).eq('vendor', vendor.id),
+      supabase.from('maintenances').select('*', { count: 'exact', head: true }).eq('vendor_id', vendor.id),
+      supabase.from('assets').select('purchase_cost').eq('vendor', vendor.id).neq('status', 'Disposed')
     ]);
     
     return {
-      id: vendor._id,
+      id: vendor.id,
       name: vendor.vendor_name || vendor.name,
-      orders: assetsCount,
-      value: assetValue[0]?.total || 0,
+      orders: assetsCountResult.count || 0,
+      value: assetValueResult.data?.reduce((sum, asset) => sum + (asset.purchase_cost || 0), 0) || 0,
       rating: vendor.performance_rating || 3,
       categories: vendor.categories || [],
-      activeContracts: maintenanceCount
+      activeContracts: maintenanceCountResult.count || 0
     };
   }));
 };
 
 const getInventoryApprovalsData = async () => {
-  const approvals = await Approval.find({ 
-    status: 'Pending',
-    request_type: { $in: ['Repair', 'Upgrade', 'New Asset'] }
-  })
-  .populate('requested_by', 'name')
-  .sort({ createdAt: -1 })
-  .limit(8);
+  const supabase = getSupabase();
+  
+  const { data: approvals } = await supabase
+    .from('approvals')
+    .select('*, requested_by:requested_by(name)')
+    .eq('status', 'Pending')
+    .in('request_type', ['Repair', 'Upgrade', 'New Asset'])
+    .order('created_at', { ascending: false })
+    .limit(8);
 
-  return approvals.map(approval => {
-    const daysAgo = Math.floor((new Date() - new Date(approval.createdAt)) / (1000 * 60 * 60 * 24));
+  return (approvals || []).map(approval => {
+    const daysAgo = Math.floor((new Date() - new Date(approval.created_at)) / (1000 * 60 * 60 * 24));
     const requestData = approval.request_data || {};
     const priority = requestData.priority || 'Medium';
     
     return {
-      id: approval._id,
+      id: approval.id,
       type: approval.request_type,
       requester: approval.requested_by?.name || 'Unknown',
-      requestorId: approval.requested_by?._id,
+      requestorId: approval.requested_by?.id,
       priority: priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase(),
       daysAgo
     };
@@ -1046,27 +1052,32 @@ const getInventoryApprovalsData = async () => {
 // Auditor Dashboard - Get audit statistics
 const getAuditorStats = async (req, res) => {
   try {
+    const supabase = getSupabase();
+    
     // Get all assets for audit statistics
-    const totalAssets = await Asset.countDocuments();
-    const auditedAssets = await Asset.countDocuments({ last_audit_date: { $exists: true, $ne: null } });
-    const pendingAudits = await Asset.countDocuments({ 
-      $or: [
-        { last_audit_date: { $exists: false } },
-        { last_audit_date: null },
-        { last_audit_date: { $lt: new Date(Date.now() - 365*24*60*60*1000) } } // More than 1 year old
-      ]
-    });
+    const [totalAssetsResult, auditedAssetsResult, discrepanciesResult, missingResult] = await Promise.all([
+      supabase.from('assets').select('*', { count: 'exact', head: true }),
+      supabase.from('assets').select('*', { count: 'exact', head: true }).not('last_audit_date', 'is', null),
+      supabase.from('assets').select('*', { count: 'exact', head: true })
+        .or('condition.in.(poor,damaged),status.eq.Under Review'),
+      supabase.from('assets').select('*', { count: 'exact', head: true }).eq('status', 'Missing')
+    ]);
+
+    const totalAssets = totalAssetsResult.count || 0;
+    const auditedAssets = auditedAssetsResult.count || 0;
+    const discrepancies = discrepanciesResult.count || 0;
+    const missing = missingResult.count || 0;
     
-    // Get discrepancies (assets with condition 'poor' or 'damaged' or specific status)
-    const discrepancies = await Asset.countDocuments({
-      $or: [
-        { condition: { $in: ['poor', 'damaged'] } },
-        { status: 'Under Review' }
-      ]
-    });
+    // Get pending audits (assets with no audit date or older than 1 year)
+    const { data: allAssets } = await supabase
+      .from('assets')
+      .select('last_audit_date')
+      .order('id');
     
-    // Get missing assets
-    const missing = await Asset.countDocuments({ status: 'Missing' });
+    const oneYearAgo = new Date(Date.now() - 365*24*60*60*1000).toISOString();
+    const pendingAudits = (allAssets || []).filter(asset => 
+      !asset.last_audit_date || asset.last_audit_date < oneYearAgo
+    ).length;
     
     // Calculate completion rate
     const completion_rate = totalAssets > 0 ? Math.round((auditedAssets / totalAssets) * 100) : 0;
@@ -1091,14 +1102,19 @@ const getAuditorStats = async (req, res) => {
 // Auditor Dashboard - Get audit items (assets assigned for auditing)
 const getAuditItems = async (req, res) => {
   try {
-    const assets = await Asset.find()
-      .populate('assigned_user', 'name email')
-      .sort({ last_audit_date: 1 }) // Oldest audits first
+    const supabase = getSupabase();
+    
+    const { data: assets } = await supabase
+      .from('assets')
+      .select('*, assigned_user:assigned_user(name, email)')
+      .order('last_audit_date', { ascending: true, nullsFirst: true })
       .limit(50); // Limit for performance
     
-    const auditItems = assets.map(asset => {
+    const oneYearAgo = new Date(Date.now() - 365*24*60*60*1000);
+    
+    const auditItems = (assets || []).map(asset => {
       let auditStatus = 'verified';
-      if (!asset.last_audit_date || asset.last_audit_date < new Date(Date.now() - 365*24*60*60*1000)) {
+      if (!asset.last_audit_date || new Date(asset.last_audit_date) < oneYearAgo) {
         auditStatus = 'pending';
       }
       // Normalize condition comparison to lowercase
@@ -1111,7 +1127,7 @@ const getAuditItems = async (req, res) => {
       }
       
       return {
-        id: asset._id,
+        id: asset.id,
         asset_id: asset.unique_asset_id,
         asset_name: `${asset.manufacturer} ${asset.model}`,
         location: asset.location,
@@ -1136,6 +1152,8 @@ const getAuditItems = async (req, res) => {
 // Auditor Dashboard - Get audit progress chart data
 const getAuditProgressChart = async (req, res) => {
   try {
+    const supabase = getSupabase();
+    
     // Generate monthly audit progress data for the last 6 months
     const months = [];
     const auditedData = [];
@@ -1147,24 +1165,24 @@ const getAuditProgressChart = async (req, res) => {
       const monthName = date.toLocaleDateString('en-US', { month: 'short' });
       months.push(monthName);
       
-  // Get audit count for this month
+      // Get audit count for this month
       const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
       const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
       
-      const auditedCount = await Asset.countDocuments({
-        last_audit_date: { $gte: startOfMonth, $lte: endOfMonth }
-      });
+      const [auditedResult, discrepancyResult] = await Promise.all([
+        supabase.from('assets')
+          .select('*', { count: 'exact', head: true })
+          .gte('last_audit_date', startOfMonth.toISOString().split('T')[0])
+          .lte('last_audit_date', endOfMonth.toISOString().split('T')[0]),
+        supabase.from('assets')
+          .select('*', { count: 'exact', head: true })
+          .gte('last_audit_date', startOfMonth.toISOString().split('T')[0])
+          .lte('last_audit_date', endOfMonth.toISOString().split('T')[0])
+          .or('condition.in.(poor,damaged),status.eq.Under Review')
+      ]);
       
-      const discrepancyCount = await Asset.countDocuments({
-        last_audit_date: { $gte: startOfMonth, $lte: endOfMonth },
-        $or: [
-          { condition: { $in: ['poor', 'damaged'] } },
-          { status: 'Under Review' }
-        ]
-      });
-      
-      auditedData.push(auditedCount);
-      discrepancyData.push(discrepancyCount);
+      auditedData.push(auditedResult.count || 0);
+      discrepancyData.push(discrepancyResult.count || 0);
     }
     
     res.json({
@@ -1198,21 +1216,22 @@ const getAuditProgressChart = async (req, res) => {
 // Auditor Dashboard - Get condition distribution chart data
 const getConditionChart = async (req, res) => {
   try {
-    const conditionCounts = await Asset.aggregate([
-      {
-        $group: {
-          _id: '$condition',
-          count: { $sum: 1 }
-        }
-      }
-    ]);
+    const supabase = getSupabase();
+    
+    const { data: assets } = await supabase
+      .from('assets')
+      .select('condition');
+    
+    // Group by condition
+    const conditionCounts = (assets || []).reduce((acc, asset) => {
+      const condition = asset.condition || 'Unknown';
+      acc[condition] = (acc[condition] || 0) + 1;
+      return acc;
+    }, {});
     
     // Initialize default conditions
     const conditions = ['Excellent', 'Good', 'Fair', 'Poor', 'Damaged'];
-    const data = conditions.map(condition => {
-      const found = conditionCounts.find(item => item._id === condition);
-      return found ? found.count : 0;
-    });
+    const data = conditions.map(condition => conditionCounts[condition] || 0);
     
     res.json({
       labels: conditions,
@@ -1242,19 +1261,18 @@ const getConditionChart = async (req, res) => {
 // Auditor Dashboard - Get recent audit activities
 const getAuditorActivities = async (req, res) => {
   try {
-    // Get recent asset updates that relate to auditing
-    const recentAssets = await Asset.find({
-      $or: [
-        { last_audit_date: { $gte: new Date(Date.now() - 30*24*60*60*1000) } },
-        { condition: { $in: ['poor', 'damaged'] } },
-        { status: { $in: ['Missing', 'Under Review'] } }
-      ]
-    })
-    .populate('assigned_user', 'name')
-    .sort({ updatedAt: -1 })
-    .limit(10);
+    const supabase = getSupabase();
+    const thirtyDaysAgo = new Date(Date.now() - 30*24*60*60*1000);
     
-    const activities = recentAssets.map(asset => {
+    // Get recent asset updates that relate to auditing
+    const { data: recentAssets } = await supabase
+      .from('assets')
+      .select('*, assigned_user:assigned_user(name)')
+      .or(`last_audit_date.gte.${thirtyDaysAgo.toISOString().split('T')[0]},condition.in.(poor,damaged),status.in.(Missing,Under Review)`)
+      .order('updated_at', { ascending: false })
+      .limit(10);
+    
+    const activities = (recentAssets || []).map(asset => {
       let activityType = 'audit_completed';
       let title = 'Asset Audit Completed';
       let description = `${asset.manufacturer} ${asset.model} - Location: ${asset.location}`;
@@ -1275,11 +1293,11 @@ const getAuditorActivities = async (req, res) => {
       }
       
       return {
-        id: asset._id,
+        id: asset.id,
         type: activityType,
         title: title,
         description: description,
-        timestamp: asset.updatedAt || asset.last_audit_date,
+        timestamp: asset.updated_at || asset.last_audit_date,
         asset_id: asset.unique_asset_id,
         location: asset.location,
         priority: priority
@@ -1299,34 +1317,41 @@ const getAuditorActivities = async (req, res) => {
 // Auditor Dashboard - Get compliance metrics
 const getComplianceMetrics = async (req, res) => {
   try {
-    const totalAssets = await Asset.countDocuments();
-    const compliantAssets = await Asset.countDocuments({
-      condition: { $in: ['excellent', 'good'] },
-      status: 'Active',
-      last_audit_date: { $gte: new Date(Date.now() - 365*24*60*60*1000) }
-    });
+    const supabase = getSupabase();
+    const oneYearAgo = new Date(Date.now() - 365*24*60*60*1000);
     
+    const [totalAssetsResult, compliantAssetsResult, excellentGoodAssetsResult, 
+           documentsResult, locationsResult, auditedLastYearResult] = await Promise.all([
+      supabase.from('assets').select('*', { count: 'exact', head: true }),
+      supabase.from('assets').select('*', { count: 'exact', head: true })
+        .in('condition', ['excellent', 'good'])
+        .eq('status', 'Active')
+        .gte('last_audit_date', oneYearAgo.toISOString().split('T')[0]),
+      supabase.from('assets').select('*', { count: 'exact', head: true })
+        .in('condition', ['excellent', 'good']),
+      supabase.from('assets').select('*', { count: 'exact', head: true })
+        .not('notes', 'is', null).neq('notes', ''),
+      supabase.from('assets').select('*', { count: 'exact', head: true })
+        .not('location', 'is', null).neq('location', ''),
+      supabase.from('assets').select('*', { count: 'exact', head: true })
+        .gte('last_audit_date', oneYearAgo.toISOString().split('T')[0])
+    ]);
+    
+    const totalAssets = totalAssetsResult.count || 0;
+    const compliantAssets = compliantAssetsResult.count || 0;
     const overallScore = totalAssets > 0 ? Math.round((compliantAssets / totalAssets) * 100) : 0;
     
     // Category scores - calculate based on real data
-    const excellentGoodAssets = await Asset.countDocuments({
-      condition: { $in: ['excellent', 'good'] }
-    });
+    const excellentGoodAssets = excellentGoodAssetsResult.count || 0;
     const physicalConditionScore = totalAssets > 0 ? Math.round((excellentGoodAssets / totalAssets) * 100) : 0;
     
-    const documentsCount = await Asset.countDocuments({
-      notes: { $exists: true, $ne: '' }
-    });
+    const documentsCount = documentsResult.count || 0;
     const documentationScore = totalAssets > 0 ? Math.round((documentsCount / totalAssets) * 100) : 0;
     
-    const locationsCount = await Asset.countDocuments({
-      location: { $exists: true, $ne: '' }
-    });
+    const locationsCount = locationsResult.count || 0;
     const locationAccuracyScore = totalAssets > 0 ? Math.round((locationsCount / totalAssets) * 100) : 0;
     
-    const auditedLastYear = await Asset.countDocuments({
-      last_audit_date: { $gte: new Date(Date.now() - 365*24*60*60*1000) }
-    });
+    const auditedLastYear = auditedLastYearResult.count || 0;
     const auditComplianceScore = totalAssets > 0 ? Math.round((auditedLastYear / totalAssets) * 100) : 0;
     
     const categoryScores = {

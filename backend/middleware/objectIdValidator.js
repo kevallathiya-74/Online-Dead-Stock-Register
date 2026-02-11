@@ -1,16 +1,30 @@
-const mongoose = require('mongoose');
+/**
+ * UUID Validator Middleware for Supabase PostgreSQL
+ * Validates UUID format for route parameters and request body fields
+ */
+
+const { validate: isUUID } = require('uuid');
 
 /**
- * Validate if a string is a valid MongoDB ObjectId
+ * Validate if a string is a valid UUID (or numeric integer for serial IDs)
  * @param {string} id - The ID to validate
- * @returns {boolean} True if valid ObjectId format
+ * @returns {boolean} True if valid UUID or integer format
  */
 const isValidObjectId = (id) => {
-  return mongoose.Types.ObjectId.isValid(id);
+  // Accept UUIDs
+  if (isUUID(id)) return true;
+  
+  // Accept positive integers (for serial IDs)
+  if (/^\d+$/.test(id)) return true;
+  
+  // Accept MongoDB ObjectId format for backward compatibility during migration
+  if (/^[0-9a-fA-F]{24}$/.test(id)) return true;
+  
+  return false;
 };
 
 /**
- * Middleware to validate ObjectId parameters
+ * Middleware to validate ID parameters
  * Usage: router.get('/users/:id', validateObjectId('id'), getUserById)
  * @param {string} paramName - The name of the parameter to validate (default: 'id')
  * @returns {Function} Express middleware function
@@ -29,7 +43,7 @@ const validateObjectId = (paramName = 'id') => {
     if (!isValidObjectId(id)) {
       return res.status(400).json({
         success: false,
-        error: `Invalid ${paramName} format. Must be a valid MongoDB ObjectId.`
+        error: `Invalid ${paramName} format. Must be a valid UUID or integer ID.`
       });
     }
     
@@ -38,7 +52,7 @@ const validateObjectId = (paramName = 'id') => {
 };
 
 /**
- * Validate multiple ObjectId parameters
+ * Validate multiple ID parameters
  * Usage: router.get('/assets/:assetId/transfers/:transferId', validateObjectIds(['assetId', 'transferId']), handler)
  * @param {string[]} paramNames - Array of parameter names to validate
  * @returns {Function} Express middleware function
@@ -58,7 +72,7 @@ const validateObjectIds = (paramNames = []) => {
       if (!isValidObjectId(id)) {
         return res.status(400).json({
           success: false,
-          error: `Invalid ${paramName} format. Must be a valid MongoDB ObjectId.`
+          error: `Invalid ${paramName} format. Must be a valid UUID or integer ID.`
         });
       }
     }
@@ -68,7 +82,7 @@ const validateObjectIds = (paramNames = []) => {
 };
 
 /**
- * Validate ObjectId in request body
+ * Validate ID in request body
  * @param {string} fieldName - The field name in request body to validate
  * @param {boolean} required - Whether the field is required (default: true)
  * @returns {Function} Express middleware function
@@ -91,7 +105,7 @@ const validateBodyObjectId = (fieldName, required = true) => {
     if (!isValidObjectId(id)) {
       return res.status(400).json({
         success: false,
-        error: `Invalid ${fieldName} format. Must be a valid MongoDB ObjectId.`
+        error: `Invalid ${fieldName} format. Must be a valid UUID or integer ID.`
       });
     }
     
