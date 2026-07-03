@@ -5,7 +5,7 @@
  * ✅ ALL CONTROLLERS MUST USE THIS
  */
 
-const logger = require('./logger');
+const logger = require("./logger");
 
 /**
  * Standard API Response Format
@@ -18,11 +18,11 @@ class ApiResponse {
    * @param {String} message - Success message
    * @param {Number} statusCode - HTTP status code (default: 200)
    */
-  static success(res, data = null, message = 'Success', statusCode = 200) {
+  static success(res, data = null, message = "Success", statusCode = 200) {
     const response = {
       success: true,
       message,
-      data
+      data,
     };
 
     // Remove null data field if no data
@@ -40,11 +40,16 @@ class ApiResponse {
    * @param {Number} statusCode - HTTP status code (default: 500)
    * @param {Array} errors - Validation errors array (optional)
    */
-  static error(res, message = 'Internal server error', statusCode = 500, errors = null) {
+  static error(
+    res,
+    message = "Internal server error",
+    statusCode = 500,
+    errors = null,
+  ) {
     const response = {
       success: false,
       error: message,
-      statusCode
+      statusCode,
     };
 
     // Add validation errors if provided
@@ -66,7 +71,7 @@ class ApiResponse {
    * @param {*} data - Created resource data
    * @param {String} message - Success message
    */
-  static created(res, data, message = 'Resource created successfully') {
+  static created(res, data, message = "Resource created successfully") {
     return ApiResponse.success(res, data, message, 201);
   }
 
@@ -75,10 +80,10 @@ class ApiResponse {
    * @param {Object} res - Express response object
    * @param {String} message - Success message
    */
-  static deleted(res, message = 'Resource deleted successfully') {
+  static deleted(res, message = "Resource deleted successfully") {
     return res.status(200).json({
       success: true,
-      message
+      message,
     });
   }
 
@@ -88,7 +93,7 @@ class ApiResponse {
    * @param {String} message - Error message
    * @param {Array} errors - Validation errors
    */
-  static badRequest(res, message = 'Invalid request', errors = null) {
+  static badRequest(res, message = "Invalid request", errors = null) {
     return ApiResponse.error(res, message, 400, errors);
   }
 
@@ -97,7 +102,7 @@ class ApiResponse {
    * @param {Object} res - Express response object
    * @param {String} message - Error message
    */
-  static unauthorized(res, message = 'Authentication required') {
+  static unauthorized(res, message = "Authentication required") {
     return ApiResponse.error(res, message, 401);
   }
 
@@ -106,7 +111,7 @@ class ApiResponse {
    * @param {Object} res - Express response object
    * @param {String} message - Error message
    */
-  static forbidden(res, message = 'Access forbidden') {
+  static forbidden(res, message = "Access forbidden") {
     return ApiResponse.error(res, message, 403);
   }
 
@@ -115,7 +120,7 @@ class ApiResponse {
    * @param {Object} res - Express response object
    * @param {String} message - Error message
    */
-  static notFound(res, message = 'Resource not found') {
+  static notFound(res, message = "Resource not found") {
     return ApiResponse.error(res, message, 404);
   }
 
@@ -124,7 +129,7 @@ class ApiResponse {
    * @param {Object} res - Express response object
    * @param {String} message - Error message
    */
-  static conflict(res, message = 'Resource already exists') {
+  static conflict(res, message = "Resource already exists") {
     return ApiResponse.error(res, message, 409);
   }
 
@@ -138,7 +143,7 @@ class ApiResponse {
     return ApiResponse.error(
       res,
       `Too many requests. Please try again after ${retryAfter} seconds`,
-      429
+      429,
     );
   }
 
@@ -147,7 +152,7 @@ class ApiResponse {
    * @param {Object} res - Express response object
    * @param {String} message - Error message
    */
-  static serviceUnavailable(res, message = 'Service temporarily unavailable') {
+  static serviceUnavailable(res, message = "Service temporarily unavailable") {
     return ApiResponse.error(res, message, 503);
   }
 }
@@ -156,7 +161,7 @@ class ApiResponse {
  * Async Handler Wrapper
  * ✅ ELIMINATES TRY-CATCH DUPLICATION IN CONTROLLERS
  * ✅ AUTOMATICALLY CATCHES ERRORS AND PASSES TO ERROR HANDLER MIDDLEWARE
- * 
+ *
  * @param {Function} fn - Async controller function
  * @returns {Function} Wrapped function with error handling
  */
@@ -167,7 +172,7 @@ const asyncHandler = (fn) => (req, res, next) => {
       method: req.method,
       ip: req.ip,
       user: req.user?.id,
-      stack: error.stack
+      stack: error.stack,
     });
     next(error);
   });
@@ -190,5 +195,5 @@ class AppError extends Error {
 module.exports = {
   ApiResponse,
   asyncHandler,
-  AppError
+  AppError,
 };

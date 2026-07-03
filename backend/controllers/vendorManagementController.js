@@ -1,65 +1,80 @@
-const Vendor = require('../models/vendor');
-const logger = require('../utils/logger');
-const Asset = require('../models/asset');
-const Transaction = require('../models/transaction');
-const AuditLog = require('../models/auditLog');
-const mongoose = require('mongoose');
-const { createAuditLog } = require('../utils/crudHandler');
+const getSupabase = require("../config/db");
+const logger = require("../utils/logger");
+const { logUserAction } = require("../utils/auditHelper");
+const { validate: isValidUUID } = require("uuid");
 
 // Get all vendors with pagination and filtering
 exports.getAllVendors = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 10, 
-      search, 
-      vendor_type, 
-      category, 
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      vendor_type,
+      category,
       is_active = true,
-      sort_by = 'name',
-      sort_order = 'asc'
+      sort_by = "name",
+      sort_order = "asc",
     } = req.query;
-    
-    const skip = (page - 1) * limit;
 
-    // Build filter object
-    let filter = {};
-    if (is_active !== undefined) filter.is_active = is_active === 'true';
-    if (vendor_type) filter.vendor_type = vendor_type;
-    if (category) filter.categories = { $in: [category] };
+    const skip = (page - 1) * limit;
+    const supabase = getSupabase();
+
+    // Build query
+    let query = supabase.from("vendors").select("*", { count: "exact" });
+
+    if (is_active !== undefined) {
+      query = query.eq("is_active", is_active === "true" || is_active === true);
+    }
+    if (vendor_type) {
+      query = query.eq("vendor_type", vendor_type);
+    }
+    if (category) {
+      query = query.contains("categories", JSON.stringify([category]));
+    }
     if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { vendor_code: { $regex: search, $options: 'i' } },
-        { contact_person: { $regex: search, $options: 'i' } },
-        { contact_email: { $regex: search, $options: 'i' } }
-      ];
+      const searchVal = `%${search}%`;
+      query = query.or(
+        `vendor_name.ilike.${searchVal},vendor_code.ilike.${searchVal},contact_person.ilike.${searchVal},contact_email.ilike.${searchVal}`,
+      );
     }
 
-    // Build sort object
-    const sortOrder = sort_order === 'desc' ? -1 : 1;
-    const sortObj = { [sort_by]: sortOrder };
+    // Build sort
+    let sortByField = sort_by;
+    if (sort_by === "name") {
+      sortByField = "vendor_name";
+    }
 
-    const vendors = await Vendor.find(filter)
-      .sort(sortObj)
-      .skip(skip)
-      .limit(parseInt(limit));
+    query = query.order(sortByField, { ascending: sort_order === "asc" });
 
-    const total = await Vendor.countDocuments(filter);
+    // Execute query with range
+    const {
+      data: vendors,
+      count: total,
+      error,
+    } = await query.range(skip, skip + parseInt(limit) - 1);
+
+    if (error) throw error;
+
+    const mappedVendors = (vendors || []).map((v) => ({
+      ...v,
+      _id: v.id,
+      name: v.vendor_name || v.company_name,
+    }));
 
     res.json({
-      vendors,
+      vendors: mappedVendors,
       pagination: {
         current_page: parseInt(page),
         total_pages: Math.ceil(total / limit),
         total_vendors: total,
         has_next: page * limit < total,
-        has_prev: page > 1
-      }
+        has_prev: page > 1,
+      },
     });
   } catch (error) {
-    logger.error('Error fetching vendors:', error);
-    res.status(500).json({ message: 'Failed to fetch vendors' });
+    logger.error("Error fetching vendors:", error);
+    res.status(500).json({ message: "Failed to fetch vendors" });
   }
 };
 
@@ -68,21 +83,37 @@ exports.getVendorById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const vendor = await Vendor.findById(id);
-    if (!vendor) {
-      return res.status(404).json({ message: 'Vendor not found' });
+    if (!isValidUUID(id)) {
+      return res.status(400).json({ message: "Invalid vendor ID format" });
     }
+
+    const supabase = getSupabase();
+    const { data: vendor, error } = await supabase
+      .from("vendors")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error || !vendor) {
+      return res.status(404).json({ message: "Vendor not found" });
+    }
+
+    const mappedVendor = {
+      ...vendor,
+      _id: vendor.id,
+      name: vendor.vendor_name || vendor.company_name,
+    };
 
     // Get vendor performance metrics
     const performance = await getVendorPerformance(id);
 
     res.json({
-      vendor,
-      performance
+      vendor: mappedVendor,
+      performance,
     });
   } catch (error) {
-    logger.error('Error fetching vendor:', error);
-    res.status(500).json({ message: 'Failed to fetch vendor' });
+    logger.error("Error fetching vendor:", error);
+    res.status(500).json({ message: "Failed to fetch vendor" });
   }
 };
 
@@ -90,43 +121,84 @@ exports.getVendorById = async (req, res) => {
 exports.createVendor = async (req, res) => {
   try {
     const vendorData = req.body;
+    const supabase = getSupabase();
 
     // Check if vendor with same email already exists
-    const existingVendor = await Vendor.findOne({ 
-      contact_email: vendorData.contact_email 
-    });
+    if (vendorData.contact_email) {
+      const { data: existingVendor } = await supabase
+        .from("vendors")
+        .select("id")
+        .eq("contact_email", vendorData.contact_email)
+        .maybeSingle();
 
-    if (existingVendor) {
-      return res.status(400).json({ 
-        message: 'Vendor with this email already exists' 
-      });
+      if (existingVendor) {
+        return res.status(400).json({
+          message: "Vendor with this email already exists",
+        });
+      }
     }
 
-    const vendor = new Vendor(vendorData);
-    await vendor.save();
+    const insertData = {
+      company_name:
+        vendorData.company_name ||
+        vendorData.vendor_name ||
+        vendorData.name ||
+        "",
+      vendor_name: vendorData.vendor_name || vendorData.name || "",
+      vendor_code: vendorData.vendor_code,
+      contact_person: vendorData.contact_person,
+      email: vendorData.email,
+      contact_email: vendorData.contact_email || vendorData.email,
+      phone: vendorData.phone,
+      profile_photo: vendorData.profile_photo,
+      payment_terms: vendorData.payment_terms,
+      vendor_type: vendorData.vendor_type,
+      rating: vendorData.rating,
+      performance_rating: vendorData.performance_rating || 5,
+      is_active:
+        vendorData.is_active !== undefined ? vendorData.is_active : true,
+      category: vendorData.category,
+      categories: vendorData.categories,
+      gst_number: vendorData.gst_number,
+      pan_number: vendorData.pan_number,
+    };
+
+    const { data: vendor, error } = await supabase
+      .from("vendors")
+      .insert([insertData])
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === "23505") {
+        return res.status(400).json({ message: "Vendor code already exists" });
+      }
+      throw error;
+    }
+
+    const mappedVendor = {
+      ...vendor,
+      _id: vendor.id,
+      name: vendor.vendor_name || vendor.company_name,
+    };
 
     // Create audit log
-    await createAuditLog(AuditLog, {
-      action: 'vendor_created',
-      performed_by: req.user.id,
-      details: {
-        vendor_id: vendor._id,
-        vendor_name: vendor.vendor_name || vendor.name,
-        vendor_code: vendor.vendor_code
-      }
-    });
+    await logUserAction(
+      req,
+      "vendor_created",
+      "Vendor",
+      vendor.id,
+      `Vendor ${mappedVendor.name} created successfully`,
+      "info",
+    );
 
     res.status(201).json({
-      message: 'Vendor created successfully',
-      vendor
+      message: "Vendor created successfully",
+      vendor: mappedVendor,
     });
   } catch (error) {
-    logger.error('Error creating vendor:', error);
-    if (error.code === 11000) {
-      res.status(400).json({ message: 'Vendor code already exists' });
-    } else {
-      res.status(500).json({ message: 'Failed to create vendor' });
-    }
+    logger.error("Error creating vendor:", error);
+    res.status(500).json({ message: "Failed to create vendor" });
   }
 };
 
@@ -136,50 +208,111 @@ exports.updateVendor = async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
 
+    if (!isValidUUID(id)) {
+      return res.status(400).json({ message: "Invalid vendor ID format" });
+    }
+
+    const supabase = getSupabase();
+
     // Check if vendor exists
-    const vendor = await Vendor.findById(id);
-    if (!vendor) {
-      return res.status(404).json({ message: 'Vendor not found' });
+    const { data: vendor, error: fetchError } = await supabase
+      .from("vendors")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (fetchError || !vendor) {
+      return res.status(404).json({ message: "Vendor not found" });
     }
 
     // Check for duplicate email (excluding current vendor)
     if (updateData.contact_email) {
-      const existingVendor = await Vendor.findOne({
-        _id: { $ne: id },
-        contact_email: updateData.contact_email
-      });
+      const { data: existingVendor } = await supabase
+        .from("vendors")
+        .select("id")
+        .neq("id", id)
+        .eq("contact_email", updateData.contact_email)
+        .maybeSingle();
 
       if (existingVendor) {
-        return res.status(400).json({ 
-          message: 'Another vendor with this email already exists' 
+        return res.status(400).json({
+          message: "Another vendor with this email already exists",
         });
       }
     }
 
-    const updatedVendor = await Vendor.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    );
+    // Prepare fields to update
+    const dbUpdateData = {
+      updated_at: new Date().toISOString(),
+    };
+
+    const allowedFields = [
+      "company_name",
+      "vendor_name",
+      "vendor_code",
+      "contact_person",
+      "email",
+      "contact_email",
+      "phone",
+      "profile_photo",
+      "payment_terms",
+      "vendor_type",
+      "rating",
+      "performance_rating",
+      "is_active",
+      "category",
+      "categories",
+      "gst_number",
+      "pan_number",
+    ];
+
+    for (const key of allowedFields) {
+      if (updateData[key] !== undefined) {
+        dbUpdateData[key] = updateData[key];
+      }
+    }
+
+    if (updateData.name && !updateData.vendor_name) {
+      dbUpdateData.vendor_name = updateData.name;
+    }
+    if (updateData.name && !updateData.company_name) {
+      dbUpdateData.company_name = updateData.name;
+    }
+
+    const { data: updatedVendor, error: updateError } = await supabase
+      .from("vendors")
+      .update(dbUpdateData)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    const mappedVendor = {
+      ...updatedVendor,
+      _id: updatedVendor.id,
+      name: updatedVendor.vendor_name || updatedVendor.company_name,
+    };
 
     // Create audit log
-    await createAuditLog(AuditLog, {
-      action: 'vendor_updated',
-      performed_by: req.user.id,
-      details: {
-        vendor_id: id,
-        vendor_name: updatedVendor.vendor_name || updatedVendor.name,
-        updated_fields: Object.keys(updateData)
-      }
-    });
+    await logUserAction(
+      req,
+      "vendor_updated",
+      "Vendor",
+      id,
+      `Vendor ${mappedVendor.name} updated successfully`,
+      "info",
+    );
 
     res.json({
-      message: 'Vendor updated successfully',
-      vendor: updatedVendor
+      message: "Vendor updated successfully",
+      vendor: mappedVendor,
     });
   } catch (error) {
-    logger.error('Error updating vendor:', error);
-    res.status(500).json({ message: 'Failed to update vendor' });
+    logger.error("Error updating vendor:", error);
+    res.status(500).json({ message: "Failed to update vendor" });
   }
 };
 
@@ -188,43 +321,64 @@ exports.deleteVendor = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const vendor = await Vendor.findById(id);
-    if (!vendor) {
-      return res.status(404).json({ message: 'Vendor not found' });
+    if (!isValidUUID(id)) {
+      return res.status(400).json({ message: "Invalid vendor ID format" });
+    }
+
+    const supabase = getSupabase();
+
+    const { data: vendor, error: fetchError } = await supabase
+      .from("vendors")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (fetchError || !vendor) {
+      return res.status(404).json({ message: "Vendor not found" });
     }
 
     // Check if vendor has active assets
-    const activeAssets = await Asset.countDocuments({ 
-      vendor: id,
-      status: { $in: ['Active', 'In Use'] }
-    });
+    const { count: activeAssets, error: countError } = await supabase
+      .from("assets")
+      .select("*", { count: "exact", head: true })
+      .eq("vendor", id)
+      .in("status", ["Active", "In Use"]);
+
+    if (countError) throw countError;
 
     if (activeAssets > 0) {
-      return res.status(400).json({ 
-        message: `Cannot delete vendor. ${activeAssets} active assets are linked to this vendor.` 
+      return res.status(400).json({
+        message: `Cannot delete vendor. ${activeAssets} active assets are linked to this vendor.`,
       });
     }
 
     // Soft delete by setting is_active to false
-    vendor.is_active = false;
-    vendor.deactivated_at = new Date();
-    await vendor.save();
+    const { data: updatedVendor, error: updateError } = await supabase
+      .from("vendors")
+      .update({
+        is_active: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
 
     // Create audit log
-    await createAuditLog(AuditLog, {
-      action: 'vendor_deleted',
-      performed_by: req.user.id,
-      details: {
-        vendor_id: id,
-        vendor_name: vendor.vendor_name || vendor.name,
-        vendor_code: vendor.vendor_code
-      }
-    });
+    await logUserAction(
+      req,
+      "vendor_deleted",
+      "Vendor",
+      id,
+      `Vendor ${vendor.vendor_name || vendor.company_name} deleted (soft delete)`,
+      "info",
+    );
 
-    res.json({ message: 'Vendor deactivated successfully' });
+    res.json({ message: "Vendor deactivated successfully" });
   } catch (error) {
-    logger.error('Error deleting vendor:', error);
-    res.status(500).json({ message: 'Failed to delete vendor' });
+    logger.error("Error deleting vendor:", error);
+    res.status(500).json({ message: "Failed to delete vendor" });
   }
 };
 
@@ -233,82 +387,164 @@ exports.getVendorPerformance = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const vendor = await Vendor.findById(id);
-    if (!vendor) {
-      return res.status(404).json({ message: 'Vendor not found' });
+    if (!isValidUUID(id)) {
+      return res.status(400).json({ message: "Invalid vendor ID format" });
+    }
+
+    const supabase = getSupabase();
+
+    const { data: vendor, error: fetchError } = await supabase
+      .from("vendors")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (fetchError || !vendor) {
+      return res.status(404).json({ message: "Vendor not found" });
     }
 
     const performance = await getVendorPerformance(id);
 
     res.json({
       vendor_id: id,
-      vendor_name: vendor.vendor_name || vendor.name,
-      performance
+      vendor_name: vendor.vendor_name || vendor.company_name,
+      performance,
     });
   } catch (error) {
-    logger.error('Error fetching vendor performance:', error);
-    res.status(500).json({ message: 'Failed to fetch vendor performance' });
+    logger.error("Error fetching vendor performance:", error);
+    res.status(500).json({ message: "Failed to fetch vendor performance" });
   }
 };
 
 // Get vendor statistics for dashboard
 exports.getVendorStats = async (req, res) => {
   try {
-    const totalVendors = await Vendor.countDocuments({ is_active: true });
-    const inactiveVendors = await Vendor.countDocuments({ is_active: false });
-    
-    // Vendor types distribution
-    const typeDistribution = await Vendor.aggregate([
-      { $match: { is_active: true } },
-      { $group: { _id: '$vendor_type', count: { $sum: 1 } } }
-    ]);
+    const supabase = getSupabase();
+
+    // Total active vendors count
+    const { count: totalVendors, error: countActiveErr } = await supabase
+      .from("vendors")
+      .select("*", { count: "exact", head: true })
+      .eq("is_active", true);
+
+    // Inactive vendors count
+    const { count: inactiveVendors, error: countInactiveErr } = await supabase
+      .from("vendors")
+      .select("*", { count: "exact", head: true })
+      .eq("is_active", false);
+
+    // Fetch all active vendors to calculate distributions
+    const { data: allActiveVendors, error: allVendorsErr } = await supabase
+      .from("vendors")
+      .select(
+        "vendor_type, performance_rating, vendor_name, company_name, rating, vendor_code",
+      )
+      .eq("is_active", true);
+
+    if (countActiveErr || countInactiveErr || allVendorsErr) {
+      throw countActiveErr || countInactiveErr || allVendorsErr;
+    }
+
+    // Type distribution
+    const typeCounts = {};
+    allActiveVendors.forEach((v) => {
+      const type = v.vendor_type || "Unknown";
+      typeCounts[type] = (typeCounts[type] || 0) + 1;
+    });
+    const typeDistribution = Object.keys(typeCounts).map((type) => ({
+      _id: type,
+      count: typeCounts[type],
+    }));
 
     // Performance rating distribution
-    const performanceDistribution = await Vendor.aggregate([
-      { $match: { is_active: true } },
-      {
-        $group: {
-          _id: {
-            $switch: {
-              branches: [
-                { case: { $gte: ['$performance_rating', 4.5] }, then: 'Excellent' },
-                { case: { $gte: ['$performance_rating', 3.5] }, then: 'Good' },
-                { case: { $gte: ['$performance_rating', 2.5] }, then: 'Average' },
-                { case: { $lt: ['$performance_rating', 2.5] }, then: 'Poor' }
-              ],
-              default: 'Unrated'
-            }
-          },
-          count: { $sum: 1 }
-        }
+    const perfCounts = {
+      Excellent: 0,
+      Good: 0,
+      Average: 0,
+      Poor: 0,
+      Unrated: 0,
+    };
+    allActiveVendors.forEach((v) => {
+      const pr = v.performance_rating;
+      if (pr === null || pr === undefined) {
+        perfCounts.Unrated++;
+      } else if (pr >= 4.5) {
+        perfCounts.Excellent++;
+      } else if (pr >= 3.5) {
+        perfCounts.Good++;
+      } else if (pr >= 2.5) {
+        perfCounts.Average++;
+      } else {
+        perfCounts.Poor++;
       }
-    ]);
+    });
+    const performanceDistribution = Object.keys(perfCounts).map((bucket) => ({
+      _id: bucket,
+      count: perfCounts[bucket],
+    }));
 
     // Top performing vendors
-    const topVendors = await Vendor.find({ is_active: true })
-      .sort({ performance_rating: -1 })
-      .limit(5)
-      .select('name vendor_code performance_rating vendor_type');
+    const topVendors = [...allActiveVendors]
+      .filter(
+        (v) =>
+          v.performance_rating !== null && v.performance_rating !== undefined,
+      )
+      .sort((a, b) => b.performance_rating - a.performance_rating)
+      .slice(0, 5)
+      .map((v) => ({
+        name: v.vendor_name || v.company_name,
+        vendor_code: v.vendor_code,
+        performance_rating: v.performance_rating,
+        vendor_type: v.vendor_type,
+      }));
 
     // Recent vendor activities
-    const recentActivities = await AuditLog.find({
-      action: { $in: ['vendor_created', 'vendor_updated', 'vendor_deleted'] }
-    })
-    .populate('performed_by', 'full_name')
-    .sort({ timestamp: -1 })
-    .limit(10);
+    const { data: rawActivities, error: auditErr } = await supabase
+      .from("audit_logs")
+      .select(
+        `
+        id,
+        action,
+        timestamp,
+        created_at,
+        performed_by,
+        user_id,
+        users!fk_audit_logs_user_id(id, name)
+      `,
+      )
+      .in("action", [
+        "vendor_created",
+        "vendor_updated",
+        "vendor_deleted",
+        "CREATE",
+        "UPDATE",
+        "DELETE",
+      ])
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (auditErr) {
+      logger.error("Error fetching recent activities for vendors:", auditErr);
+    }
+
+    const recentActivities = (rawActivities || []).map((act) => ({
+      _id: act.id,
+      action: act.action,
+      timestamp: act.created_at || act.timestamp,
+      performed_by: act.users ? { full_name: act.users.name } : null,
+    }));
 
     res.json({
-      total_active_vendors: totalVendors,
-      inactive_vendors: inactiveVendors,
+      total_active_vendors: totalVendors || 0,
+      inactive_vendors: inactiveVendors || 0,
       type_distribution: typeDistribution,
       performance_distribution: performanceDistribution,
       top_vendors: topVendors,
-      recent_activities: recentActivities
+      recent_activities: recentActivities,
     });
   } catch (error) {
-    logger.error('Error fetching vendor stats:', error);
-    res.status(500).json({ message: 'Failed to fetch vendor statistics' });
+    logger.error("Error fetching vendor stats:", error);
+    res.status(500).json({ message: "Failed to fetch vendor statistics" });
   }
 };
 
@@ -316,22 +552,33 @@ exports.getVendorStats = async (req, res) => {
 exports.getVendorsByCategory = async (req, res) => {
   try {
     const { category } = req.params;
+    const supabase = getSupabase();
 
-    const vendors = await Vendor.find({
-      is_active: true,
-      categories: { $in: [category] }
-    })
-    .select('name vendor_code contact_person contact_email performance_rating')
-    .sort({ performance_rating: -1 });
+    const { data: vendors, error } = await supabase
+      .from("vendors")
+      .select(
+        "id, vendor_name, company_name, vendor_code, contact_person, contact_email, performance_rating, categories",
+      )
+      .eq("is_active", true)
+      .contains("categories", JSON.stringify([category]))
+      .order("performance_rating", { ascending: false });
+
+    if (error) throw error;
+
+    const mappedVendors = (vendors || []).map((v) => ({
+      ...v,
+      _id: v.id,
+      name: v.vendor_name || v.company_name,
+    }));
 
     res.json({
       category,
-      vendors,
-      total_count: vendors.length
+      vendors: mappedVendors,
+      total_count: mappedVendors.length,
     });
   } catch (error) {
-    logger.error('Error fetching vendors by category:', error);
-    res.status(500).json({ message: 'Failed to fetch vendors by category' });
+    logger.error("Error fetching vendors by category:", error);
+    res.status(500).json({ message: "Failed to fetch vendors by category" });
   }
 };
 
@@ -341,100 +588,169 @@ exports.updateVendorRating = async (req, res) => {
     const { id } = req.params;
     const { rating, notes } = req.body;
 
-    if (rating < 1 || rating > 5) {
-      return res.status(400).json({ message: 'Rating must be between 1 and 5' });
+    if (!isValidUUID(id)) {
+      return res.status(400).json({ message: "Invalid vendor ID format" });
     }
 
-    const vendor = await Vendor.findById(id);
-    if (!vendor) {
-      return res.status(404).json({ message: 'Vendor not found' });
+    if (rating < 1 || rating > 5) {
+      return res
+        .status(400)
+        .json({ message: "Rating must be between 1 and 5" });
+    }
+
+    const supabase = getSupabase();
+
+    const { data: vendor, error: fetchError } = await supabase
+      .from("vendors")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (fetchError || !vendor) {
+      return res.status(404).json({ message: "Vendor not found" });
     }
 
     const oldRating = vendor.performance_rating;
-    vendor.performance_rating = rating;
-    if (notes) vendor.notes = notes;
-    await vendor.save();
+
+    const { data: updatedVendor, error: updateError } = await supabase
+      .from("vendors")
+      .update({
+        performance_rating: rating,
+        notes: notes || vendor.notes,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
 
     // Create audit log
-    await createAuditLog(AuditLog, {
-      action: 'vendor_rating_updated',
-      performed_by: req.user.id,
-      details: {
-        vendor_id: id,
-        vendor_name: vendor.name,
-        old_rating: oldRating,
-        new_rating: rating,
-        notes
-      }
-    });
+    await logUserAction(
+      req,
+      "vendor_rating_updated",
+      "Vendor",
+      id,
+      `Vendor rating updated from ${oldRating} to ${rating}`,
+      "info",
+    );
 
     res.json({
-      message: 'Vendor rating updated successfully',
+      message: "Vendor rating updated successfully",
       vendor: {
-        id: vendor._id,
-        name: vendor.name,
-        performance_rating: vendor.performance_rating
-      }
+        id: updatedVendor.id,
+        name: updatedVendor.vendor_name || updatedVendor.company_name,
+        performance_rating: updatedVendor.performance_rating,
+      },
     });
   } catch (error) {
-    logger.error('Error updating vendor rating:', error);
-    res.status(500).json({ message: 'Failed to update vendor rating' });
+    logger.error("Error updating vendor rating:", error);
+    res.status(500).json({ message: "Failed to update vendor rating" });
   }
 };
 
 // Helper function to calculate vendor performance
 async function getVendorPerformance(vendorId) {
   try {
+    const supabase = getSupabase();
+
     // Get assets from this vendor
-    const assets = await Asset.find({ vendor: vendorId });
-    const assetIds = assets.map(asset => asset._id);
+    const { data: assets, error: assetsErr } = await supabase
+      .from("assets")
+      .select("id, status, condition, purchase_cost, current_value")
+      .eq("vendor", vendorId);
 
-    // Calculate performance metrics
-    const totalAssets = assets.length;
-    const activeAssets = assets.filter(asset => asset.status === 'Active').length;
-    
+    if (assetsErr) throw assetsErr;
+
+    const totalAssets = assets ? assets.length : 0;
+    const activeAssets = assets
+      ? assets.filter(
+          (asset) => asset.status === "Active" || asset.status === "active",
+        ).length
+      : 0;
+
     // Get average asset condition
-    const conditionCounts = assets.reduce((acc, asset) => {
-      acc[asset.condition] = (acc[asset.condition] || 0) + 1;
-      return acc;
-    }, {});
+    const conditionCounts = {};
+    if (assets) {
+      assets.forEach((asset) => {
+        if (asset.condition) {
+          conditionCounts[asset.condition] =
+            (conditionCounts[asset.condition] || 0) + 1;
+        }
+      });
+    }
 
-    // Get maintenance frequency
-    const maintenanceCount = await mongoose.model('Maintenance').countDocuments({
-      asset: { $in: assetIds }
-    });
+    const assetIds = assets ? assets.map((asset) => asset.id) : [];
 
-    // Get transaction volume (purchases)
-    const transactions = await Transaction.find({
-      asset: { $in: assetIds },
-      transaction_type: 'Purchase'
-    });
+    let maintenanceCount = 0;
+    let transactions = [];
 
-    const totalValue = transactions.reduce((sum, txn) => sum + (txn.amount || 0), 0);
+    if (assetIds.length > 0) {
+      const { count, error: maintErr } = await supabase
+        .from("maintenances")
+        .select("*", { count: "exact", head: true })
+        .in("asset_id", assetIds);
 
-    // Calculate delivery performance (based on transaction dates vs expected dates)
-    const onTimeDeliveries = transactions.filter(txn => {
-      // Simplified logic - in real implementation, compare with expected delivery dates
-      return txn.createdAt <= txn.expected_delivery_date;
+      if (!maintErr) {
+        maintenanceCount = count || 0;
+      }
+
+      const { data: txns, error: txnErr } = await supabase
+        .from("transactions")
+        .select("*")
+        .in("asset_id", assetIds);
+
+      if (!txnErr && txns) {
+        transactions = txns;
+      }
+    }
+
+    const totalValue = assets
+      ? assets.reduce(
+          (sum, asset) => sum + (Number(asset.purchase_cost) || 0),
+          0,
+        )
+      : 0;
+
+    const onTimeDeliveries = transactions.filter((txn) => {
+      if (!txn.expected_delivery_date) return true;
+      const txDate = txn.transaction_date
+        ? new Date(txn.transaction_date)
+        : new Date(txn.created_at);
+      return txDate <= new Date(txn.expected_delivery_date);
     }).length;
 
-    const deliveryPerformance = transactions.length > 0 ? 
-      (onTimeDeliveries / transactions.length) * 100 : 0;
+    const deliveryPerformance =
+      transactions.length > 0
+        ? (onTimeDeliveries / transactions.length) * 100
+        : 0;
+
+    const lastTxnDate =
+      transactions.length > 0
+        ? Math.max(
+            ...transactions.map((t) =>
+              new Date(t.transaction_date || t.created_at).getTime(),
+            ),
+          )
+        : null;
 
     return {
       total_assets: totalAssets,
       active_assets: activeAssets,
-      asset_utilization: totalAssets > 0 ? (activeAssets / totalAssets) * 100 : 0,
+      asset_utilization:
+        totalAssets > 0 ? (activeAssets / totalAssets) * 100 : 0,
       condition_breakdown: conditionCounts,
-      maintenance_frequency: totalAssets > 0 ? maintenanceCount / totalAssets : 0,
+      maintenance_frequency:
+        totalAssets > 0 ? maintenanceCount / totalAssets : 0,
       total_purchase_value: totalValue,
       total_transactions: transactions.length,
       delivery_performance: deliveryPerformance,
-      last_transaction_date: transactions.length > 0 ? 
-        Math.max(...transactions.map(t => new Date(t.createdAt))) : null
+      last_transaction_date: lastTxnDate
+        ? new Date(lastTxnDate).toISOString()
+        : null,
     };
   } catch (error) {
-    logger.error('Error calculating vendor performance:', error);
+    logger.error("Error calculating vendor performance:", error);
     return {
       total_assets: 0,
       active_assets: 0,
@@ -444,7 +760,7 @@ async function getVendorPerformance(vendorId) {
       total_purchase_value: 0,
       total_transactions: 0,
       delivery_performance: 0,
-      last_transaction_date: null
+      last_transaction_date: null,
     };
   }
 }

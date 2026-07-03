@@ -3,8 +3,8 @@
  * Provides caching for GET requests with configurable TTL
  */
 
-const cache = require('../config/redis');
-const logger = require('../utils/logger');
+const cache = require("../config/redis");
+const logger = require("../utils/logger");
 
 /**
  * Cache middleware for GET requests
@@ -14,42 +14,45 @@ const logger = require('../utils/logger');
 const cacheMiddleware = (duration = 300, keyGenerator = null) => {
   return async (req, res, next) => {
     // Only cache GET requests
-    if (req.method !== 'GET') {
+    if (req.method !== "GET") {
       return next();
     }
 
     // Generate cache key
-    const cacheKey = keyGenerator 
+    const cacheKey = keyGenerator
       ? keyGenerator(req)
-      : `cache:${req.originalUrl || req.url}:${req.user?.id || 'anonymous'}`;
+      : `cache:${req.originalUrl || req.url}:${req.user?.id || "anonymous"}`;
 
     try {
       // Try to get from cache
       const cachedData = await cache.get(cacheKey);
 
       if (cachedData) {
-        logger.debug('Cache hit', { key: cacheKey, requestId: req.id });
-        
+        logger.debug("Cache hit", { key: cacheKey, requestId: req.id });
+
         // Add cache header
-        res.setHeader('X-Cache', 'HIT');
-        res.setHeader('X-Cache-Key', cacheKey);
-        
+        res.setHeader("X-Cache", "HIT");
+        res.setHeader("X-Cache-Key", cacheKey);
+
         return res.json(cachedData);
       }
 
       // Cache miss - intercept response
-      logger.debug('Cache miss', { key: cacheKey, requestId: req.id });
-      res.setHeader('X-Cache', 'MISS');
+      logger.debug("Cache miss", { key: cacheKey, requestId: req.id });
+      res.setHeader("X-Cache", "MISS");
 
       // Store original json method
       const originalJson = res.json.bind(res);
 
       // Override json method to cache response
-      res.json = function(body) {
+      res.json = function (body) {
         // Only cache successful responses
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          cache.set(cacheKey, body, duration).catch(err => {
-            logger.error('Failed to set cache', { error: err.message, key: cacheKey });
+          cache.set(cacheKey, body, duration).catch((err) => {
+            logger.error("Failed to set cache", {
+              error: err.message,
+              key: cacheKey,
+            });
           });
         }
 
@@ -59,7 +62,10 @@ const cacheMiddleware = (duration = 300, keyGenerator = null) => {
 
       next();
     } catch (error) {
-      logger.error('Cache middleware error', { error: error.message, requestId: req.id });
+      logger.error("Cache middleware error", {
+        error: error.message,
+        requestId: req.id,
+      });
       // Continue without caching if error occurs
       next();
     }
@@ -76,14 +82,17 @@ const invalidateCache = (patterns) => {
     const originalJson = res.json.bind(res);
 
     // Override json method to invalidate cache after response
-    res.json = function(body) {
+    res.json = function (body) {
       // Only invalidate on successful mutations
       if (res.statusCode >= 200 && res.statusCode < 300) {
-        Promise.all(
-          patterns.map(pattern => cache.delPattern(pattern))
-        ).catch(err => {
-          logger.error('Failed to invalidate cache', { error: err.message, patterns });
-        });
+        Promise.all(patterns.map((pattern) => cache.delPattern(pattern))).catch(
+          (err) => {
+            logger.error("Failed to invalidate cache", {
+              error: err.message,
+              patterns,
+            });
+          },
+        );
       }
 
       return originalJson(body);
@@ -98,9 +107,9 @@ const invalidateCache = (patterns) => {
  */
 const userCacheKey = (prefix) => {
   return (req) => {
-    const userId = req.user?.id || 'anonymous';
+    const userId = req.user?.id || "anonymous";
     const queryString = new URLSearchParams(req.query).toString();
-    return `${prefix}:${userId}:${queryString || 'default'}`;
+    return `${prefix}:${userId}:${queryString || "default"}`;
   };
 };
 

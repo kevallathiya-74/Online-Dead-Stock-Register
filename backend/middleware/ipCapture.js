@@ -1,4 +1,4 @@
-const logger = require('../utils/logger');
+const logger = require("../utils/logger");
 
 /**
  * Middleware to capture and normalize client IP address
@@ -7,21 +7,21 @@ const logger = require('../utils/logger');
 const captureClientIp = (req, res, next) => {
   try {
     // Check for forwarded IP (behind proxy/load balancer)
-    const forwarded = req.headers['x-forwarded-for'];
+    const forwarded = req.headers["x-forwarded-for"];
     if (forwarded) {
-      req.clientIp = forwarded.split(',')[0].trim();
+      req.clientIp = forwarded.split(",")[0].trim();
       return next();
     }
 
     // Check for real IP header
-    if (req.headers['x-real-ip']) {
-      req.clientIp = req.headers['x-real-ip'];
+    if (req.headers["x-real-ip"]) {
+      req.clientIp = req.headers["x-real-ip"];
       return next();
     }
 
     // Check for cloudflare connecting IP
-    if (req.headers['cf-connecting-ip']) {
-      req.clientIp = req.headers['cf-connecting-ip'];
+    if (req.headers["cf-connecting-ip"]) {
+      req.clientIp = req.headers["cf-connecting-ip"];
       return next();
     }
 
@@ -44,11 +44,11 @@ const captureClientIp = (req, res, next) => {
     }
 
     // Fallback
-    req.clientIp = 'Unknown';
+    req.clientIp = "Unknown";
     next();
   } catch (error) {
-    logger.error('Error capturing client IP:', error);
-    req.clientIp = 'Unknown';
+    logger.error("Error capturing client IP:", error);
+    req.clientIp = "Unknown";
     next();
   }
 };

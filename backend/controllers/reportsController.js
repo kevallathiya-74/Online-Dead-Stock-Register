@@ -1,7 +1,5 @@
-const logger = require('../utils/logger');
-const ReportTemplate = require('../models/reportTemplate');
-const GeneratedReport = require('../models/generatedReport');
-const User = require('../models/user');
+const logger = require("../utils/logger");
+const getSupabase = require("../config/db");
 
 // ========================================
 // REPORT TEMPLATES
@@ -14,53 +12,60 @@ const User = require('../models/user');
  */
 exports.getReportTemplates = async (req, res, next) => {
   try {
-    const { category, status = 'active' } = req.query;
-    
-    // Build query
-    const query = {};
-    if (category) query.category = category;
-    if (status) query.status = status;
+    const supabase = getSupabase();
+    const { category, status = "active" } = req.query;
 
-    // Get templates from database
-    const templates = await ReportTemplate.find(query)
-      .populate('created_by', 'name email')
-      .sort({ category: 1, name: 1 })
-      .lean();
+    let query = supabase
+      .from("report_templates")
+      .select("*, users:created_by(name, email)")
+      .order("category", { ascending: true })
+      .order("name", { ascending: true });
 
-    // If no templates exist, seed initial templates
-    if (templates.length === 0) {
-      logger.warn('No report templates found. Please seed database.');
-    }
+    if (category) query = query.eq("category", category);
+    if (status) query = query.eq("status", status);
 
-    // Format for frontend compatibility
-    const formattedTemplates = templates.map(template => ({
-      _id: template.template_id,
+    const { data: templates, error } = await query;
+
+    if (error) throw error;
+
+    const formattedTemplates = (templates || []).map((template) => ({
+      id: template.template_id,
       name: template.name,
       description: template.description,
       category: template.category,
-      frequency: template.frequency.charAt(0).toUpperCase() + template.frequency.slice(1),
-      type: template.type.charAt(0).toUpperCase() + template.type.slice(1),
-      parameters: Array.isArray(template.parameters) ? template.parameters : 
-                  typeof template.parameters === 'object' ? Object.keys(template.parameters) : [],
+      frequency: template.frequency
+        ? template.frequency.charAt(0).toUpperCase() +
+          template.frequency.slice(1)
+        : "",
+      type: template.type
+        ? template.type.charAt(0).toUpperCase() + template.type.slice(1)
+        : "",
+      parameters: Array.isArray(template.parameters)
+        ? template.parameters
+        : typeof template.parameters === "object" && template.parameters
+          ? Object.keys(template.parameters)
+          : [],
       lastGenerated: template.last_generated,
       status: template.status,
-      format: Array.isArray(template.format) ? template.format[0] : template.format,
-      generationCount: template.generation_count || 0
+      format: Array.isArray(template.format)
+        ? template.format[0]
+        : template.format,
+      generationCount: template.generation_count || 0,
     }));
 
-    logger.info('Report templates retrieved', {
+    logger.info("Report templates retrieved", {
       userId: req.user.id,
-      count: formattedTemplates.length
+      count: formattedTemplates.length,
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       count: formattedTemplates.length,
-      data: formattedTemplates
+      data: formattedTemplates,
     });
   } catch (error) {
-    logger.error('Error fetching report templates:', error);
-    next(error);
+    logger.error("Error fetching report templates:", error);
+    return next(error);
   }
 };
 
@@ -71,68 +76,79 @@ exports.getReportTemplates = async (req, res, next) => {
  */
 exports.getReportHistory = async (req, res, next) => {
   try {
-    const { 
-      page = 1, 
-      limit = 15,
-      status = '',
-      category = ''
-    } = req.query;
+    const supabase = getSupabase();
+    const { page = 1, limit = 15, status = "", category = "" } = req.query;
 
-    // Build query
-    const query = {};
-    if (status) query.status = status;
-    if (category) query.category = category;
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const from = (pageNum - 1) * limitNum;
+    const to = from + limitNum - 1;
 
-    // Get total count
-    const totalReports = await GeneratedReport.countDocuments(query);
+    let countQuery = supabase
+      .from("generated_reports")
+      .select("id", { count: "exact", head: true });
+    let dataQuery = supabase
+      .from("generated_reports")
+      .select(
+        "*, users:generated_by(name, email), report_templates:template(name, template_id)",
+      )
+      .order("generated_at", { ascending: false })
+      .range(from, to);
 
-    // Get paginated reports
-    const reports = await GeneratedReport.find(query)
-      .populate('generated_by', 'name email')
-      .populate('template', 'name template_id')
-      .sort({ generated_at: -1 })
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit))
-      .lean();
+    if (status) {
+      countQuery = countQuery.eq("status", status);
+      dataQuery = dataQuery.eq("status", status);
+    }
+    if (category) {
+      countQuery = countQuery.eq("category", category);
+      dataQuery = dataQuery.eq("category", category);
+    }
 
-    // Format for frontend
-    const history = reports.map(report => ({
-      _id: report.report_id,
+    const [
+      { count: totalReports, error: countError },
+      { data: reports, error: dataError },
+    ] = await Promise.all([countQuery, dataQuery]);
+
+    if (countError) throw countError;
+    if (dataError) throw dataError;
+
+    const history = (reports || []).map((report) => ({
+      id: report.report_id,
       reportName: report.report_name,
       category: report.category,
-      generatedBy: report.generated_by?.email || 'Unknown',
+      generatedBy: report.users?.email || "Unknown",
       generatedAt: report.generated_at,
       status: report.status,
       format: report.format,
-      fileSize: report.file_size ? 
-        (report.file_size < 1024 * 1024 ? 
-          `${(report.file_size / 1024).toFixed(2)} KB` : 
-          `${(report.file_size / (1024 * 1024)).toFixed(2)} MB`) 
-        : 'N/A',
-      downloadCount: report.download_count || 0
+      fileSize: report.file_size
+        ? report.file_size < 1024 * 1024
+          ? `${(report.file_size / 1024).toFixed(2)} KB`
+          : `${(report.file_size / (1024 * 1024)).toFixed(2)} MB`
+        : "N/A",
+      downloadCount: report.download_count || 0,
     }));
 
-    logger.info('Report history retrieved', {
+    logger.info("Report history retrieved", {
       userId: req.user.id,
       count: history.length,
       page,
-      limit
+      limit,
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       count: history.length,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(totalReports / parseInt(limit)),
-        totalItems: totalReports
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil((totalReports || 0) / limitNum),
+        totalItems: totalReports || 0,
       },
-      data: history
+      data: history,
     });
   } catch (error) {
-    logger.error('Error fetching report history:', error);
-    next(error);
+    logger.error("Error fetching report history:", error);
+    return next(error);
   }
 };
 
@@ -143,64 +159,70 @@ exports.getReportHistory = async (req, res, next) => {
  */
 exports.getReportStats = async (req, res, next) => {
   try {
-    // Get real statistics from database
-    const totalTemplates = await ReportTemplate.countDocuments({ status: 'active' });
-    const scheduledReports = await ReportTemplate.countDocuments({ 
-      status: 'active', 
-      is_scheduled: true 
-    });
+    const supabase = getSupabase();
 
-    // Reports generated this month
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
-    
-    const generatedThisMonth = await GeneratedReport.countDocuments({
-      generated_at: { $gte: startOfMonth }
-    });
 
-    // Total downloads
-    const totalDownloadsResult = await GeneratedReport.aggregate([
-      { $group: { _id: null, total: { $sum: '$download_count' } } }
+    const [
+      { count: totalTemplates, error: tmplErr },
+      { count: scheduledReports, error: schedErr },
+      { count: generatedThisMonth, error: monthErr },
+      { data: allReports, error: allErr },
+    ] = await Promise.all([
+      supabase
+        .from("report_templates")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "active"),
+      supabase
+        .from("report_templates")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "active")
+        .eq("is_scheduled", true),
+      supabase
+        .from("generated_reports")
+        .select("id", { count: "exact", head: true })
+        .gte("generated_at", startOfMonth.toISOString()),
+      supabase
+        .from("generated_reports")
+        .select("category, status, download_count"),
     ]);
-    const totalDownloads = totalDownloadsResult[0]?.total || 0;
 
-    // Reports by category
-    const byCategory = await GeneratedReport.aggregate([
-      { $group: { _id: '$category', count: { $sum: 1 } } }
-    ]);
+    if (tmplErr) throw tmplErr;
+    if (schedErr) throw schedErr;
+    if (monthErr) throw monthErr;
+    if (allErr) throw allErr;
+
+    let totalDownloads = 0;
     const byCategoryObj = {};
-    byCategory.forEach(item => {
-      byCategoryObj[item._id] = item.count;
-    });
-
-    // Reports by status
-    const byStatus = await GeneratedReport.aggregate([
-      { $group: { _id: '$status', count: { $sum: 1 } } }
-    ]);
     const byStatusObj = {};
-    byStatus.forEach(item => {
-      byStatusObj[item._id] = item.count;
+
+    (allReports || []).forEach((r) => {
+      totalDownloads += r.download_count || 0;
+      if (r.category)
+        byCategoryObj[r.category] = (byCategoryObj[r.category] || 0) + 1;
+      if (r.status) byStatusObj[r.status] = (byStatusObj[r.status] || 0) + 1;
     });
 
     const stats = {
-      totalTemplates,
-      generatedThisMonth,
-      scheduledReports,
+      totalTemplates: totalTemplates || 0,
+      generatedThisMonth: generatedThisMonth || 0,
+      scheduledReports: scheduledReports || 0,
       totalDownloads,
       byCategory: byCategoryObj,
-      byStatus: byStatusObj
+      byStatus: byStatusObj,
     };
 
-    logger.info('Report stats retrieved', { userId: req.user.id });
+    logger.info("Report stats retrieved", { userId: req.user.id });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      data: stats
+      data: stats,
     });
   } catch (error) {
-    logger.error('Error fetching report stats:', error);
-    next(error);
+    logger.error("Error fetching report stats:", error);
+    return next(error);
   }
 };
 
@@ -211,223 +233,262 @@ exports.getReportStats = async (req, res, next) => {
  */
 exports.generateReport = async (req, res, next) => {
   try {
+    const supabase = getSupabase();
     const { template_id, templateId, format, parameters } = req.body;
     const actualTemplateId = template_id || templateId;
 
     if (!actualTemplateId) {
       return res.status(400).json({
         success: false,
-        message: 'Template ID is required'
+        message: "Template ID is required",
       });
     }
 
-    logger.info('Report generation requested', { 
-      userId: req.user.id, 
+    logger.info("Report generation requested", {
+      userId: req.user.id,
       templateId: actualTemplateId,
-      format 
+      format,
     });
 
     // Find the template
-    const template = await ReportTemplate.findOne({ template_id: actualTemplateId });
-    
-    if (!template) {
+    const { data: templateRows, error: tmplErr } = await supabase
+      .from("report_templates")
+      .select("*")
+      .eq("template_id", actualTemplateId)
+      .limit(1);
+
+    if (tmplErr) throw tmplErr;
+
+    if (!templateRows || templateRows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Report template not found'
+        message: "Report template not found",
       });
     }
 
-    // Generate unique report ID
+    const template = templateRows[0];
     const reportId = `REP-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    // Fetch real data from Asset model based on template category
-    const Asset = require('../models/asset');
     let reportData = {};
     let totalRecords = 0;
 
-    // Build query based on parameters
-    const query = {};
+    // Build date filter
+    let assetQuery = supabase.from("assets").select("*");
     if (parameters?.startDate && parameters?.endDate) {
-      // Use purchase_date for filtering if available
-      query.purchase_date = {
-        $gte: new Date(parameters.startDate),
-        $lte: new Date(parameters.endDate)
-      };
+      assetQuery = assetQuery
+        .gte("purchase_date", new Date(parameters.startDate).toISOString())
+        .lte("purchase_date", new Date(parameters.endDate).toISOString());
     }
-    // If no date parameters provided, get all assets (no date filter)
 
-    // Get data based on template category
     switch (template.category) {
-      case 'Inventory':
-        const assets = await Asset.find(query).populate('assigned_user', 'name email').lean();
-        totalRecords = assets.length;
+      case "Inventory": {
+        const { data: assets, error } = await assetQuery;
+        if (error) throw error;
+        totalRecords = (assets || []).length;
         reportData = {
           assets,
           summary: {
             total: totalRecords,
-            active: assets.filter(a => a.status === 'Active').length,
-            available: assets.filter(a => a.status === 'Available').length,
-            underMaintenance: assets.filter(a => a.status === 'Under Maintenance').length
-          }
+            active: (assets || []).filter((a) => a.status === "Active").length,
+            available: (assets || []).filter((a) => a.status === "Available")
+              .length,
+            underMaintenance: (assets || []).filter(
+              (a) => a.status === "Under Maintenance",
+            ).length,
+          },
         };
         break;
+      }
 
-      case 'Analytics':
-        const analyticsAssets = await Asset.find(query).lean();
-        totalRecords = analyticsAssets.length;
-        
-        // Calculate analytics data
-        const utilizationData = analyticsAssets.reduce((acc, asset) => {
-          const status = asset.status || 'Unknown';
-          acc[status] = (acc[status] || 0) + 1;
+      case "Analytics": {
+        const { data: assets, error } = await assetQuery;
+        if (error) throw error;
+        totalRecords = (assets || []).length;
+        const utilizationData = (assets || []).reduce((acc, asset) => {
+          const s = asset.status || "Unknown";
+          acc[s] = (acc[s] || 0) + 1;
           return acc;
         }, {});
-
         reportData = {
           utilizationByStatus: utilizationData,
           totalAssets: totalRecords,
-          averageCost: analyticsAssets.reduce((sum, a) => sum + (a.purchase_cost || 0), 0) / totalRecords || 0
+          averageCost:
+            totalRecords > 0
+              ? (assets || []).reduce(
+                  (sum, a) => sum + (a.purchase_cost || 0),
+                  0,
+                ) / totalRecords
+              : 0,
         };
         break;
+      }
 
-      case 'Financial':
-        const financialAssets = await Asset.find(query).lean();
-        totalRecords = financialAssets.length;
-        
+      case "Financial": {
+        const { data: assets, error } = await assetQuery;
+        if (error) throw error;
+        totalRecords = (assets || []).length;
         reportData = {
-          totalValue: financialAssets.reduce((sum, a) => sum + (a.purchase_cost || 0), 0),
-          depreciatedValue: financialAssets.reduce((sum, a) => sum + (a.purchase_cost || 0), 0),
-          byCategory: financialAssets.reduce((acc, asset) => {
-            const category = asset.asset_type || 'Uncategorized';
-            if (!acc[category]) {
-              acc[category] = { count: 0, value: 0 };
-            }
+          totalValue: (assets || []).reduce(
+            (sum, a) => sum + (a.purchase_cost || 0),
+            0,
+          ),
+          depreciatedValue: (assets || []).reduce(
+            (sum, a) => sum + (a.purchase_cost || 0),
+            0,
+          ),
+          byCategory: (assets || []).reduce((acc, asset) => {
+            const category = asset.asset_type || "Uncategorized";
+            if (!acc[category]) acc[category] = { count: 0, value: 0 };
             acc[category].count++;
             acc[category].value += asset.purchase_cost || 0;
             return acc;
           }, {}),
-          totalRecords
+          totalRecords,
         };
         break;
+      }
 
-      case 'Compliance':
-        const complianceAssets = await Asset.find(query).populate('assigned_user').lean();
-        const Maintenance = require('../models/maintenance');
-        const maintenanceRecords = await Maintenance.find(query).lean();
-        
-        totalRecords = complianceAssets.length;
+      case "Compliance": {
+        const { data: assets, error: assetErr } = await assetQuery;
+        if (assetErr) throw assetErr;
+        const { data: maintenanceRecords, error: maintErr } = await supabase
+          .from("maintenances")
+          .select("id");
+        if (maintErr) throw maintErr;
+        totalRecords = (assets || []).length;
         reportData = {
-          assets: complianceAssets,
+          assets,
           maintenanceCompliance: {
             totalAssets: totalRecords,
-            withMaintenance: maintenanceRecords.length,
-            complianceRate: ((maintenanceRecords.length / totalRecords) * 100).toFixed(2)
-          }
+            withMaintenance: (maintenanceRecords || []).length,
+            complianceRate:
+              totalRecords > 0
+                ? (
+                    ((maintenanceRecords || []).length / totalRecords) *
+                    100
+                  ).toFixed(2)
+                : "0.00",
+          },
         };
         break;
+      }
 
-      case 'Tracking':
-        const AssetTransfer = require('../models/assetTransfer');
-        const transfers = await AssetTransfer.find(query)
-          .populate('asset_id', 'asset_id name')
-          .populate('transferred_by', 'name email')
-          .lean();
-        
-        totalRecords = transfers.length;
+      case "Tracking": {
+        let transferQuery = supabase.from("asset_transfers").select("*");
+        if (parameters?.startDate && parameters?.endDate) {
+          transferQuery = transferQuery
+            .gte("created_at", new Date(parameters.startDate).toISOString())
+            .lte("created_at", new Date(parameters.endDate).toISOString());
+        }
+        const { data: transfers, error } = await transferQuery;
+        if (error) throw error;
+        totalRecords = (transfers || []).length;
         reportData = {
           transfers,
           summary: {
             total: totalRecords,
-            byStatus: transfers.reduce((acc, t) => {
+            byStatus: (transfers || []).reduce((acc, t) => {
               acc[t.status] = (acc[t.status] || 0) + 1;
               return acc;
-            }, {})
-          }
+            }, {}),
+          },
         };
         break;
+      }
 
-      case 'Vendor':
-        const Vendor = require('../models/vendor');
-        const vendors = await Vendor.find().lean();
-        const PurchaseOrder = require('../models/purchaseOrder');
-        const orders = await PurchaseOrder.find(query).populate('vendor_id').lean();
-        
-        totalRecords = orders.length;
+      case "Vendor": {
+        const { data: vendors, error: vendErr } = await supabase
+          .from("vendors")
+          .select("*");
+        if (vendErr) throw vendErr;
+        let ordersQuery = supabase.from("purchase_orders").select("*");
+        if (parameters?.startDate && parameters?.endDate) {
+          ordersQuery = ordersQuery
+            .gte("created_at", new Date(parameters.startDate).toISOString())
+            .lte("created_at", new Date(parameters.endDate).toISOString());
+        }
+        const { data: orders, error: ordErr } = await ordersQuery;
+        if (ordErr) throw ordErr;
+        totalRecords = (orders || []).length;
         reportData = {
           vendors,
           purchaseOrders: orders,
           summary: {
-            totalVendors: vendors.length,
+            totalVendors: (vendors || []).length,
             totalOrders: totalRecords,
-            totalValue: orders.reduce((sum, o) => sum + (o.total_amount || 0), 0)
-          }
+            totalValue: (orders || []).reduce(
+              (sum, o) => sum + (o.total_amount || 0),
+              0,
+            ),
+          },
         };
         break;
+      }
 
-      default:
-        const defaultAssets = await Asset.find(query).lean();
-        totalRecords = defaultAssets.length;
-        reportData = { assets: defaultAssets, totalRecords };
+      default: {
+        const { data: assets, error } = await assetQuery;
+        if (error) throw error;
+        totalRecords = (assets || []).length;
+        reportData = { assets, totalRecords };
+      }
     }
 
-    // Create report record in database
-    const generatedReport = new GeneratedReport({
-      report_id: reportId,
-      template: template._id,
-      report_name: template.name,
-      category: template.category,
-      generated_by: req.user.id,
-      generated_at: new Date(),
-      status: 'completed',
-      format: format || 'PDF',
-      parameters: parameters || {},
-      data_summary: {
-        total_records: totalRecords,
-        date_range: parameters?.startDate && parameters?.endDate ? {
-          start: new Date(parameters.startDate),
-          end: new Date(parameters.endDate)
-        } : null
-      }
-    });
-
-    await generatedReport.save();
+    // Create report record
+    const { error: insertErr } = await supabase
+      .from("generated_reports")
+      .insert({
+        report_id: reportId,
+        template: template.id,
+        report_name: template.name,
+        category: template.category,
+        generated_by: req.user.id,
+        generated_at: new Date().toISOString(),
+        status: "completed",
+        format: format || "PDF",
+        parameters: parameters || {},
+        download_count: 0,
+      });
+    if (insertErr) throw insertErr;
 
     // Update template's last generated time and count
-    template.last_generated = new Date();
-    template.generation_count = (template.generation_count || 0) + 1;
-    await template.save();
+    await supabase
+      .from("report_templates")
+      .update({
+        last_generated: new Date().toISOString(),
+        generation_count: (template.generation_count || 0) + 1,
+      })
+      .eq("id", template.id);
 
-    logger.info('Report generated successfully', {
+    logger.info("Report generated successfully", {
       userId: req.user.id,
       reportId,
       templateId: actualTemplateId,
-      totalRecords
+      totalRecords,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      message: 'Report generated successfully',
+      message: "Report generated successfully",
       data: {
-        _id: reportId,
+        id: reportId,
         report_id: reportId,
         templateId: actualTemplateId,
         name: template.name,
-        format: format || 'PDF',
-        status: 'completed',
+        format: format || "PDF",
+        status: "completed",
         generatedBy: req.user.email,
         generatedAt: new Date(),
         parameters: parameters || {},
         downloadUrl: `/api/v1/reports/${reportId}/download`,
         totalRecords,
-        reportData // Include actual data for immediate use
-      }
+        reportData,
+      },
     });
   } catch (error) {
-    logger.error('Error generating report:', error);
-    next(error);
+    logger.error("Error generating report:", error);
+    return next(error);
   }
 };
-
 
 /**
  * @desc    Download a generated report
@@ -436,83 +497,83 @@ exports.generateReport = async (req, res, next) => {
  */
 exports.downloadReport = async (req, res, next) => {
   try {
+    const supabase = getSupabase();
     const { id } = req.params;
 
-    logger.info('Report download requested', { 
-      userId: req.user.id, 
-      reportId: id 
+    logger.info("Report download requested", {
+      userId: req.user.id,
+      reportId: id,
     });
 
     // Find the generated report
-    const report = await GeneratedReport.findOne({ report_id: id })
-      .populate('template', 'name description')
-      .populate('generated_by', 'name email')
-      .lean();
+    const { data: reportRows, error: reportErr } = await supabase
+      .from("generated_reports")
+      .select(
+        "*, users:generated_by(name, email), report_templates:template(name, description)",
+      )
+      .eq("report_id", id)
+      .limit(1);
 
-    if (!report) {
-      return res.status(404).json({
-        success: false,
-        message: 'Report not found'
-      });
+    if (reportErr) throw reportErr;
+
+    if (!reportRows || reportRows.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Report not found" });
     }
 
+    const report = reportRows[0];
+
     // Update download statistics
-    await GeneratedReport.findOneAndUpdate(
-      { report_id: id },
-      { 
-        $inc: { download_count: 1 },
-        last_downloaded: new Date()
-      }
-    );
+    await supabase
+      .from("generated_reports")
+      .update({
+        download_count: (report.download_count || 0) + 1,
+        last_downloaded: new Date().toISOString(),
+      })
+      .eq("report_id", id);
 
-    // Fetch the actual data for the report
-    const Asset = require('../models/asset');
-    let reportContent = '';
+    const dateRange =
+      report.parameters?.startDate && report.parameters?.endDate
+        ? `${new Date(report.parameters.startDate).toLocaleDateString()} - ${new Date(
+            report.parameters.endDate,
+          ).toLocaleDateString()}`
+        : "All Time";
 
-    // Build the report content based on category
-    const template = report.template;
-    const dateRange = report.parameters?.startDate && report.parameters?.endDate ? 
-      `${new Date(report.parameters.startDate).toLocaleDateString()} - ${new Date(report.parameters.endDate).toLocaleDateString()}` :
-      'All Time';
-
-    // Create PDF-like text content
-    reportContent = `
+    let reportContent = `
 ASSET MANAGEMENT REPORT
 =======================
 
 Report Name: ${report.report_name}
 Category: ${report.category}
-Generated By: ${report.generated_by?.name || 'System'} (${report.generated_by?.email || ''})
+Generated By: ${report.users?.name || "System"} (${report.users?.email || ""})
 Generated At: ${new Date(report.generated_at).toLocaleString()}
 Date Range: ${dateRange}
-Total Records: ${report.data_summary?.total_records || 0}
 
 DESCRIPTION
 -----------
-${template?.description || 'No description available'}
+${report.report_templates?.description || "No description available"}
 
 REPORT DATA
 -----------
 `;
 
-    // Add category-specific data
-    const query = {};
+    let assetQuery = supabase.from("assets").select("*");
     if (report.parameters?.startDate && report.parameters?.endDate) {
-      query.created_at = {
-        $gte: new Date(report.parameters.startDate),
-        $lte: new Date(report.parameters.endDate)
-      };
+      assetQuery = assetQuery
+        .gte("created_at", new Date(report.parameters.startDate).toISOString())
+        .lte("created_at", new Date(report.parameters.endDate).toISOString());
     }
 
     switch (report.category) {
-      case 'Inventory':
-        const assets = await Asset.find(query).populate('assigned_user', 'name email').lean();
+      case "Inventory": {
+        const { data: assets } = await assetQuery;
         reportContent += `\nINVENTORY SUMMARY\n`;
-        reportContent += `Total Assets: ${assets.length}\n`;
-        reportContent += `Active: ${assets.filter(a => a.status === 'Active').length}\n`;
-        reportContent += `Available: ${assets.filter(a => a.status === 'Available').length}\n\n`;
+        reportContent += `Total Assets: ${(assets || []).length}\n`;
+        reportContent += `Active: ${(assets || []).filter((a) => a.status === "Active").length}\n`;
+        reportContent += `Available: ${(assets || []).filter((a) => a.status === "Available").length}\n\n`;
         reportContent += `ASSET LIST:\n`;
-        assets.forEach((asset, idx) => {
+        (assets || []).forEach((asset, idx) => {
           reportContent += `${idx + 1}. ${asset.unique_asset_id} - ${asset.name}\n`;
           reportContent += `   Status: ${asset.status}\n`;
           reportContent += `   Type: ${asset.asset_type}\n`;
@@ -520,67 +581,78 @@ REPORT DATA
           reportContent += `   Value: ₹${asset.purchase_cost || 0}\n\n`;
         });
         break;
-
-      case 'Analytics':
-        const analyticsAssets = await Asset.find(query).lean();
-        const statusCounts = analyticsAssets.reduce((acc, a) => {
+      }
+      case "Analytics": {
+        const { data: assets } = await assetQuery;
+        const statusCounts = (assets || []).reduce((acc, a) => {
           acc[a.status] = (acc[a.status] || 0) + 1;
           return acc;
         }, {});
         reportContent += `\nASSET UTILIZATION ANALYTICS\n`;
-        reportContent += `Total Assets: ${analyticsAssets.length}\n\n`;
-        reportContent += `BY STATUS:\n`;
+        reportContent += `Total Assets: ${(assets || []).length}\n\nBY STATUS:\n`;
         Object.entries(statusCounts).forEach(([status, count]) => {
-          reportContent += `  ${status}: ${count} (${((count / analyticsAssets.length) * 100).toFixed(2)}%)\n`;
+          reportContent += `  ${status}: ${count} (${(
+            (count / (assets || []).length) *
+            100
+          ).toFixed(2)}%)\n`;
         });
         break;
-
-      case 'Financial':
-        const financialAssets = await Asset.find(query).lean();
-        const totalValue = financialAssets.reduce((sum, a) => sum + (a.purchase_cost || 0), 0);
-        const byCategory = financialAssets.reduce((acc, a) => {
-          const cat = a.asset_type || 'Uncategorized';
+      }
+      case "Financial": {
+        const { data: assets } = await assetQuery;
+        const totalValue = (assets || []).reduce(
+          (sum, a) => sum + (a.purchase_cost || 0),
+          0,
+        );
+        const byCategory = (assets || []).reduce((acc, a) => {
+          const cat = a.asset_type || "Uncategorized";
           if (!acc[cat]) acc[cat] = { count: 0, value: 0 };
           acc[cat].count++;
           acc[cat].value += a.purchase_cost || 0;
           return acc;
         }, {});
-        
         reportContent += `\nFINANCIAL SUMMARY\n`;
-        reportContent += `Total Assets Value: ₹${totalValue.toLocaleString()}\n\n`;
-        reportContent += `BY CATEGORY:\n`;
+        reportContent += `Total Assets Value: ₹${totalValue.toLocaleString()}\n\nBY CATEGORY:\n`;
         Object.entries(byCategory).forEach(([cat, data]) => {
           reportContent += `  ${cat}: ${data.count} assets, ₹${data.value.toLocaleString()}\n`;
         });
         break;
-
-      case 'Compliance':
-        const complianceAssets = await Asset.find(query).lean();
+      }
+      case "Compliance": {
+        const { data: assets } = await assetQuery;
         reportContent += `\nCOMPLIANCE AUDIT\n`;
-        reportContent += `Total Assets: ${complianceAssets.length}\n`;
-        reportContent += `Assets with Complete Information: ${complianceAssets.filter(a => a.name && a.asset_type && a.location).length}\n`;
-        reportContent += `Compliance Rate: ${((complianceAssets.filter(a => a.name && a.asset_type && a.location).length / complianceAssets.length) * 100).toFixed(2)}%\n`;
+        reportContent += `Total Assets: ${(assets || []).length}\n`;
+        reportContent += `Assets with Complete Information: ${
+          (assets || []).filter((a) => a.name && a.asset_type && a.location)
+            .length
+        }\n`;
+        reportContent += `Compliance Rate: ${(
+          ((assets || []).filter((a) => a.name && a.asset_type && a.location)
+            .length /
+            ((assets || []).length || 1)) *
+          100
+        ).toFixed(2)}%\n`;
         break;
-
-      default:
-        const defaultAssets = await Asset.find(query).lean();
-        reportContent += `\nGENERAL REPORT\n`;
-        reportContent += `Total Records: ${defaultAssets.length}\n`;
+      }
+      default: {
+        const { data: assets } = await assetQuery;
+        reportContent += `\nGENERAL REPORT\nTotal Records: ${(assets || []).length}\n`;
+      }
     }
 
     reportContent += `\n\n---\nReport ID: ${report.report_id}\nGenerated by Dead Stock Register System\n`;
 
-    // Create a simple PDF structure or send as text
-    const pdfContent = Buffer.from(reportContent, 'utf-8');
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=report-${report.report_name.replace(/\s+/g, '-')}-${id}.txt`);
-    res.setHeader('Content-Length', pdfContent.length);
-    res.send(pdfContent);
-
+    const pdfContent = Buffer.from(reportContent, "utf-8");
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=report-${report.report_name.replace(/\s+/g, "-")}-${id}.txt`,
+    );
+    res.setHeader("Content-Length", pdfContent.length);
+    return res.send(pdfContent);
   } catch (error) {
-    logger.error('Error downloading report:', error);
-    next(error);
+    logger.error("Error downloading report:", error);
+    return next(error);
   }
 };
 
@@ -591,112 +663,88 @@ REPORT DATA
  */
 exports.getAssetSummary = async (req, res, next) => {
   try {
-    const Asset = require('../models/asset');
-    
-    // Get aggregate statistics
-    const [totalStats, categoryStats, locationStats, statusStats] = await Promise.all([
-      // Total assets and values
-      Asset.aggregate([
-        {
-          $group: {
-            _id: null,
-            totalAssets: { $sum: 1 },
-            totalValue: { $sum: '$purchase_cost' },
-            depreciatedValue: { $sum: '$purchase_cost' },
-            activeAssets: {
-              $sum: { $cond: [{ $eq: ['$status', 'Active'] }, 1, 0] }
-            },
-            underMaintenance: {
-              $sum: { $cond: [{ $eq: ['$status', 'Under Maintenance'] }, 1, 0] }
-            }
-          }
-        }
-      ]),
-      
-      // By category
-      Asset.aggregate([
-        {
-          $group: {
-            _id: '$asset_type',
-            count: { $sum: 1 },
-            value: { $sum: '$purchase_cost' }
-          }
-        },
-        { $sort: { count: -1 } }
-      ]),
-      
-      // By location
-      Asset.aggregate([
-        {
-          $group: {
-            _id: '$location',
-            count: { $sum: 1 }
-          }
-        },
-        { $sort: { count: -1 } }
-      ]),
-      
-      // By status
-      Asset.aggregate([
-        {
-          $group: {
-            _id: '$status',
-            count: { $sum: 1 }
-          }
-        },
-        { $sort: { count: -1 } }
-      ])
-    ]);
+    const supabase = getSupabase();
 
-    const totals = totalStats[0] || {
-      totalAssets: 0,
-      totalValue: 0,
-      depreciatedValue: 0,
-      activeAssets: 0,
-      underMaintenance: 0
-    };
+    const { data: assets, error } = await supabase
+      .from("assets")
+      .select("status, asset_type, location, purchase_cost");
 
-    const inactiveAssets = totals.totalAssets - totals.activeAssets - totals.underMaintenance;
+    if (error) throw error;
 
-    // Calculate percentages for locations and statuses
-    const byLocation = locationStats.map(item => ({
-      location: item._id || 'Unknown',
-      count: item.count,
-      percentage: ((item.count / totals.totalAssets) * 100).toFixed(1)
-    }));
+    const allAssets = assets || [];
+    const totalAssets = allAssets.length;
+    const activeAssets = allAssets.filter((a) => a.status === "Active").length;
+    const underMaintenance = allAssets.filter(
+      (a) => a.status === "Under Maintenance",
+    ).length;
+    const inactiveAssets = totalAssets - activeAssets - underMaintenance;
+    const totalValue = allAssets.reduce(
+      (sum, a) => sum + (a.purchase_cost || 0),
+      0,
+    );
 
-    const byStatus = statusStats.map(item => ({
-      status: item._id || 'Unknown',
-      count: item.count,
-      percentage: ((item.count / totals.totalAssets) * 100).toFixed(1)
-    }));
+    // By category (asset_type)
+    const categoryMap = {};
+    allAssets.forEach((a) => {
+      const cat = a.asset_type || "Unknown";
+      if (!categoryMap[cat]) categoryMap[cat] = { count: 0, value: 0 };
+      categoryMap[cat].count++;
+      categoryMap[cat].value += a.purchase_cost || 0;
+    });
+    const byCategory = Object.entries(categoryMap)
+      .map(([category, d]) => ({ category, count: d.count, value: d.value }))
+      .sort((a, b) => b.count - a.count);
 
-    const byCategory = categoryStats.map(item => ({
-      category: item._id || 'Unknown',
-      count: item.count,
-      value: item.value || 0
-    }));
+    // By location
+    const locationMap = {};
+    allAssets.forEach((a) => {
+      const loc = a.location || "Unknown";
+      locationMap[loc] = (locationMap[loc] || 0) + 1;
+    });
+    const byLocation = Object.entries(locationMap)
+      .map(([location, count]) => ({
+        location,
+        count,
+        percentage:
+          totalAssets > 0 ? ((count / totalAssets) * 100).toFixed(1) : "0.0",
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    // By status
+    const statusMap = {};
+    allAssets.forEach((a) => {
+      const s = a.status || "Unknown";
+      statusMap[s] = (statusMap[s] || 0) + 1;
+    });
+    const byStatus = Object.entries(statusMap)
+      .map(([status, count]) => ({
+        status,
+        count,
+        percentage:
+          totalAssets > 0 ? ((count / totalAssets) * 100).toFixed(1) : "0.0",
+      }))
+      .sort((a, b) => b.count - a.count);
 
     const summary = {
-      totalAssets: totals.totalAssets,
-      activeAssets: totals.activeAssets,
+      totalAssets,
+      activeAssets,
       inactiveAssets,
-      underMaintenance: totals.underMaintenance,
-      totalValue: totals.totalValue,
-      depreciatedValue: totals.depreciatedValue,
+      underMaintenance,
+      totalValue,
+      depreciatedValue: totalValue,
       byCategory,
       byLocation,
-      byStatus
+      byStatus,
     };
 
-    logger.info('Asset summary retrieved', { userId: req.user.id });
+    logger.info("Asset summary retrieved", { userId: req.user.id });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      data: summary
+      data: summary,
     });
   } catch (error) {
-    logger.error('Error fetching asset summary:', error);
-    next(error);
+    logger.error("Error fetching asset summary:", error);
+    return next(error);
   }
 };

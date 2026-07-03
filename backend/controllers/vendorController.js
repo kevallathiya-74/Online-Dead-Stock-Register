@@ -1,5 +1,5 @@
-const vendorService = require('../services/vendorService');
-const logger = require('../utils/logger');
+const vendorService = require("../services/vendorService");
+const logger = require("../utils/logger");
 
 /**
  * Get all vendors with filters and pagination
@@ -7,7 +7,7 @@ const logger = require('../utils/logger');
 exports.getVendors = async (req, res, next) => {
   try {
     const { page = 1, limit = 10, search, status, category } = req.query;
-    
+
     const filters = {};
     if (search) {
       filters.search = search;
@@ -18,19 +18,19 @@ exports.getVendors = async (req, res, next) => {
     if (category) {
       filters.category = category;
     }
-    
+
     const result = await vendorService.getVendors(filters, {
       page: parseInt(page),
-      limit: parseInt(limit)
+      limit: parseInt(limit),
     });
-    
+
     res.status(200).json({
       success: true,
       data: result.vendors,
-      pagination: result.pagination
+      pagination: result.pagination,
     });
   } catch (error) {
-    logger.error('Error fetching vendors:', error);
+    logger.error("Error fetching vendors:", error);
     next(error);
   }
 };
@@ -41,20 +41,20 @@ exports.getVendors = async (req, res, next) => {
 exports.getVendorById = async (req, res, next) => {
   try {
     const vendor = await vendorService.getVendorById(req.params.id);
-    
+
     if (!vendor) {
       return res.status(404).json({
         success: false,
-        error: 'Vendor not found'
+        error: "Vendor not found",
       });
     }
-    
+
     res.status(200).json({
       success: true,
-      data: vendor
+      data: vendor,
     });
   } catch (error) {
-    logger.error('Error fetching vendor:', error);
+    logger.error("Error fetching vendor:", error);
     next(error);
   }
 };
@@ -64,14 +64,14 @@ exports.getVendorById = async (req, res, next) => {
  */
 exports.createVendor = async (req, res, next) => {
   try {
-    const vendor = await vendorService.createVendor(req.body, req.user._id);
-    
+    const vendor = await vendorService.createVendor(req.body, req.user.id);
+
     res.status(201).json({
       success: true,
-      data: vendor
+      data: vendor,
     });
   } catch (error) {
-    logger.error('Error creating vendor:', error);
+    logger.error("Error creating vendor:", error);
     next(error);
   }
 };
@@ -84,22 +84,22 @@ exports.updateVendor = async (req, res, next) => {
     const vendor = await vendorService.updateVendor(
       req.params.id,
       req.body,
-      req.user._id
+      req.user.id,
     );
-    
+
     if (!vendor) {
       return res.status(404).json({
         success: false,
-        error: 'Vendor not found'
+        error: "Vendor not found",
       });
     }
-    
+
     res.status(200).json({
       success: true,
-      data: vendor
+      data: vendor,
     });
   } catch (error) {
-    logger.error('Error updating vendor:', error);
+    logger.error("Error updating vendor:", error);
     next(error);
   }
 };
@@ -109,22 +109,22 @@ exports.updateVendor = async (req, res, next) => {
  */
 exports.deleteVendor = async (req, res, next) => {
   try {
-    const vendor = await vendorService.deleteVendor(req.params.id, req.user._id);
-    
+    const vendor = await vendorService.deleteVendor(req.params.id, req.user.id);
+
     if (!vendor) {
       return res.status(404).json({
         success: false,
-        error: 'Vendor not found'
+        error: "Vendor not found",
       });
     }
-    
+
     res.status(200).json({
       success: true,
-      message: 'Vendor deleted successfully',
-      data: vendor
+      message: "Vendor deleted successfully",
+      data: vendor,
     });
   } catch (error) {
-    logger.error('Error deleting vendor:', error);
+    logger.error("Error deleting vendor:", error);
     next(error);
   }
 };
@@ -135,13 +135,13 @@ exports.deleteVendor = async (req, res, next) => {
 exports.getVendorStats = async (req, res, next) => {
   try {
     const stats = await vendorService.getVendorStats();
-    
+
     res.status(200).json({
       success: true,
-      data: stats
+      data: stats,
     });
   } catch (error) {
-    logger.error('Error fetching vendor stats:', error);
+    logger.error("Error fetching vendor stats:", error);
     next(error);
   }
 };
@@ -152,20 +152,20 @@ exports.getVendorStats = async (req, res, next) => {
 exports.getVendorPerformance = async (req, res, next) => {
   try {
     const performance = await vendorService.getVendorPerformance(req.params.id);
-    
+
     if (!performance) {
       return res.status(404).json({
         success: false,
-        error: 'Vendor not found'
+        error: "Vendor not found",
       });
     }
-    
+
     res.status(200).json({
       success: true,
-      data: performance
+      data: performance,
     });
   } catch (error) {
-    logger.error('Error fetching vendor performance:', error);
+    logger.error("Error fetching vendor performance:", error);
     next(error);
   }
 };

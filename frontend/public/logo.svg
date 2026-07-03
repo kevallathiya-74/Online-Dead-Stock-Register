@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" width="400" height="120">
+  <defs>
+    <linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.1" flood-color="#0f172a" />
+    </filter>
+  </defs>
+  <g transform="translate(20, 20)" filter="url(#shadow)">
+    <path d="M40 0 L74.64 20 L74.64 60 L40 80 L5.36 60 L5.36 20 Z" fill="none" stroke="url(#brandGrad)" stroke-width="8" stroke-linejoin="round" />
+    <path d="M40 40 L40 80 M5.36 20 L40 40 L74.64 20" fill="none" stroke="url(#brandGrad)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+    <circle cx="40" cy="40" r="6" fill="#10b981" />
+  </g>
+  <g transform="translate(120, 65)">
+    <text x="0" y="0" font-family="Outfit, system-ui, sans-serif" font-weight="800" font-size="48" fill="#0f172a" letter-spacing="-1">DSR</text>
+    <text x="105" y="-5" font-family="Inter, system-ui, sans-serif" font-weight="500" font-size="16" fill="#64748b" letter-spacing="1">DEAD STOCK</text>
+    <text x="105" y="15" font-family="Inter, system-ui, sans-serif" font-weight="500" font-size="16" fill="#64748b" letter-spacing="1">REGISTER</text>
+  </g>
+</svg>

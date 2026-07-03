@@ -1,47 +1,53 @@
-const Invoice = require('../models/invoice');
-const PurchaseOrder = require('../models/purchaseOrder');
-const logger = require('../utils/logger');
+const getSupabase = require("../config/db");
+const logger = require("../utils/logger");
 
 /**
  * Get all invoices with filters and pagination
  */
 exports.getAllInvoices = async (req, res, next) => {
   try {
+    const supabase = getSupabase();
     const { page = 1, limit = 50, status, vendor, search } = req.query;
-    
-    const query = {};
-    
+
+    let query = supabase.from("invoices").select(
+      `
+        *,
+        vendor:vendors!vendor_id(id, company_name, contact_person, contact_email, phone),
+        purchase_order:purchase_orders!po_id(id, po_number, status),
+        created_by_user:users!created_by(id, name, email),
+        approved_by_user:users!approved_by(id, name, email)
+      `,
+      { count: "exact" },
+    );
+
     // Status filter
-    if (status && status !== 'All') {
-      query.status = status.toLowerCase();
+    if (status && status !== "All") {
+      query = query.eq("status", status.toLowerCase());
     }
-    
+
     // Vendor filter
     if (vendor) {
-      query.vendor = vendor;
+      query = query.eq("vendor_id", vendor);
     }
-    
+
     // Search by invoice number
     if (search) {
-      query.invoice_number = { $regex: search, $options: 'i' };
+      query = query.ilike("invoice_number", `%${search}%`);
     }
-    
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
-    
-    const [invoices, total] = await Promise.all([
-      Invoice.find(query)
-        .populate('vendor', 'vendor_name contact_person email phone')
-        .populate('purchase_order', 'po_number status')
-        .populate('created_by', 'name email')
-        .populate('approved_by', 'name email')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(parseInt(limit))
-        .lean(),
-      Invoice.countDocuments(query)
-    ]);
-    
-    res.status(200).json({
+
+    query = query
+      .order("created_at", { ascending: false })
+      .range(skip, skip + parseInt(limit) - 1);
+
+    const { data: invoices, error, count: total } = await query;
+
+    if (error) {
+      throw error;
+    }
+
+    return res.status(200).json({
       success: true,
       data: invoices,
       pagination: {
@@ -49,11 +55,11 @@ exports.getAllInvoices = async (req, res, next) => {
         total_pages: Math.ceil(total / parseInt(limit)),
         total_invoices: total,
         has_next: skip + invoices.length < total,
-        has_prev: parseInt(page) > 1
-      }
+        has_prev: parseInt(page) > 1,
+      },
     });
   } catch (error) {
-    logger.error('Error fetching invoices:', error);
+    logger.error("Error fetching invoices:", error);
     next(error);
   }
 };
@@ -63,26 +69,35 @@ exports.getAllInvoices = async (req, res, next) => {
  */
 exports.getInvoiceById = async (req, res, next) => {
   try {
-    const invoice = await Invoice.findById(req.params.id)
-      .populate('vendor', 'vendor_name contact_person email phone address payment_terms')
-      .populate('purchase_order')
-      .populate('created_by', 'name email')
-      .populate('approved_by', 'name email')
-      .lean();
-    
-    if (!invoice) {
+    const supabase = getSupabase();
+
+    const { data: invoice, error } = await supabase
+      .from("invoices")
+      .select(
+        `
+        *,
+        vendor:vendors!vendor_id(id, company_name, contact_person, contact_email, phone, address, payment_terms),
+        purchase_order:purchase_orders!po_id(*),
+        created_by_user:users!created_by(id, name, email),
+        approved_by_user:users!approved_by(id, name, email)
+      `,
+      )
+      .eq("id", req.params.id)
+      .single();
+
+    if (error || !invoice) {
       return res.status(404).json({
         success: false,
-        message: 'Invoice not found'
+        message: "Invoice not found",
       });
     }
-    
-    res.status(200).json({
+
+    return res.status(200).json({
       success: true,
-      data: invoice
+      data: invoice,
     });
   } catch (error) {
-    logger.error('Error fetching invoice:', error);
+    logger.error("Error fetching invoice:", error);
     next(error);
   }
 };
@@ -92,9 +107,11 @@ exports.getInvoiceById = async (req, res, next) => {
  */
 exports.createInvoice = async (req, res, next) => {
   try {
+    const supabase = getSupabase();
     const {
       purchase_order,
       vendor,
+      invoice_number,
       invoice_date,
       due_date,
       items,
@@ -103,59 +120,84 @@ exports.createInvoice = async (req, res, next) => {
       total_amount,
       payment_method,
       vendor_gstin,
-      notes
+      notes,
     } = req.body;
-    
+
     // Validate required fields
-    if (!purchase_order || !vendor || !due_date || !items || items.length === 0) {
+    if (
+      !purchase_order ||
+      !vendor ||
+      !due_date ||
+      !items ||
+      items.length === 0
+    ) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: purchase_order, vendor, due_date, and items are required'
+        message:
+          "Missing required fields: purchase_order, vendor, due_date, and items are required",
       });
     }
-    
+
     // Verify purchase order exists
-    const po = await PurchaseOrder.findById(purchase_order);
-    if (!po) {
+    const { data: po, error: poError } = await supabase
+      .from("purchase_orders")
+      .select("id, po_number")
+      .eq("id", purchase_order)
+      .single();
+
+    if (poError || !po) {
       return res.status(404).json({
         success: false,
-        message: 'Purchase order not found'
+        message: "Purchase order not found",
       });
     }
-    
-    const invoice = new Invoice({
-      purchase_order,
-      vendor,
-      invoice_date: invoice_date || new Date(),
-      due_date,
-      items,
-      subtotal: subtotal || items.reduce((sum, item) => sum + item.total_amount, 0),
-      tax_amount: tax_amount || 0,
-      total_amount: total_amount || subtotal + (tax_amount || 0),
-      payment_method: payment_method || 'bank_transfer',
-      vendor_gstin: vendor_gstin || '',
-      notes: notes || '',
-      created_by: req.user._id,
-      status: 'draft'
-    });
-    
-    await invoice.save();
-    
-    const populatedInvoice = await Invoice.findById(invoice._id)
-      .populate('vendor', 'vendor_name contact_person email')
-      .populate('purchase_order', 'po_number')
-      .populate('created_by', 'name email')
-      .lean();
-    
-    logger.info(`Invoice ${invoice.invoice_number} created by user ${req.user.email}`);
-    
-    res.status(201).json({
+
+    const calculatedSubtotal =
+      subtotal || items.reduce((sum, item) => sum + item.total_amount, 0);
+
+    const { data: invoice, error: insertError } = await supabase
+      .from("invoices")
+      .insert({
+        po_id: purchase_order,
+        vendor_id: vendor,
+        invoice_number: invoice_number || `INV-${Date.now()}`,
+        invoice_date: invoice_date || new Date().toISOString(),
+        due_date,
+        items, // JSONB
+        subtotal: calculatedSubtotal,
+        tax_amount: tax_amount || 0,
+        total_amount: total_amount || calculatedSubtotal + (tax_amount || 0),
+        payment_method: payment_method || "bank_transfer",
+        vendor_gstin: vendor_gstin || "",
+        notes: notes || "",
+        created_by: req.user.id,
+        status: "draft",
+      })
+      .select(
+        `
+        *,
+        vendor:vendors!vendor_id(id, company_name, contact_person, contact_email),
+        purchase_order:purchase_orders!po_id(id, po_number),
+        created_by_user:users!created_by(id, name, email)
+      `,
+      )
+      .single();
+
+    if (insertError) {
+      throw insertError;
+    }
+
+    logger.info(
+      `Invoice ${invoice.invoice_number} created by user ${req.user.email}`,
+    );
+
+    return res.status(201).json({
       success: true,
-      message: 'Invoice created successfully',
-      data: populatedInvoice
+      message: "Invoice created successfully",
+      data: invoice,
     });
   } catch (error) {
-    logger.error('Error creating invoice:', error);
+    logger.error("Error creating invoice:", error);
     next(error);
   }
 };
@@ -165,87 +207,120 @@ exports.createInvoice = async (req, res, next) => {
  */
 exports.updateInvoiceStatus = async (req, res, next) => {
   try {
+    const supabase = getSupabase();
     const { status, payment_date, payment_reference } = req.body;
-    
+
     if (!status) {
       return res.status(400).json({
         success: false,
-        message: 'Status is required'
+        message: "Status is required",
       });
     }
-    
-    const validStatuses = ['draft', 'sent', 'received', 'approved', 'paid', 'overdue', 'cancelled'];
+
+    const validStatuses = [
+      "draft",
+      "sent",
+      "received",
+      "approved",
+      "paid",
+      "overdue",
+      "cancelled",
+    ];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+        message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
       });
     }
-    
+
     const updateData = { status };
-    
-    if (status === 'paid') {
-      updateData.payment_date = payment_date || new Date();
+
+    if (status === "paid") {
+      updateData.payment_date = payment_date || new Date().toISOString();
       if (payment_reference) {
         updateData.payment_reference = payment_reference;
       }
     }
-    
-    if (status === 'approved') {
-      updateData.approved_by = req.user._id;
+
+    if (status === "approved") {
+      updateData.approved_by = req.user.id;
     }
-    
-    const invoice = await Invoice.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true, runValidators: true }
-    )
-      .populate('vendor', 'vendor_name contact_person email')
-      .populate('purchase_order', 'po_number')
-      .lean();
-    
-    if (!invoice) {
+
+    const { data: invoice, error: updateError } = await supabase
+      .from("invoices")
+      .update(updateData)
+      .eq("id", req.params.id)
+      .select(
+        `
+        *,
+        vendor:vendors!vendor_id(id, company_name, contact_person, contact_email),
+        purchase_order:purchase_orders!po_id(id, po_number)
+      `,
+      )
+      .single();
+
+    if (updateError || !invoice) {
       return res.status(404).json({
         success: false,
-        message: 'Invoice not found'
+        message: "Invoice not found or could not be updated",
       });
     }
-    
-    logger.info(`Invoice ${invoice.invoice_number} status updated to ${status} by user ${req.user.email}`);
-    
-    res.status(200).json({
+
+    logger.info(
+      `Invoice ${invoice.invoice_number} status updated to ${status} by user ${req.user.email}`,
+    );
+
+    return res.status(200).json({
       success: true,
       message: `Invoice status updated to ${status}`,
-      data: invoice
+      data: invoice,
     });
   } catch (error) {
-    logger.error('Error updating invoice status:', error);
+    logger.error("Error updating invoice status:", error);
     next(error);
   }
 };
 
 /**
- * Delete invoice (soft delete)
+ * Delete invoice (soft delete/hard delete based on setup)
  */
 exports.deleteInvoice = async (req, res, next) => {
   try {
-    const invoice = await Invoice.findByIdAndDelete(req.params.id);
-    
-    if (!invoice) {
+    const supabase = getSupabase();
+
+    // Check if exists
+    const { data: existing, error: checkError } = await supabase
+      .from("invoices")
+      .select("invoice_number")
+      .eq("id", req.params.id)
+      .single();
+
+    if (checkError || !existing) {
       return res.status(404).json({
         success: false,
-        message: 'Invoice not found'
+        message: "Invoice not found",
       });
     }
-    
-    logger.info(`Invoice ${invoice.invoice_number} deleted by user ${req.user.email}`);
-    
-    res.status(200).json({
+
+    const { error: deleteError } = await supabase
+      .from("invoices")
+      .delete()
+      .eq("id", req.params.id);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    logger.info(
+      `Invoice ${existing.invoice_number} deleted by user ${req.user.email}`,
+    );
+
+    return res.status(200).json({
       success: true,
-      message: 'Invoice deleted successfully'
+      message: "Invoice deleted successfully",
     });
   } catch (error) {
-    logger.error('Error deleting invoice:', error);
+    logger.error("Error deleting invoice:", error);
     next(error);
   }
 };
@@ -255,38 +330,47 @@ exports.deleteInvoice = async (req, res, next) => {
  */
 exports.getInvoiceStats = async (req, res, next) => {
   try {
-    const [
-      totalInvoices,
-      paidInvoices,
-      pendingInvoices,
-      overdueInvoices,
-      totalRevenue
-    ] = await Promise.all([
-      Invoice.countDocuments(),
-      Invoice.countDocuments({ status: 'paid' }),
-      Invoice.countDocuments({ status: { $in: ['draft', 'sent', 'received', 'approved'] } }),
-      Invoice.countDocuments({ 
-        status: { $nin: ['paid', 'cancelled'] },
-        due_date: { $lt: new Date() }
-      }),
-      Invoice.aggregate([
-        { $match: { status: 'paid' } },
-        { $group: { _id: null, total: { $sum: '$total_amount' } } }
-      ])
+    const supabase = getSupabase();
+
+    // Make these queries in parallel
+    const [allInvoicesResult, paidRevenueResult] = await Promise.all([
+      supabase.from("invoices").select("status, due_date, total_amount"),
+      supabase.from("invoices").select("total_amount").eq("status", "paid"),
     ]);
-    
-    res.status(200).json({
+
+    if (allInvoicesResult.error) throw allInvoicesResult.error;
+
+    const invoices = allInvoicesResult.data || [];
+
+    const totalInvoices = invoices.length;
+    const paidInvoices = invoices.filter((inv) => inv.status === "paid").length;
+    const pendingInvoices = invoices.filter((inv) =>
+      ["draft", "sent", "received", "approved"].includes(inv.status),
+    ).length;
+
+    const now = new Date();
+    const overdueInvoices = invoices.filter((inv) => {
+      if (["paid", "cancelled"].includes(inv.status)) return false;
+      return new Date(inv.due_date) < now;
+    }).length;
+
+    const totalRevenue = (paidRevenueResult.data || []).reduce(
+      (sum, inv) => sum + parseFloat(inv.total_amount || 0),
+      0,
+    );
+
+    return res.status(200).json({
       success: true,
       data: {
         total_invoices: totalInvoices,
         paid_invoices: paidInvoices,
         pending_invoices: pendingInvoices,
         overdue_invoices: overdueInvoices,
-        total_revenue: totalRevenue.length > 0 ? totalRevenue[0].total : 0
-      }
+        total_revenue: totalRevenue,
+      },
     });
   } catch (error) {
-    logger.error('Error fetching invoice stats:', error);
+    logger.error("Error fetching invoice stats:", error);
     next(error);
   }
 };

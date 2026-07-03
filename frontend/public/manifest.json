@@ -1,0 +1,16 @@
+{
+  "short_name": "DeadStockApp",
+  "name": "DeadStockApp - Dead Stock Register",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#2563eb",
+  "background_color": "#0f172a"
+}

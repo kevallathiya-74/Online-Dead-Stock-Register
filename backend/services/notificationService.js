@@ -1,6 +1,5 @@
-const Notification = require('../models/notification');
-const logger = require('../utils/logger');
-const mongoose = require('mongoose');
+const getSupabase = require("../config/db");
+const logger = require("../utils/logger");
 
 /**
  * Send notification to user(s)
@@ -8,33 +7,53 @@ const mongoose = require('mongoose');
 exports.sendNotification = async (notificationData) => {
   try {
     // Support single user or multiple users
-    const userIds = Array.isArray(notificationData.user_id) 
-      ? notificationData.user_id 
+    const userIds = Array.isArray(notificationData.user_id)
+      ? notificationData.user_id
       : [notificationData.user_id];
-    
+
     // Create notifications for all users
-    const notifications = userIds.map(userId => ({
-      user_id: userId,
+    const notifications = userIds.map((userId) => ({
+      recipient: userId,
+      sender: notificationData.sender || null,
       type: notificationData.type,
       title: notificationData.title,
       message: notificationData.message,
-      related_entity_type: notificationData.related_entity_type,
-      related_entity_id: notificationData.related_entity_id,
-      priority: notificationData.priority || 'medium',
-      is_read: false
+      priority: notificationData.priority || "medium",
+      is_read: false,
+      read_at: null,
+      data: {
+        related_entity_type: notificationData.related_entity_type,
+        related_entity_id: notificationData.related_entity_id,
+        ...(notificationData.data || {}),
+      },
+      action_url: notificationData.action_url || null,
+      expires_at: notificationData.expires_at || null,
     }));
-    
-    const created = await Notification.insertMany(notifications);
-    
-    logger.info('Notifications sent', {
+
+    const supabase = getSupabase();
+    const { data: created, error } = await supabase
+      .from("notifications")
+      .insert(notifications)
+      .select();
+
+    if (error) {
+      throw error;
+    }
+
+    logger.info("Notifications sent", {
       count: created.length,
       type: notificationData.type,
-      userIds
+      userIds,
     });
-    
-    return created;
+
+    // Map recipient and id for compatibility
+    return created.map((item) => ({
+      ...item,
+      user_id: item.recipient,
+      _id: item.id,
+    }));
   } catch (error) {
-    logger.error('Error sending notification:', error);
+    logger.error("Error sending notification:", error);
     throw error;
   }
 };
@@ -42,50 +61,76 @@ exports.sendNotification = async (notificationData) => {
 /**
  * Get notifications for a user
  */
-exports.getUserNotifications = async (userId, filters = {}, pagination = {}) => {
+exports.getUserNotifications = async (
+  userId,
+  filters = {},
+  pagination = {},
+) => {
   try {
     const { page = 1, limit = 20 } = pagination;
-    const skip = (page - 1) * limit;
-    
-    const query = { user_id: userId };
-    
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    const supabase = getSupabase();
+    let query = supabase
+      .from("notifications")
+      .select("*", { count: "exact" })
+      .eq("recipient", userId);
+
     // Filter by read status
     if (filters.unreadOnly) {
-      query.is_read = false;
+      query = query.eq("is_read", false);
     }
-    
+
     // Filter by type
     if (filters.type) {
-      query.type = filters.type;
+      query = query.eq("type", filters.type);
     }
-    
+
     // Filter by priority
     if (filters.priority) {
-      query.priority = filters.priority;
+      query = query.eq("priority", filters.priority);
     }
-    
-    const [notifications, total, unreadCount] = await Promise.all([
-      Notification.find(query)
-        .sort({ created_at: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Notification.countDocuments(query),
-      Notification.countDocuments({ user_id: userId, is_read: false })
-    ]);
-    
+
+    const {
+      data: notifications,
+      count: total,
+      error,
+    } = await query.order("created_at", { ascending: false }).range(from, to);
+
+    if (error) {
+      throw error;
+    }
+
+    // Get unread count
+    const { count: unreadCount, error: unreadError } = await supabase
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("recipient", userId)
+      .eq("is_read", false);
+
+    if (unreadError) {
+      throw unreadError;
+    }
+
+    const mappedNotifications = (notifications || []).map((item) => ({
+      ...item,
+      user_id: item.recipient,
+      _id: item.id,
+    }));
+
     return {
-      notifications,
+      notifications: mappedNotifications,
       pagination: {
-        total,
+        total: total || 0,
         page,
-        pages: Math.ceil(total / limit),
-        limit
+        pages: Math.ceil((total || 0) / limit),
+        limit,
       },
-      unreadCount
+      unreadCount: unreadCount || 0,
     };
   } catch (error) {
-    logger.error('Error fetching user notifications:', error);
+    logger.error("Error fetching user notifications:", error);
     throw error;
   }
 };
@@ -95,19 +140,30 @@ exports.getUserNotifications = async (userId, filters = {}, pagination = {}) => 
  */
 exports.markAsRead = async (notificationId, userId) => {
   try {
-    const notification = await Notification.findOneAndUpdate(
-      { _id: notificationId, user_id: userId },
-      { is_read: true, read_at: new Date() },
-      { new: true }
-    );
-    
-    if (!notification) {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("notifications")
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq("id", notificationId)
+      .eq("recipient", userId)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
       return null;
     }
-    
-    return notification;
+
+    return {
+      ...data,
+      user_id: data.recipient,
+      _id: data.id,
+    };
   } catch (error) {
-    logger.error('Error marking notification as read:', error);
+    logger.error("Error marking notification as read:", error);
     throw error;
   }
 };
@@ -117,19 +173,28 @@ exports.markAsRead = async (notificationId, userId) => {
  */
 exports.markAllAsRead = async (userId) => {
   try {
-    const result = await Notification.updateMany(
-      { user_id: userId, is_read: false },
-      { is_read: true, read_at: new Date() }
-    );
-    
-    logger.info('All notifications marked as read', {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("notifications")
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq("recipient", userId)
+      .eq("is_read", false)
+      .select();
+
+    if (error) {
+      throw error;
+    }
+
+    const modifiedCount = data ? data.length : 0;
+
+    logger.info("All notifications marked as read", {
       userId,
-      count: result.modifiedCount
+      count: modifiedCount,
     });
-    
-    return result.modifiedCount;
+
+    return modifiedCount;
   } catch (error) {
-    logger.error('Error marking all notifications as read:', error);
+    logger.error("Error marking all notifications as read:", error);
     throw error;
   }
 };
@@ -139,18 +204,30 @@ exports.markAllAsRead = async (userId) => {
  */
 exports.deleteNotification = async (notificationId, userId) => {
   try {
-    const notification = await Notification.findOneAndDelete({
-      _id: notificationId,
-      user_id: userId
-    });
-    
-    if (!notification) {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("notifications")
+      .delete()
+      .eq("id", notificationId)
+      .eq("recipient", userId)
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
       return null;
     }
-    
-    return notification;
+
+    return {
+      ...data,
+      user_id: data.recipient,
+      _id: data.id,
+    };
   } catch (error) {
-    logger.error('Error deleting notification:', error);
+    logger.error("Error deleting notification:", error);
     throw error;
   }
 };
@@ -160,14 +237,20 @@ exports.deleteNotification = async (notificationId, userId) => {
  */
 exports.getUnreadCount = async (userId) => {
   try {
-    const count = await Notification.countDocuments({
-      user_id: userId,
-      is_read: false
-    });
-    
-    return count;
+    const supabase = getSupabase();
+    const { count, error } = await supabase
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("recipient", userId)
+      .eq("is_read", false);
+
+    if (error) {
+      throw error;
+    }
+
+    return count || 0;
   } catch (error) {
-    logger.error('Error getting unread count:', error);
+    logger.error("Error getting unread count:", error);
     throw error;
   }
 };
@@ -177,27 +260,30 @@ exports.getUnreadCount = async (userId) => {
  */
 exports.sendNotificationByRole = async (role, notificationData) => {
   try {
-    const User = require('../models/user');
-    
-    // Find all active users with the specified role
-    const users = await User.find({
-      role,
-      is_active: true
-    }).select('_id');
-    
-    if (users.length === 0) {
-      logger.warn('No users found with role:', role);
+    const supabase = getSupabase();
+    const { data: users, error } = await supabase
+      .from("users")
+      .select("id")
+      .eq("role", role)
+      .eq("is_active", true);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!users || users.length === 0) {
+      logger.warn("No users found with role:", role);
       return [];
     }
-    
-    const userIds = users.map(u => u._id);
-    
+
+    const userIds = users.map((u) => u.id);
+
     return await this.sendNotification({
       ...notificationData,
-      user_id: userIds
+      user_id: userIds,
     });
   } catch (error) {
-    logger.error('Error sending notification by role:', error);
+    logger.error("Error sending notification by role:", error);
     throw error;
   }
 };
@@ -207,27 +293,30 @@ exports.sendNotificationByRole = async (role, notificationData) => {
  */
 exports.sendNotificationToDepartment = async (department, notificationData) => {
   try {
-    const User = require('../models/user');
-    
-    // Find all active users in the department
-    const users = await User.find({
-      department,
-      is_active: true
-    }).select('_id');
-    
-    if (users.length === 0) {
-      logger.warn('No users found in department:', department);
+    const supabase = getSupabase();
+    const { data: users, error } = await supabase
+      .from("users")
+      .select("id")
+      .eq("department", department)
+      .eq("is_active", true);
+
+    if (error) {
+      throw error;
+    }
+
+    if (!users || users.length === 0) {
+      logger.warn("No users found in department:", department);
       return [];
     }
-    
-    const userIds = users.map(u => u._id);
-    
+
+    const userIds = users.map((u) => u.id);
+
     return await this.sendNotification({
       ...notificationData,
-      user_id: userIds
+      user_id: userIds,
     });
   } catch (error) {
-    logger.error('Error sending notification to department:', error);
+    logger.error("Error sending notification to department:", error);
     throw error;
   }
 };
@@ -239,20 +328,29 @@ exports.cleanupOldNotifications = async (daysToKeep = 90) => {
   try {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
-    
-    const result = await Notification.deleteMany({
-      is_read: true,
-      read_at: { $lt: cutoffDate }
+
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("notifications")
+      .delete()
+      .eq("is_read", true)
+      .lt("read_at", cutoffDate.toISOString())
+      .select();
+
+    if (error) {
+      throw error;
+    }
+
+    const deletedCount = data ? data.length : 0;
+
+    logger.info("Old notifications cleaned up", {
+      count: deletedCount,
+      daysToKeep,
     });
-    
-    logger.info('Old notifications cleaned up', {
-      count: result.deletedCount,
-      daysToKeep
-    });
-    
-    return result.deletedCount;
+
+    return deletedCount;
   } catch (error) {
-    logger.error('Error cleaning up old notifications:', error);
+    logger.error("Error cleaning up old notifications:", error);
     throw error;
   }
 };
@@ -262,58 +360,69 @@ exports.cleanupOldNotifications = async (daysToKeep = 90) => {
  */
 exports.getNotificationStats = async (userId) => {
   try {
-    const stats = await Notification.aggregate([
-      { $match: { user_id: new mongoose.Types.ObjectId(userId) } },
-      {
-        $facet: {
-          byType: [
-            {
-              $group: {
-                _id: '$type',
-                count: { $sum: 1 }
-              }
-            }
-          ],
-          byPriority: [
-            {
-              $group: {
-                _id: '$priority',
-                count: { $sum: 1 }
-              }
-            }
-          ],
-          readStats: [
-            {
-              $group: {
-                _id: '$is_read',
-                count: { $sum: 1 }
-              }
-            }
-          ],
-          recent: [
-            { $sort: { created_at: -1 } },
-            { $limit: 5 },
-            {
-              $project: {
-                type: 1,
-                title: 1,
-                created_at: 1,
-                is_read: 1
-              }
-            }
-          ]
-        }
-      }
-    ]);
-    
+    const supabase = getSupabase();
+    const { data: notifications, error } = await supabase
+      .from("notifications")
+      .select("id, type, priority, is_read, title, created_at")
+      .eq("recipient", userId);
+
+    if (error) {
+      throw error;
+    }
+
+    const byTypeMap = {};
+    const byPriorityMap = {};
+    const readStatsMap = {
+      true: 0,
+      false: 0,
+    };
+
+    (notifications || []).forEach((notif) => {
+      const t = notif.type || "unknown";
+      byTypeMap[t] = (byTypeMap[t] || 0) + 1;
+
+      const p = notif.priority || "medium";
+      byPriorityMap[p] = (byPriorityMap[p] || 0) + 1;
+
+      const r = notif.is_read;
+      readStatsMap[r] = (readStatsMap[r] || 0) + 1;
+    });
+
+    const byType = Object.keys(byTypeMap).map((key) => ({
+      _id: key,
+      count: byTypeMap[key],
+    }));
+
+    const byPriority = Object.keys(byPriorityMap).map((key) => ({
+      _id: key,
+      count: byPriorityMap[key],
+    }));
+
+    const readStats = Object.keys(readStatsMap).map((key) => ({
+      _id: key === "true",
+      count: readStatsMap[key],
+    }));
+
+    const recentNotifications = [...(notifications || [])]
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .slice(0, 5)
+      .map((notif) => ({
+        _id: notif.id,
+        id: notif.id,
+        type: notif.type,
+        title: notif.title,
+        created_at: notif.created_at,
+        is_read: notif.is_read,
+      }));
+
     return {
-      byType: stats[0].byType,
-      byPriority: stats[0].byPriority,
-      readStats: stats[0].readStats,
-      recentNotifications: stats[0].recent
+      byType,
+      byPriority,
+      readStats,
+      recentNotifications,
     };
   } catch (error) {
-    logger.error('Error getting notification stats:', error);
+    logger.error("Error getting notification stats:", error);
     throw error;
   }
 };
@@ -323,58 +432,58 @@ exports.getNotificationStats = async (userId) => {
  */
 exports.templates = {
   assetAssigned: (assetName, assignedTo) => ({
-    type: 'asset_assigned',
-    title: 'Asset Assigned',
+    type: "asset_assigned",
+    title: "Asset Assigned",
     message: `Asset "${assetName}" has been assigned to ${assignedTo}`,
-    priority: 'medium'
+    priority: "medium",
   }),
-  
+
   assetTransferred: (assetName, fromUser, toUser) => ({
-    type: 'asset_transferred',
-    title: 'Asset Transferred',
+    type: "asset_transferred",
+    title: "Asset Transferred",
     message: `Asset "${assetName}" transferred from ${fromUser} to ${toUser}`,
-    priority: 'medium'
+    priority: "medium",
   }),
-  
+
   maintenanceDue: (assetName, dueDate) => ({
-    type: 'maintenance_due',
-    title: 'Maintenance Due',
+    type: "maintenance_due",
+    title: "Maintenance Due",
     message: `Maintenance for "${assetName}" is due on ${dueDate}`,
-    priority: 'high'
+    priority: "high",
   }),
-  
+
   approvalRequired: (requestType, requester) => ({
-    type: 'approval_required',
-    title: 'Approval Required',
+    type: "approval_required",
+    title: "Approval Required",
     message: `${requestType} request from ${requester} requires your approval`,
-    priority: 'high'
+    priority: "high",
   }),
-  
+
   approvalApproved: (requestType) => ({
-    type: 'approval_approved',
-    title: 'Request Approved',
+    type: "approval_approved",
+    title: "Request Approved",
     message: `Your ${requestType} request has been approved`,
-    priority: 'medium'
+    priority: "medium",
   }),
-  
+
   approvalRejected: (requestType, reason) => ({
-    type: 'approval_rejected',
-    title: 'Request Rejected',
-    message: `Your ${requestType} request has been rejected${reason ? `: ${reason}` : ''}`,
-    priority: 'high'
+    type: "approval_rejected",
+    title: "Request Rejected",
+    message: `Your ${requestType} request has been rejected${reason ? `: ${reason}` : ""}`,
+    priority: "high",
   }),
-  
+
   warrantyExpiring: (assetName, daysLeft) => ({
-    type: 'warranty_expiring',
-    title: 'Warranty Expiring Soon',
+    type: "warranty_expiring",
+    title: "Warranty Expiring Soon",
     message: `Warranty for "${assetName}" expires in ${daysLeft} days`,
-    priority: 'medium'
+    priority: "medium",
   }),
-  
+
   auditScheduled: (auditDate, assets) => ({
-    type: 'audit_scheduled',
-    title: 'Asset Audit Scheduled',
+    type: "audit_scheduled",
+    title: "Asset Audit Scheduled",
     message: `Asset audit scheduled for ${auditDate} covering ${assets} assets`,
-    priority: 'high'
-  })
+    priority: "high",
+  }),
 };

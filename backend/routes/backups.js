@@ -1,29 +1,37 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
-const backupController = require('../controllers/backupController');
-const { validateObjectId } = require('../middleware/objectIdValidator');
+const { authMiddleware, requireRole } = require("../middleware/authMiddleware");
+const backupController = require("../controllers/backupController");
+const { validateObjectId } = require("../middleware/objectIdValidator");
 
 // All routes require authentication and admin role
 router.use(authMiddleware);
-router.use(requireRole(['ADMIN']));
+router.use(requireRole(["ADMIN"]));
 
 // Get all backups
-router.get('/', backupController.getAllBackups);
+router.get("/", backupController.getAllBackups);
 
 // Get backup jobs
-router.get('/jobs', backupController.getBackupJobs);
+router.get("/jobs", backupController.getBackupJobs);
 
 // Create backup
-router.post('/', backupController.createBackup);
+router.post("/", backupController.createBackup);
 
 // Restore backup
-router.post('/:id/restore', validateObjectId('id'), backupController.restoreBackup);
+router.post(
+  "/:id/restore",
+  validateObjectId("id"),
+  backupController.restoreBackup,
+);
 
 // Download backup
-router.get('/:id/download', validateObjectId('id'), backupController.downloadBackup);
+router.get(
+  "/:id/download",
+  validateObjectId("id"),
+  backupController.downloadBackup,
+);
 
 // Delete backup
-router.delete('/:id', validateObjectId('id'), backupController.deleteBackup);
+router.delete("/:id", validateObjectId("id"), backupController.deleteBackup);
 
 module.exports = router;

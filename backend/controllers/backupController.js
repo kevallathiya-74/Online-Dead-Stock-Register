@@ -1,41 +1,10 @@
-const mongoose = require('mongoose');
-const fs = require('fs');
-const path = require('path');
-const { exec } = require('child_process');
-const util = require('util');
+const fs = require("fs");
+const path = require("path");
+const { exec } = require("child_process");
+const util = require("util");
 const execPromise = util.promisify(exec);
-const logger = require('../utils/logger');
-
-// Backup model schema
-const backupSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  type: { type: String, enum: ['full', 'incremental', 'differential'], required: true },
-  size: { type: String },
-  status: { type: String, enum: ['completed', 'failed', 'in-progress'], default: 'in-progress' },
-  location: { type: String, enum: ['local', 'cloud'], default: 'local' },
-  description: { type: String },
-  filePath: { type: String },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  createdAt: { type: Date, default: Date.now },
-  completedAt: { type: Date },
-  error: { type: String }
-});
-
-const Backup = mongoose.model('Backup', backupSchema);
-
-// Backup job schema
-const backupJobSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  type: { type: String, enum: ['full', 'incremental', 'differential'], required: true },
-  schedule: { type: String, required: true },
-  enabled: { type: Boolean, default: true },
-  lastRun: { type: Date },
-  nextRun: { type: Date },
-  status: { type: String, enum: ['active', 'paused', 'failed'], default: 'active' },
-  createdAt: { type: Date, default: Date.now }
-});
-
-const BackupJob = mongoose.model('BackupJob', backupJobSchema);
+const logger = require("../utils/logger");
+const getSupabase = require("../config/db");
 
 // Get file size helper
 function getFileSizeInMB(filePath) {
@@ -43,44 +12,68 @@ function getFileSizeInMB(filePath) {
     const stats = fs.statSync(filePath);
     const fileSizeInBytes = stats.size;
     const fileSizeInMB = fileSizeInBytes / (1024 * 1024);
-    
+
     if (fileSizeInMB > 1024) {
       return `${(fileSizeInMB / 1024).toFixed(2)} GB`;
     }
     return `${fileSizeInMB.toFixed(2)} MB`;
   } catch (error) {
-    return 'Unknown';
+    return "Unknown";
   }
 }
 
 // Get all backups
 exports.getAllBackups = async (req, res) => {
   try {
-    const backups = await Backup.find()
-      .populate('createdBy', 'name email')
-      .sort({ createdAt: -1 })
+    const supabase = getSupabase();
+
+    const { data: backups, error } = await supabase
+      .from("backups")
+      .select(
+        `
+        id,
+        name,
+        type,
+        size,
+        created_at,
+        completed_at,
+        status,
+        location,
+        description,
+        created_by:users(name, email)
+      `,
+      )
+      .order("created_at", { ascending: false })
       .limit(50);
+
+    if (error) {
+      logger.error("Error fetching backups:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to fetch backups",
+      });
+    }
 
     res.json({
       success: true,
-      data: backups.map(backup => ({
-        id: backup._id,
+      data: backups.map((backup) => ({
+        id: backup.id,
         name: backup.name,
         type: backup.type,
         size: backup.size,
-        createdAt: backup.createdAt,
-        completedAt: backup.completedAt,
+        createdAt: backup.created_at,
+        completedAt: backup.completed_at,
         status: backup.status,
         location: backup.location,
         description: backup.description,
-        createdBy: backup.createdBy
-      }))
+        createdBy: backup.created_by,
+      })),
     });
   } catch (error) {
-    logger.error('Error fetching backups:', error);
+    logger.error("Error fetching backups:", error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch backups'
+      error: "Failed to fetch backups",
     });
   }
 };
@@ -88,26 +81,39 @@ exports.getAllBackups = async (req, res) => {
 // Get backup jobs
 exports.getBackupJobs = async (req, res) => {
   try {
-    const jobs = await BackupJob.find().sort({ createdAt: -1 });
+    const supabase = getSupabase();
+
+    const { data: jobs, error } = await supabase
+      .from("backup_jobs")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      logger.error("Error fetching backup jobs:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to fetch backup jobs",
+      });
+    }
 
     res.json({
       success: true,
-      data: jobs.map(job => ({
-        id: job._id,
+      data: jobs.map((job) => ({
+        id: job.id,
         name: job.name,
         type: job.type,
         schedule: job.schedule,
         enabled: job.enabled,
-        lastRun: job.lastRun,
-        nextRun: job.nextRun,
-        status: job.status
-      }))
+        lastRun: job.last_run,
+        nextRun: job.next_run,
+        status: job.status,
+      })),
     });
   } catch (error) {
-    logger.error('Error fetching backup jobs:', error);
+    logger.error("Error fetching backup jobs:", error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch backup jobs'
+      error: "Failed to fetch backup jobs",
     });
   }
 };
@@ -115,52 +121,66 @@ exports.getBackupJobs = async (req, res) => {
 // Create backup
 exports.createBackup = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const { name, type, location, description } = req.body;
     const userId = req.user.id;
 
     // Create backup directory if it doesn't exist
-    const backupDir = path.join(__dirname, '..', 'backups');
+    const backupDir = path.join(__dirname, "..", "backups");
     if (!fs.existsSync(backupDir)) {
       fs.mkdirSync(backupDir, { recursive: true });
     }
 
     // Create backup record
-    const backup = new Backup({
+    const backupData = {
       name,
       type,
       location,
       description,
-      createdBy: userId,
-      status: 'in-progress'
-    });
+      created_by: userId,
+      status: "in-progress",
+      created_at: new Date().toISOString(),
+    };
 
-    await backup.save();
+    const { data: backup, error } = await supabase
+      .from("backups")
+      .insert([backupData])
+      .select()
+      .single();
 
-    logger.info('Backup initiated', { 
-      backupId: backup._id, 
-      userId, 
-      type 
+    if (error || !backup) {
+      logger.error("Error creating backup record:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to create backup record",
+      });
+    }
+
+    logger.info("Backup initiated", {
+      backupId: backup.id,
+      userId,
+      type,
     });
 
     // Perform backup asynchronously
-    performBackup(backup._id, type, backupDir);
+    performBackup(backup.id, type, backupDir);
 
     res.status(201).json({
       success: true,
-      message: 'Backup initiated successfully',
+      message: "Backup initiated successfully",
       data: {
-        id: backup._id,
+        id: backup.id,
         name: backup.name,
         type: backup.type,
         status: backup.status,
-        createdAt: backup.createdAt
-      }
+        createdAt: backup.created_at,
+      },
     });
   } catch (error) {
-    logger.error('Error creating backup:', error);
+    logger.error("Error creating backup:", error);
     res.status(500).json({
       success: false,
-      error: 'Failed to create backup'
+      error: "Failed to create backup",
     });
   }
 };
@@ -168,63 +188,111 @@ exports.createBackup = async (req, res) => {
 // Perform actual backup
 async function performBackup(backupId, type, backupDir) {
   try {
-    const backup = await Backup.findById(backupId);
-    if (!backup) return;
+    const supabase = getSupabase();
+
+    const { data: backup, error: fetchError } = await supabase
+      .from("backups")
+      .select("*")
+      .eq("id", backupId)
+      .single();
+
+    if (fetchError || !backup) return;
 
     const timestamp = Date.now();
     const fileName = `backup-${type}-${timestamp}.json`;
     const filePath = path.join(backupDir, fileName);
 
-    // Get database connection info
-    const dbUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/asset-management';
-    const dbName = dbUri.split('/').pop().split('?')[0];
+    const TABLES_TO_BACKUP = [
+      "users",
+      "assets",
+      "asset_categories",
+      "asset_issues",
+      "asset_requests",
+      "asset_transfers",
+      "audit_logs",
+      "disposal_records",
+      "documents",
+      "generated_reports",
+      "invoices",
+      "maintenances",
+      "notifications",
+      "purchase_orders",
+      "purchase_requests",
+      "report_templates",
+      "saved_filters",
+      "scheduled_audits",
+      "scheduled_audit_runs",
+      "settings",
+      "settings_histories",
+      "transactions",
+      "vendors",
+      "approvals",
+    ];
 
-    // For JSON backup (easier for development)
-    // In production, use mongodump for binary backups
-    const collections = await mongoose.connection.db.listCollections().toArray();
     const backupData = {
       metadata: {
         type,
         timestamp: new Date().toISOString(),
-        database: dbName,
-        collections: collections.map(c => c.name)
+        database: "supabase-postgresql",
+        tables: TABLES_TO_BACKUP,
       },
-      data: {}
+      data: {},
     };
 
-    // Export each collection
-    for (const collection of collections) {
-      const collectionName = collection.name;
-      const documents = await mongoose.connection.db
-        .collection(collectionName)
-        .find({})
-        .toArray();
-      backupData.data[collectionName] = documents;
+    // Export each table
+    for (const tableName of TABLES_TO_BACKUP) {
+      const { data: rows, error: selectError } = await supabase
+        .from(tableName)
+        .select("*");
+
+      if (selectError) {
+        logger.warn(
+          `Failed to export table ${tableName}: ${selectError.message}`,
+        );
+        backupData.data[tableName] = [];
+      } else {
+        backupData.data[tableName] = rows || [];
+      }
     }
 
     // Write backup file
     fs.writeFileSync(filePath, JSON.stringify(backupData, null, 2));
 
     // Update backup record
-    backup.status = 'completed';
-    backup.filePath = filePath;
-    backup.size = getFileSizeInMB(filePath);
-    backup.completedAt = new Date();
-    await backup.save();
+    const { error: updateError } = await supabase
+      .from("backups")
+      .update({
+        status: "completed",
+        file_path: filePath,
+        size: getFileSizeInMB(filePath),
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", backupId);
 
-    logger.info('Backup completed successfully', { 
-      backupId, 
-      filePath, 
-      size: backup.size 
+    if (updateError) {
+      throw new Error(
+        `Failed to update backup status to completed: ${updateError.message}`,
+      );
+    }
+
+    logger.info("Backup completed successfully", {
+      backupId,
+      filePath,
+      size: getFileSizeInMB(filePath),
     });
   } catch (error) {
-    logger.error('Error performing backup:', error);
-    
+    logger.error("Error performing backup:", error);
+
     // Update backup status to failed
-    await Backup.findByIdAndUpdate(backupId, {
-      status: 'failed',
-      error: error.message
-    });
+    const supabase = getSupabase();
+    await supabase
+      .from("backups")
+      .update({
+        status: "failed",
+        error: error.message,
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", backupId);
   }
 }
 
@@ -233,70 +301,136 @@ exports.restoreBackup = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
+    const supabase = getSupabase();
 
-    const backup = await Backup.findById(id);
-    if (!backup) {
+    const { data: backup, error: fetchError } = await supabase
+      .from("backups")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !backup) {
       return res.status(404).json({
         success: false,
-        error: 'Backup not found'
+        error: "Backup not found",
       });
     }
 
-    if (backup.status !== 'completed') {
+    if (backup.status !== "completed") {
       return res.status(400).json({
         success: false,
-        error: 'Cannot restore from incomplete backup'
+        error: "Cannot restore from incomplete backup",
       });
     }
 
-    if (!fs.existsSync(backup.filePath)) {
+    if (!backup.file_path || !fs.existsSync(backup.file_path)) {
       return res.status(404).json({
         success: false,
-        error: 'Backup file not found'
+        error: "Backup file not found",
       });
     }
 
-    logger.warn('Restore initiated - THIS WILL OVERWRITE ALL DATA', { 
-      backupId: id, 
-      userId 
+    logger.warn("Restore initiated - THIS WILL OVERWRITE ALL DATA", {
+      backupId: id,
+      userId,
     });
 
     // Read backup file
-    const backupData = JSON.parse(fs.readFileSync(backup.filePath, 'utf8'));
+    const backupData = JSON.parse(fs.readFileSync(backup.file_path, "utf8"));
 
     // WARNING: This will delete all existing data
     // In production, you'd want additional confirmation and safety checks
-    
-    // Restore each collection
-    for (const [collectionName, documents] of Object.entries(backupData.data)) {
-      if (documents && documents.length > 0) {
-        // Drop existing collection
-        await mongoose.connection.db.collection(collectionName).drop().catch(() => {});
-        
-        // Insert backup data
-        await mongoose.connection.db.collection(collectionName).insertMany(documents);
-        
-        logger.info(`Restored collection: ${collectionName}`, { 
-          documentCount: documents.length 
-        });
+
+    // Order of restoring tables to respect foreign keys
+    const RESTORE_ORDER = [
+      "users",
+      "vendors",
+      "asset_categories",
+      "report_templates",
+      "saved_filters",
+      "settings",
+      "settings_histories",
+      "assets",
+      "purchase_orders",
+      "purchase_requests",
+      "invoices",
+      "approvals",
+      "maintenances",
+      "notifications",
+      "disposal_records",
+      "documents",
+      "generated_reports",
+      "scheduled_audits",
+      "transactions",
+      "asset_issues",
+      "asset_transfers",
+      "scheduled_audit_runs",
+    ];
+
+    // 1. Delete existing data in reverse dependency order
+    for (const tableName of [...RESTORE_ORDER].reverse()) {
+      const { error: deleteError } = await supabase
+        .from(tableName)
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+
+      if (deleteError) {
+        logger.warn(
+          `Failed to delete data from ${tableName} during restore: ${deleteError.message}`,
+        );
       }
     }
 
-    logger.info('Restore completed successfully', { backupId: id });
+    let restoredCount = 0;
+
+    // 2. Insert backup data in forward dependency order
+    for (const tableName of RESTORE_ORDER) {
+      const rows =
+        backupData.data[tableName] || backupData.data[tableName.toLowerCase()];
+      if (rows && rows.length > 0) {
+        const cleanedRows = rows.map((row) => {
+          const newRow = { ...row };
+          if (newRow._id && !newRow.id) {
+            newRow.id = newRow._id;
+          }
+          delete newRow._id;
+          delete newRow.__v;
+          return newRow;
+        });
+
+        const { error: insertError } = await supabase
+          .from(tableName)
+          .insert(cleanedRows);
+
+        if (insertError) {
+          logger.error(`Error restoring table ${tableName}:`, insertError);
+          throw new Error(
+            `Failed to restore table ${tableName}: ${insertError.message}`,
+          );
+        }
+
+        logger.info(`Restored table: ${tableName}`, {
+          documentCount: cleanedRows.length,
+        });
+        restoredCount++;
+      }
+    }
+
+    logger.info("Restore completed successfully", { backupId: id });
 
     res.json({
       success: true,
-      message: 'System restored successfully',
-      data: { 
+      message: "System restored successfully",
+      data: {
         backupId: id,
-        restoredCollections: Object.keys(backupData.data).length
-      }
+        restoredCollections: restoredCount,
+      },
     });
   } catch (error) {
-    logger.error('Error restoring backup:', error);
+    logger.error("Error restoring backup:", error);
     res.status(500).json({
       success: false,
-      error: 'Failed to restore backup: ' + error.message
+      error: "Failed to restore backup: " + error.message,
     });
   }
 };
@@ -305,44 +439,53 @@ exports.restoreBackup = async (req, res) => {
 exports.downloadBackup = async (req, res) => {
   try {
     const { id } = req.params;
+    const supabase = getSupabase();
 
-    const backup = await Backup.findById(id);
-    if (!backup) {
+    const { data: backup, error: fetchError } = await supabase
+      .from("backups")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !backup) {
       return res.status(404).json({
         success: false,
-        error: 'Backup not found'
+        error: "Backup not found",
       });
     }
 
-    if (backup.status !== 'completed') {
+    if (backup.status !== "completed") {
       return res.status(400).json({
         success: false,
-        error: 'Backup is not ready for download'
+        error: "Backup is not ready for download",
       });
     }
 
-    if (!backup.filePath || !fs.existsSync(backup.filePath)) {
+    if (!backup.file_path || !fs.existsSync(backup.file_path)) {
       return res.status(404).json({
         success: false,
-        error: 'Backup file not found'
+        error: "Backup file not found",
       });
     }
 
-    logger.info('Backup download initiated', { 
-      backupId: id, 
-      userId: req.user.id 
+    logger.info("Backup download initiated", {
+      backupId: id,
+      userId: req.user.id,
     });
 
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename=${backup.name}.json`);
-    
-    const fileStream = fs.createReadStream(backup.filePath);
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=${backup.name}.json`,
+    );
+
+    const fileStream = fs.createReadStream(backup.file_path);
     fileStream.pipe(res);
   } catch (error) {
-    logger.error('Error downloading backup:', error);
+    logger.error("Error downloading backup:", error);
     res.status(500).json({
       success: false,
-      error: 'Failed to download backup'
+      error: "Failed to download backup",
     });
   }
 };
@@ -352,35 +495,52 @@ exports.deleteBackup = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
+    const supabase = getSupabase();
 
-    const backup = await Backup.findById(id);
-    if (!backup) {
+    const { data: backup, error: fetchError } = await supabase
+      .from("backups")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !backup) {
       return res.status(404).json({
         success: false,
-        error: 'Backup not found'
+        error: "Backup not found",
       });
     }
 
     // Delete backup file if it exists
-    if (backup.filePath && fs.existsSync(backup.filePath)) {
-      fs.unlinkSync(backup.filePath);
+    if (backup.file_path && fs.existsSync(backup.file_path)) {
+      fs.unlinkSync(backup.file_path);
     }
 
     // Delete backup record
-    await Backup.findByIdAndDelete(id);
+    const { error: deleteError } = await supabase
+      .from("backups")
+      .delete()
+      .eq("id", id);
 
-    logger.info('Backup deleted', { backupId: id, userId });
+    if (deleteError) {
+      logger.error("Error deleting backup record:", deleteError);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to delete backup record",
+      });
+    }
+
+    logger.info("Backup deleted", { backupId: id, userId });
 
     res.json({
       success: true,
-      message: 'Backup deleted successfully',
-      data: { backupId: id }
+      message: "Backup deleted successfully",
+      data: { backupId: id },
     });
   } catch (error) {
-    logger.error('Error deleting backup:', error);
+    logger.error("Error deleting backup:", error);
     res.status(500).json({
       success: false,
-      error: 'Failed to delete backup'
+      error: "Failed to delete backup",
     });
   }
 };

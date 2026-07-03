@@ -1,7 +1,6 @@
-const Settings = require('../models/settings');
-const SettingsHistory = require('../models/settingsHistory');
-const connectionTester = require('../utils/connectionTester');
-const logger = require('../utils/logger');
+const connectionTester = require("../utils/connectionTester");
+const logger = require("../utils/logger");
+const getSupabase = require("../config/db");
 
 class SettingsService {
   /**
@@ -9,32 +8,58 @@ class SettingsService {
    */
   async getSettings(includePassword = false, userRole = null) {
     try {
-      let settings;
-      
+      const supabase = getSupabase();
+
+      const { data: settingsRow, error } = await supabase
+        .from("settings")
+        .select("*")
+        .limit(1)
+        .single();
+
+      if (error && error.code !== "PGRST116") {
+        throw error;
+      }
+
+      let settings = settingsRow || {
+        security: {},
+        database: {},
+        email: {},
+        application: {},
+        rolePermissions: {
+          security: ["ADMIN"],
+          database: ["ADMIN"],
+          email: ["ADMIN", "INVENTORY_MANAGER", "IT_MANAGER"],
+          application: ["ADMIN", "INVENTORY_MANAGER", "IT_MANAGER"],
+        },
+      };
+
       // If role is provided, filter by role access
       if (userRole) {
-        settings = await Settings.getFilteredSettings(userRole);
-      } else {
-        settings = await Settings.getInstance();
-        settings = settings.toObject();
+        // Implement role filtering
+        const rolePermissions = settings.rolePermissions || {};
+        const filteredSettings = {};
+
+        ["security", "database", "email", "application"].forEach((category) => {
+          const allowedRoles = rolePermissions[category] || ["ADMIN"];
+          if (allowedRoles.includes(userRole)) {
+            filteredSettings[category] = settings[category] || {};
+          }
+        });
+
+        filteredSettings.rolePermissions = settings.rolePermissions;
+        settings = filteredSettings;
       }
-      
+
       if (!includePassword) {
         if (settings.email && settings.email.smtpPassword) {
-          settings.email.smtpPassword = '••••••••';
+          settings.email.smtpPassword = "••••••••";
         }
         return settings;
       }
-      
-      // Include password for internal operations (admin only)
-      if (userRole === 'ADMIN' || !userRole) {
-        const settingsWithPassword = await Settings.findOne().select('+email.smtpPassword');
-        return settingsWithPassword ? settingsWithPassword.toObject() : settings;
-      }
-      
+
       return settings;
     } catch (error) {
-      logger.error('Error getting settings:', error);
+      logger.error("Error getting settings:", error);
       throw error;
     }
   }
@@ -44,40 +69,80 @@ class SettingsService {
    */
   async updateSettings(updates, userId, ipAddress, userAgent) {
     try {
-      const oldSettings = await Settings.getInstance();
-      const oldSettingsObj = oldSettings.toObject();
+      const supabase = getSupabase();
+      const oldSettings = await this.getSettings(true);
 
-      // Update settings
-      const newSettings = await Settings.updateSettings(updates, userId);
+      const { data: currentSettings } = await supabase
+        .from("settings")
+        .select("id")
+        .limit(1)
+        .single();
+
+      let newSettingsObj = { ...oldSettings };
+
+      // Merge updates
+      const categories = ["security", "database", "email", "application"];
+      for (const category of categories) {
+        if (updates[category]) {
+          newSettingsObj[category] = {
+            ...(newSettingsObj[category] || {}),
+            ...updates[category],
+          };
+        }
+      }
+
+      newSettingsObj.last_modified_by = userId;
+      newSettingsObj.updated_at = new Date().toISOString();
+
+      let newSettings;
+
+      if (currentSettings) {
+        const { data, error } = await supabase
+          .from("settings")
+          .update(newSettingsObj)
+          .eq("id", currentSettings.id)
+          .select()
+          .single();
+        if (error) throw error;
+        newSettings = data;
+      } else {
+        const { data, error } = await supabase
+          .from("settings")
+          .insert(newSettingsObj)
+          .select()
+          .single();
+        if (error) throw error;
+        newSettings = data;
+      }
 
       // Log changes for each category
-      const categories = ['security', 'database', 'email', 'application'];
-      
       for (const category of categories) {
         if (updates[category]) {
           for (const [field, newValue] of Object.entries(updates[category])) {
-            const oldValue = oldSettingsObj[category]?.[field];
-            
+            const oldValue = oldSettings[category]?.[field];
+
             // Skip password fields in history (security)
-            if (field === 'smtpPassword') {
-              await SettingsHistory.logChange({
+            if (field === "smtpPassword") {
+              await supabase.from("settings_history").insert({
                 category,
                 field,
-                oldValue: '••••••••',
-                newValue: '••••••••',
-                userId,
-                ipAddress,
-                userAgent,
+                old_value: "••••••••",
+                new_value: "••••••••",
+                user_id: userId,
+                ip_address: ipAddress,
+                user_agent: userAgent,
+                created_at: new Date().toISOString(),
               });
             } else {
-              await SettingsHistory.logChange({
+              await supabase.from("settings_history").insert({
                 category,
                 field,
-                oldValue,
-                newValue,
-                userId,
-                ipAddress,
-                userAgent,
+                old_value: JSON.stringify(oldValue),
+                new_value: JSON.stringify(newValue),
+                user_id: userId,
+                ip_address: ipAddress,
+                user_agent: userAgent,
+                created_at: new Date().toISOString(),
               });
             }
           }
@@ -86,7 +151,7 @@ class SettingsService {
 
       return newSettings;
     } catch (error) {
-      logger.error('Error updating settings:', error);
+      logger.error("Error updating settings:", error);
       throw error;
     }
   }
@@ -95,13 +160,18 @@ class SettingsService {
    * Partial update of specific category
    */
   async updateCategory(category, updates, userId, ipAddress, userAgent) {
-    const validCategories = ['security', 'database', 'email', 'application'];
-    
+    const validCategories = ["security", "database", "email", "application"];
+
     if (!validCategories.includes(category)) {
       throw new Error(`Invalid category: ${category}`);
     }
 
-    return await this.updateSettings({ [category]: updates }, userId, ipAddress, userAgent);
+    return await this.updateSettings(
+      { [category]: updates },
+      userId,
+      ipAddress,
+      userAgent,
+    );
   }
 
   /**
@@ -109,14 +179,39 @@ class SettingsService {
    */
   async searchSettings(query) {
     try {
-      if (!query || query.trim() === '') {
+      if (!query || query.trim() === "") {
         return [];
       }
 
-      const results = await Settings.searchSettings(query);
+      const settings = await this.getSettings();
+      const results = [];
+
+      const searchObj = (obj, path = "") => {
+        for (const [key, value] of Object.entries(obj)) {
+          const currentPath = path ? `${path}.${key}` : key;
+
+          if (typeof value === "object" && value !== null) {
+            searchObj(value, currentPath);
+          } else {
+            const strValue = String(value).toLowerCase();
+            const strKey = String(key).toLowerCase();
+            const searchTerm = query.toLowerCase();
+
+            if (strValue.includes(searchTerm) || strKey.includes(searchTerm)) {
+              results.push({
+                path: currentPath,
+                key,
+                value,
+              });
+            }
+          }
+        }
+      };
+
+      searchObj(settings);
       return results;
     } catch (error) {
-      logger.error('Error searching settings:', error);
+      logger.error("Error searching settings:", error);
       throw error;
     }
   }
@@ -126,9 +221,31 @@ class SettingsService {
    */
   async getHistory(filters = {}) {
     try {
-      return await SettingsHistory.getHistory(filters);
+      const supabase = getSupabase();
+      let query = supabase
+        .from("settings_history")
+        .select("*, user:users(id, name, email)");
+
+      if (filters.category) query = query.eq("category", filters.category);
+      if (filters.userId) query = query.eq("user_id", filters.userId);
+      if (filters.startDate)
+        query = query.gte(
+          "created_at",
+          new Date(filters.startDate).toISOString(),
+        );
+      if (filters.endDate)
+        query = query.lte(
+          "created_at",
+          new Date(filters.endDate).toISOString(),
+        );
+
+      const { data, error } = await query.order("created_at", {
+        ascending: false,
+      });
+      if (error) throw error;
+      return data;
     } catch (error) {
-      logger.error('Error getting settings history:', error);
+      logger.error("Error getting settings history:", error);
       throw error;
     }
   }
@@ -138,9 +255,17 @@ class SettingsService {
    */
   async getRecentChanges(limit = 10) {
     try {
-      return await SettingsHistory.getRecentChanges(limit);
+      const supabase = getSupabase();
+      const { data, error } = await supabase
+        .from("settings_history")
+        .select("*, user:users(id, name, email)")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return data;
     } catch (error) {
-      logger.error('Error getting recent changes:', error);
+      logger.error("Error getting recent changes:", error);
       throw error;
     }
   }
@@ -152,10 +277,10 @@ class SettingsService {
     try {
       return await connectionTester.testDatabaseConnection(connectionString);
     } catch (error) {
-      logger.error('Error testing database connection:', error);
+      logger.error("Error testing database connection:", error);
       return {
         success: false,
-        message: 'Connection test failed',
+        message: "Connection test failed",
         error: error.message,
       };
     }
@@ -169,6 +294,10 @@ class SettingsService {
       // If no config provided, use current settings
       if (!emailConfig) {
         const settings = await this.getSettings(true);
+        if (!settings.email || !settings.email.smtpHost) {
+          throw new Error("Email settings not configured");
+        }
+
         emailConfig = {
           host: settings.email.smtpHost,
           port: settings.email.smtpPort,
@@ -182,10 +311,10 @@ class SettingsService {
 
       return await connectionTester.testEmailConnection(emailConfig);
     } catch (error) {
-      logger.error('Error testing email connection:', error);
+      logger.error("Error testing email connection:", error);
       return {
         success: false,
-        message: 'Connection test failed',
+        message: "Connection test failed",
         error: error.message,
       };
     }
@@ -198,10 +327,10 @@ class SettingsService {
     try {
       return await connectionTester.testRedisConnection(redisUrl);
     } catch (error) {
-      logger.error('Error testing Redis connection:', error);
+      logger.error("Error testing Redis connection:", error);
       return {
         success: false,
-        message: 'Connection test failed',
+        message: "Connection test failed",
         error: error.message,
       };
     }
@@ -213,25 +342,28 @@ class SettingsService {
   async testAllConnections() {
     try {
       const settings = await this.getSettings(true);
-      
+
       const config = {
-        email: {
-          host: settings.email.smtpHost,
-          port: settings.email.smtpPort,
-          secure: settings.email.smtpSecure,
-          auth: {
-            user: settings.email.smtpUser,
-            pass: settings.email.smtpPassword,
-          },
-        },
+        email:
+          settings.email && settings.email.smtpHost
+            ? {
+                host: settings.email.smtpHost,
+                port: settings.email.smtpPort,
+                secure: settings.email.smtpSecure,
+                auth: {
+                  user: settings.email.smtpUser,
+                  pass: settings.email.smtpPassword,
+                },
+              }
+            : null,
       };
 
       return await connectionTester.testAllConnections(config);
     } catch (error) {
-      logger.error('Error testing all connections:', error);
+      logger.error("Error testing all connections:", error);
       return {
         success: false,
-        message: 'Connection tests failed',
+        message: "Connection tests failed",
         error: error.message,
         results: {},
       };
@@ -244,7 +376,11 @@ class SettingsService {
   async sendTestEmail(testAddress) {
     try {
       const settings = await this.getSettings(true);
-      
+
+      if (!settings.email || !settings.email.smtpHost) {
+        throw new Error("Email settings not configured");
+      }
+
       const emailConfig = {
         smtpHost: settings.email.smtpHost,
         smtpPort: settings.email.smtpPort,
@@ -257,10 +393,10 @@ class SettingsService {
 
       return await connectionTester.sendTestEmail(emailConfig, testAddress);
     } catch (error) {
-      logger.error('Error sending test email:', error);
+      logger.error("Error sending test email:", error);
       return {
         success: false,
-        message: 'Failed to send test email',
+        message: "Failed to send test email",
         error: error.message,
       };
     }
@@ -271,32 +407,56 @@ class SettingsService {
    */
   async resetToDefaults(userId, ipAddress, userAgent) {
     try {
-      const settings = await Settings.getInstance();
-      
-      // Store old settings
-      const oldSettings = settings.toObject();
+      const supabase = getSupabase();
+
+      // Delete existing settings
+      const { error: deleteError } = await supabase
+        .from("settings")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000"); // delete all
+      if (deleteError) throw deleteError;
 
       // Create new settings with defaults
-      await Settings.deleteMany({});
-      const newSettings = await Settings.create({
-        lastModifiedBy: userId,
-      });
+      const defaultSettings = {
+        last_modified_by: userId,
+        security: {},
+        database: {},
+        email: {},
+        application: {},
+        rolePermissions: {
+          security: ["ADMIN"],
+          database: ["ADMIN"],
+          email: ["ADMIN", "INVENTORY_MANAGER", "IT_MANAGER"],
+          application: ["ADMIN", "INVENTORY_MANAGER", "IT_MANAGER"],
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data: newSettings, error: insertError } = await supabase
+        .from("settings")
+        .insert(defaultSettings)
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
 
       // Log the reset
-      await SettingsHistory.logChange({
-        category: 'all',
-        field: 'settings_reset',
-        oldValue: 'custom_settings',
-        newValue: 'default_settings',
-        userId,
-        ipAddress,
-        userAgent,
-        reason: 'Settings reset to defaults',
+      await supabase.from("settings_history").insert({
+        category: "all",
+        field: "settings_reset",
+        old_value: "custom_settings",
+        new_value: "default_settings",
+        user_id: userId,
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        reason: "Settings reset to defaults",
+        created_at: new Date().toISOString(),
       });
 
       return newSettings;
     } catch (error) {
-      logger.error('Error resetting settings:', error);
+      logger.error("Error resetting settings:", error);
       throw error;
     }
   }
@@ -309,11 +469,11 @@ class SettingsService {
       const settings = await this.getSettings(false);
       return {
         exportDate: new Date().toISOString(),
-        version: '1.0.0',
+        version: "1.0.0",
         settings,
       };
     } catch (error) {
-      logger.error('Error exporting settings:', error);
+      logger.error("Error exporting settings:", error);
       throw error;
     }
   }
@@ -324,13 +484,18 @@ class SettingsService {
   async importSettings(importData, userId, ipAddress, userAgent) {
     try {
       if (!importData.settings) {
-        throw new Error('Invalid import data');
+        throw new Error("Invalid import data");
       }
 
       // Validate and update
-      return await this.updateSettings(importData.settings, userId, ipAddress, userAgent);
+      return await this.updateSettings(
+        importData.settings,
+        userId,
+        ipAddress,
+        userAgent,
+      );
     } catch (error) {
-      logger.error('Error importing settings:', error);
+      logger.error("Error importing settings:", error);
       throw error;
     }
   }
@@ -340,9 +505,15 @@ class SettingsService {
    */
   async getAccessibleCategories(userRole) {
     try {
-      return await Settings.getAccessibleCategories(userRole);
+      const settings = await this.getSettings();
+      const rolePermissions = settings.rolePermissions || {};
+
+      return Object.keys(rolePermissions).filter((category) => {
+        const allowedRoles = rolePermissions[category] || [];
+        return allowedRoles.includes(userRole);
+      });
     } catch (error) {
-      logger.error('Error getting accessible categories:', error);
+      logger.error("Error getting accessible categories:", error);
       throw error;
     }
   }
@@ -352,9 +523,12 @@ class SettingsService {
    */
   async hasAccess(userRole, category) {
     try {
-      return await Settings.hasAccess(userRole, category);
+      const settings = await this.getSettings();
+      const rolePermissions = settings.rolePermissions || {};
+      const allowedRoles = rolePermissions[category] || ["ADMIN"];
+      return allowedRoles.includes(userRole);
     } catch (error) {
-      logger.error('Error checking access:', error);
+      logger.error("Error checking access:", error);
       throw error;
     }
   }
@@ -364,15 +538,17 @@ class SettingsService {
    */
   async getRolePermissions() {
     try {
-      const settings = await Settings.getInstance();
-      return settings.rolePermissions || {
-        security: ['ADMIN'],
-        database: ['ADMIN'],
-        email: ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER'],
-        application: ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER'],
-      };
+      const settings = await this.getSettings();
+      return (
+        settings.rolePermissions || {
+          security: ["ADMIN"],
+          database: ["ADMIN"],
+          email: ["ADMIN", "INVENTORY_MANAGER", "IT_MANAGER"],
+          application: ["ADMIN", "INVENTORY_MANAGER", "IT_MANAGER"],
+        }
+      );
     } catch (error) {
-      logger.error('Error getting role permissions:', error);
+      logger.error("Error getting role permissions:", error);
       throw error;
     }
   }
@@ -382,26 +558,50 @@ class SettingsService {
    */
   async updateRolePermissions(category, roles, userId, ipAddress, userAgent) {
     try {
-      const oldSettings = await Settings.getInstance();
+      const supabase = getSupabase();
+      const oldSettings = await this.getSettings();
       const oldPermissions = oldSettings.rolePermissions?.[category] || [];
 
-      const settings = await Settings.updateRolePermissions(category, roles);
+      const newRolePermissions = { ...(oldSettings.rolePermissions || {}) };
+      newRolePermissions[category] = roles;
+
+      const { data: currentSettings } = await supabase
+        .from("settings")
+        .select("id")
+        .limit(1)
+        .single();
+
+      if (currentSettings) {
+        await supabase
+          .from("settings")
+          .update({
+            rolePermissions: newRolePermissions,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", currentSettings.id);
+      } else {
+        await supabase.from("settings").insert({
+          rolePermissions: newRolePermissions,
+          updated_at: new Date().toISOString(),
+        });
+      }
 
       // Log the change
-      await SettingsHistory.logChange({
-        category: 'rolePermissions',
+      await supabase.from("settings_history").insert({
+        category: "rolePermissions",
         field: category,
-        oldValue: oldPermissions,
-        newValue: roles,
-        userId,
-        ipAddress,
-        userAgent,
-        reason: 'Role permissions updated',
+        old_value: JSON.stringify(oldPermissions),
+        new_value: JSON.stringify(roles),
+        user_id: userId,
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        reason: "Role permissions updated",
+        created_at: new Date().toISOString(),
       });
 
-      return settings.rolePermissions;
+      return newRolePermissions;
     } catch (error) {
-      logger.error('Error updating role permissions:', error);
+      logger.error("Error updating role permissions:", error);
       throw error;
     }
   }

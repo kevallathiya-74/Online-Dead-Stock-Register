@@ -1,24 +1,19 @@
-const Asset = require('../models/asset');
-const DisposalRecord = require('../models/disposalRecord');
-const AuditLog = require('../models/auditLog');
-const Notification = require('../models/notification');
-const User = require('../models/user');
-const mongoose = require('mongoose');
+const getSupabase = require("../config/db");
 
 /**
  * 🔄 ASSET LIFECYCLE AUTOMATION SERVICE
  * Automatically manages asset lifecycle: Active → Dead Stock → Disposal
- * 
+ *
  * CONFIGURATION:
  * - Dead Stock: Assets older than 5 years, poor condition 2+ years, no maintenance 24+ months
  * - Disposal: After 90 days in dead stock (requires approval by default)
- * 
+ *
  * AUTOMATION:
  * - Runs daily at 1:00 AM IST via scheduledJobs.js
  * - Manual trigger: POST /api/v1/lifecycle/run
  * - View stats: GET /api/v1/lifecycle/stats
  * - Frontend: /admin/lifecycle
- * 
+ *
  * WORKFLOW:
  * 1. findOutdatedAssets() - Identifies assets meeting criteria
  * 2. moveOutdatedToDeadStock() - Marks assets as "Ready for Scrap"
@@ -35,7 +30,7 @@ class AssetLifecycleService {
         maxAgeYears: 5, // Assets older than 5 years
         poorConditionAge: 2, // Assets in poor condition and 2+ years old
         noMaintenanceMonths: 24, // Not maintained in 24 months
-        damageConditions: ['poor', 'damaged'], // Auto-mark these conditions
+        damageConditions: ["poor", "damaged"], // Auto-mark these conditions
       },
       // Disposal Criteria
       disposal: {
@@ -50,7 +45,7 @@ class AssetLifecycleService {
    * Run both dead stock and disposal checks
    */
   async runFullLifecycleAutomation() {
-    console.log('🔄 [LIFECYCLE] Starting full asset lifecycle automation...');
+    console.log("🔄 [LIFECYCLE] Starting full asset lifecycle automation...");
     const startTime = Date.now();
 
     try {
@@ -79,7 +74,7 @@ class AssetLifecycleService {
 
       return summary;
     } catch (error) {
-      console.error('❌ [LIFECYCLE] Automation failed:', error);
+      console.error("❌ [LIFECYCLE] Automation failed:", error);
       throw error;
     }
   }
@@ -88,63 +83,64 @@ class AssetLifecycleService {
    * 📦 MOVE OUTDATED ASSETS TO DEAD STOCK
    */
   async moveOutdatedToDeadStock() {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
     try {
-      console.log('📦 [LIFECYCLE] Checking for outdated assets...');
+      console.log("📦 [LIFECYCLE] Checking for outdated assets...");
 
       const outdatedAssets = await this.findOutdatedAssets();
       console.log(`   Found ${outdatedAssets.length} outdated assets`);
 
       if (outdatedAssets.length === 0) {
-        await session.commitTransaction();
         return { count: 0, assets: [] };
       }
 
       const movedAssets = [];
+      const supabase = getSupabase();
 
       for (const asset of outdatedAssets) {
         try {
           const reason = this.determineDeadStockReason(asset);
 
           // Update asset status
-          await Asset.findByIdAndUpdate(
-            asset._id,
-            {
-              status: 'Ready for Scrap', // Use existing enum value
-              condition: this.config.deadStock.damageConditions.includes(asset.condition)
+          const { error: assetError } = await supabase
+            .from("assets")
+            .update({
+              status: "Ready for Scrap", // Use existing enum value
+              condition: this.config.deadStock.damageConditions.includes(
+                asset.condition,
+              )
                 ? asset.condition
-                : 'poor',
-              notes: `${asset.notes || ''}\n[AUTO-DEAD-STOCK] ${new Date().toLocaleDateString()}: ${reason}`.trim(),
-              last_audit_date: new Date(), // Mark as reviewed
-            },
-            { session }
-          );
+                : "poor",
+              notes:
+                `${asset.notes || ""}\n[AUTO-DEAD-STOCK] ${new Date().toLocaleDateString()}: ${reason}`.trim(),
+              last_audit_date: new Date().toISOString(), // Mark as reviewed
+            })
+            .eq("id", asset.id);
+
+          if (assetError) throw assetError;
 
           // Create audit log
-          await AuditLog.create(
-            [
-              {
-                action: 'AUTO_MOVE_TO_DEAD_STOCK',
-                entity_type: 'Asset',
-                entity_id: asset._id,
-                description: `Asset automatically moved to dead stock: ${reason}`,
-                changes: {
-                  old_status: asset.status,
-                  new_status: 'Ready for Scrap',
-                  reason: reason,
-                  automation: 'lifecycle',
-                },
-                performed_by: null,
-                ip_address: 'system-lifecycle',
+          const { error: auditError } = await supabase
+            .from("audit_logs")
+            .insert({
+              action: "AUTO_MOVE_TO_DEAD_STOCK",
+              entity_type: "Asset",
+              entity_id: asset.id,
+              asset_id: asset.id,
+              description: `Asset automatically moved to dead stock: ${reason}`,
+              changes: {
+                old_status: asset.status,
+                new_status: "Ready for Scrap",
+                reason: reason,
+                automation: "lifecycle",
               },
-            ],
-            { session }
-          );
+              performed_by: null,
+              ip_address: "system-lifecycle",
+            });
+
+          if (auditError) throw auditError;
 
           // Create notifications for managers
-          await this.notifyAboutDeadStock(asset, reason, session);
+          await this.notifyAboutDeadStock(asset, reason);
 
           movedAssets.push({
             assetId: asset.unique_asset_id,
@@ -154,21 +150,19 @@ class AssetLifecycleService {
 
           console.log(`   ✓ ${asset.unique_asset_id} → Dead Stock (${reason})`);
         } catch (error) {
-          console.error(`   ✗ Failed to process ${asset.unique_asset_id}:`, error.message);
+          console.error(
+            `   ✗ Failed to process ${asset.unique_asset_id}:`,
+            error.message,
+          );
         }
       }
-
-      await session.commitTransaction();
 
       return {
         count: movedAssets.length,
         assets: movedAssets,
       };
     } catch (error) {
-      await session.abortTransaction();
       throw error;
-    } finally {
-      session.endSession();
     }
   }
 
@@ -176,21 +170,20 @@ class AssetLifecycleService {
    * 🗑️ MOVE DEAD STOCK TO DISPOSAL
    */
   async moveDeadStockToDisposal() {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
     try {
-      console.log('🗑️  [LIFECYCLE] Checking dead stock for disposal...');
+      console.log("🗑️  [LIFECYCLE] Checking dead stock for disposal...");
 
       const assetsForDisposal = await this.findAssetsReadyForDisposal();
-      console.log(`   Found ${assetsForDisposal.length} assets ready for disposal`);
+      console.log(
+        `   Found ${assetsForDisposal.length} assets ready for disposal`,
+      );
 
       if (assetsForDisposal.length === 0) {
-        await session.commitTransaction();
         return { count: 0, records: [] };
       }
 
       const disposalRecords = [];
+      const supabase = getSupabase();
 
       for (const asset of assetsForDisposal) {
         try {
@@ -199,59 +192,72 @@ class AssetLifecycleService {
           const disposalValue = this.calculateDisposalValue(asset);
 
           // Create disposal record
-          const disposalRecord = await DisposalRecord.create(
-            [
-              {
+          const { data: disposalRecordData, error: disposalError } =
+            await supabase
+              .from("disposal_records")
+              .insert({
                 asset_id: asset.unique_asset_id,
                 asset_name: `${asset.manufacturer} ${asset.model}`,
                 category: asset.asset_type,
                 disposal_method: disposalMethod,
                 disposal_value: disposalValue,
-                disposal_date: new Date(),
-                approved_by: this.config.disposal.autoApprove ? 'SYSTEM-AUTO' : 'SYSTEM',
-                status: this.config.disposal.autoApprove ? 'completed' : 'pending',
+                disposal_date: new Date().toISOString(),
+                approved_by: this.config.disposal.autoApprove
+                  ? "SYSTEM-AUTO"
+                  : "SYSTEM",
+                status: this.config.disposal.autoApprove
+                  ? "completed"
+                  : "pending",
                 remarks: `Automated disposal after ${daysInDeadStock} days in dead stock. Condition: ${asset.condition}`,
                 document_reference: `AUTO-DISP-${Date.now()}-${asset.unique_asset_id}`,
                 created_by: null,
-              },
-            ],
-            { session }
-          );
+              })
+              .select();
+
+          if (disposalError) throw disposalError;
+
+          const disposalRecord = disposalRecordData[0];
 
           // Update asset to disposed
-          await Asset.findByIdAndUpdate(
-            asset._id,
-            {
-              status: 'Disposed',
-              notes: `${asset.notes || ''}\n[AUTO-DISPOSAL] ${new Date().toLocaleDateString()}: ${disposalMethod} - ₹${disposalValue}`.trim(),
-            },
-            { session }
-          );
+          const { error: assetError } = await supabase
+            .from("assets")
+            .update({
+              status: "Disposed",
+              notes:
+                `${asset.notes || ""}\n[AUTO-DISPOSAL] ${new Date().toLocaleDateString()}: ${disposalMethod} - ₹${disposalValue}`.trim(),
+            })
+            .eq("id", asset.id);
+
+          if (assetError) throw assetError;
 
           // Create audit log
-          await AuditLog.create(
-            [
-              {
-                action: 'AUTO_MOVE_TO_DISPOSAL',
-                entity_type: 'Asset',
-                entity_id: asset._id,
-                description: `Asset automatically moved to disposal after ${daysInDeadStock} days`,
-                changes: {
-                  old_status: 'Ready for Scrap',
-                  new_status: 'Disposed',
-                  disposal_method: disposalMethod,
-                  disposal_value: disposalValue,
-                  days_in_dead_stock: daysInDeadStock,
-                },
-                performed_by: null,
-                ip_address: 'system-lifecycle',
+          const { error: auditError } = await supabase
+            .from("audit_logs")
+            .insert({
+              action: "AUTO_MOVE_TO_DISPOSAL",
+              entity_type: "Asset",
+              entity_id: asset.id,
+              asset_id: asset.id,
+              description: `Asset automatically moved to disposal after ${daysInDeadStock} days`,
+              changes: {
+                old_status: "Ready for Scrap",
+                new_status: "Disposed",
+                disposal_method: disposalMethod,
+                disposal_value: disposalValue,
+                days_in_dead_stock: daysInDeadStock,
               },
-            ],
-            { session }
-          );
+              performed_by: null,
+              ip_address: "system-lifecycle",
+            });
+
+          if (auditError) throw auditError;
 
           // Notify about disposal
-          await this.notifyAboutDisposal(asset, disposalRecord[0], daysInDeadStock, session);
+          await this.notifyAboutDisposal(
+            asset,
+            disposalRecord,
+            daysInDeadStock,
+          );
 
           disposalRecords.push({
             assetId: asset.unique_asset_id,
@@ -261,23 +267,23 @@ class AssetLifecycleService {
             daysInDeadStock: daysInDeadStock,
           });
 
-          console.log(`   ✓ ${asset.unique_asset_id} → Disposal (${disposalMethod}, ₹${disposalValue})`);
+          console.log(
+            `   ✓ ${asset.unique_asset_id} → Disposal (${disposalMethod}, ₹${disposalValue})`,
+          );
         } catch (error) {
-          console.error(`   ✗ Failed to dispose ${asset.unique_asset_id}:`, error.message);
+          console.error(
+            `   ✗ Failed to dispose ${asset.unique_asset_id}:`,
+            error.message,
+          );
         }
       }
-
-      await session.commitTransaction();
 
       return {
         count: disposalRecords.length,
         records: disposalRecords,
       };
     } catch (error) {
-      await session.abortTransaction();
       throw error;
-    } finally {
-      session.endSession();
     }
   }
 
@@ -286,34 +292,53 @@ class AssetLifecycleService {
    */
   async findOutdatedAssets() {
     const currentDate = new Date();
-    const fiveYearsAgo = new Date(currentDate.setFullYear(currentDate.getFullYear() - 5));
-    const twoYearsAgo = new Date(new Date().setFullYear(new Date().getFullYear() - 2));
-    const twentyFourMonthsAgo = new Date(new Date().setMonth(new Date().getMonth() - 24));
+    const fiveYearsAgo = new Date(
+      currentDate.setFullYear(currentDate.getFullYear() - 5),
+    );
+    const twoYearsAgo = new Date(
+      new Date().setFullYear(new Date().getFullYear() - 2),
+    );
+    const twentyFourMonthsAgo = new Date(
+      new Date().setMonth(new Date().getMonth() - 24),
+    );
 
-    return await Asset.find({
-      status: { $in: ['Active', 'Available', 'Under Maintenance'] }, // Only active assets
-      $or: [
-        // Rule 1: Old assets (5+ years)
-        {
-          purchase_date: { $lte: fiveYearsAgo, $ne: null },
-        },
-        // Rule 2: Poor/Damaged condition and 2+ years old
-        {
-          condition: { $in: this.config.deadStock.damageConditions },
-          purchase_date: { $lte: twoYearsAgo, $ne: null },
-        },
-        // Rule 3: Not maintained in 24+ months
-        {
-          last_maintenance_date: {
-            $lte: twentyFourMonthsAgo,
-            $ne: null,
-          },
-          condition: { $in: ['poor', 'fair'] },
-        },
-      ],
-    })
-      .populate('assigned_user', 'name email')
-      .lean();
+    const supabase = getSupabase();
+    const { data: assets, error } = await supabase
+      .from("assets")
+      .select("*, assigned_user:users(name, email)")
+      .in("status", ["Active", "Available", "Under Maintenance"]);
+
+    if (error) throw error;
+    if (!assets) return [];
+
+    return assets.filter((asset) => {
+      // Rule 1: Old assets (5+ years)
+      if (
+        asset.purchase_date &&
+        new Date(asset.purchase_date) <= fiveYearsAgo
+      ) {
+        return true;
+      }
+      // Rule 2: Poor/Damaged condition and 2+ years old
+      if (
+        asset.condition &&
+        this.config.deadStock.damageConditions.includes(asset.condition) &&
+        asset.purchase_date &&
+        new Date(asset.purchase_date) <= twoYearsAgo
+      ) {
+        return true;
+      }
+      // Rule 3: Not maintained in 24+ months
+      if (
+        asset.last_maintenance_date &&
+        new Date(asset.last_maintenance_date) <= twentyFourMonthsAgo &&
+        asset.condition &&
+        ["poor", "fair"].includes(asset.condition)
+      ) {
+        return true;
+      }
+      return false;
+    });
   }
 
   /**
@@ -321,13 +346,20 @@ class AssetLifecycleService {
    */
   async findAssetsReadyForDisposal() {
     const thresholdDate = new Date();
-    thresholdDate.setDate(thresholdDate.getDate() - this.config.disposal.daysInDeadStock);
+    thresholdDate.setDate(
+      thresholdDate.getDate() - this.config.disposal.daysInDeadStock,
+    );
 
-    // Find assets marked as "Ready for Scrap" and older than threshold
-    return await Asset.find({
-      status: 'Ready for Scrap',
-      last_audit_date: { $lte: thresholdDate, $ne: null },
-    }).lean();
+    const supabase = getSupabase();
+    const { data: assets, error } = await supabase
+      .from("assets")
+      .select("*")
+      .eq("status", "Ready for Scrap")
+      .lte("last_audit_date", thresholdDate.toISOString())
+      .not("last_audit_date", "is", null);
+
+    if (error) throw error;
+    return assets || [];
   }
 
   /**
@@ -352,14 +384,15 @@ class AssetLifecycleService {
 
     if (asset.last_maintenance_date) {
       const monthsSinceMaintenance = Math.floor(
-        (new Date() - new Date(asset.last_maintenance_date)) / (1000 * 60 * 60 * 24 * 30)
+        (new Date() - new Date(asset.last_maintenance_date)) /
+          (1000 * 60 * 60 * 24 * 30),
       );
       if (monthsSinceMaintenance >= this.config.deadStock.noMaintenanceMonths) {
         reasons.push(`No maintenance for ${monthsSinceMaintenance} months`);
       }
     }
 
-    return reasons.join(', ') || 'Automated lifecycle criteria met';
+    return reasons.join(", ") || "Automated lifecycle criteria met";
   }
 
   /**
@@ -367,11 +400,12 @@ class AssetLifecycleService {
    */
   determineDisposalMethod(asset) {
     // Map conditions to disposal methods
-    if (asset.condition === 'damaged') return 'Recycling';
-    if (asset.purchase_cost > 50000) return 'Auction';
-    if (asset.asset_type?.toLowerCase().includes('electronics')) return 'Recycling';
-    if (asset.condition === 'poor') return 'Scrap';
-    return 'Donation';
+    if (asset.condition === "damaged") return "Recycling";
+    if (asset.purchase_cost > 50000) return "Auction";
+    if (asset.asset_type?.toLowerCase().includes("electronics"))
+      return "Recycling";
+    if (asset.condition === "poor") return "Scrap";
+    return "Donation";
   }
 
   /**
@@ -381,7 +415,8 @@ class AssetLifecycleService {
     if (!asset.purchase_cost) return 0;
 
     const ageInYears = asset.purchase_date
-      ? (new Date() - new Date(asset.purchase_date)) / (1000 * 60 * 60 * 24 * 365)
+      ? (new Date() - new Date(asset.purchase_date)) /
+        (1000 * 60 * 60 * 24 * 365)
       : 5;
 
     // Depreciation: 15% per year
@@ -397,7 +432,9 @@ class AssetLifecycleService {
       damaged: 0.05,
     };
 
-    return Math.round(currentValue * (conditionMultiplier[asset.condition] || 0.05));
+    return Math.round(
+      currentValue * (conditionMultiplier[asset.condition] || 0.05),
+    );
   }
 
   /**
@@ -405,72 +442,85 @@ class AssetLifecycleService {
    */
   calculateDaysInDeadStock(asset) {
     if (!asset.last_audit_date) return this.config.disposal.daysInDeadStock;
-    return Math.floor((new Date() - new Date(asset.last_audit_date)) / (1000 * 60 * 60 * 24));
+    return Math.floor(
+      (new Date() - new Date(asset.last_audit_date)) / (1000 * 60 * 60 * 24),
+    );
   }
 
   /**
    * 🔔 NOTIFY ABOUT DEAD STOCK
    */
-  async notifyAboutDeadStock(asset, reason, session) {
-    const recipients = await User.find({
-      role: { $in: ['ADMIN', 'INVENTORY_MANAGER'] },
-      is_active: true,
-    })
-      .select('_id')
-      .lean();
+  async notifyAboutDeadStock(asset, reason) {
+    const supabase = getSupabase();
+    // Get all active admins and inventory managers
+    const { data: recipients, error: userError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("is_active", true)
+      .in("role", ["ADMIN", "INVENTORY_MANAGER"]);
 
-    if (recipients.length === 0) return;
+    if (userError) throw userError;
+    if (!recipients || recipients.length === 0) return;
 
     const notifications = recipients.map((user) => ({
-      recipient: user._id,
+      recipient: user.id,
       sender: null,
-      title: '📦 Asset Moved to Dead Stock',
+      title: "📦 Asset Moved to Dead Stock",
       message: `Asset "${asset.manufacturer} ${asset.model}" (${asset.unique_asset_id}) moved to dead stock. Reason: ${reason}`,
-      type: 'warning',
-      priority: 'medium',
+      type: "warning",
+      priority: "medium",
       is_read: false,
       action_url: `/inventory/dead-stock`,
       data: {
         asset_id: asset.unique_asset_id,
-        automation_type: 'dead_stock',
+        automation_type: "dead_stock",
         reason: reason,
       },
     }));
 
-    await Notification.insertMany(notifications, { session });
+    const { error: notifyError } = await supabase
+      .from("notifications")
+      .insert(notifications);
+
+    if (notifyError) throw notifyError;
   }
 
   /**
    * 🔔 NOTIFY ABOUT DISPOSAL
    */
-  async notifyAboutDisposal(asset, disposalRecord, daysInDeadStock, session) {
-    const admins = await User.find({
-      role: 'ADMIN',
-      is_active: true,
-    })
-      .select('_id')
-      .lean();
+  async notifyAboutDisposal(asset, disposalRecord, daysInDeadStock) {
+    const supabase = getSupabase();
+    const { data: admins, error: userError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("role", "ADMIN")
+      .eq("is_active", true);
 
-    if (admins.length === 0) return;
+    if (userError) throw userError;
+    if (!admins || admins.length === 0) return;
 
     const notifications = admins.map((admin) => ({
-      recipient: admin._id,
+      recipient: admin.id,
       sender: null,
-      title: '🗑️ Asset Moved to Disposal',
+      title: "🗑️ Asset Moved to Disposal",
       message: `Asset "${asset.manufacturer} ${asset.model}" (${asset.unique_asset_id}) moved to disposal after ${daysInDeadStock} days. Method: ${disposalRecord.disposal_method}`,
-      type: 'info',
-      priority: 'high',
+      type: "info",
+      priority: "high",
       is_read: false,
       action_url: `/inventory/disposal-records`,
       data: {
         asset_id: asset.unique_asset_id,
-        disposal_record_id: disposalRecord._id,
-        automation_type: 'disposal',
+        disposal_record_id: disposalRecord.id,
+        automation_type: "disposal",
         days_in_dead_stock: daysInDeadStock,
       },
     }));
 
-    await Notification.insertMany(notifications, { session });
+    const { error: notifyError } = await supabase
+      .from("notifications")
+      .insert(notifications);
+
+    if (notifyError) throw notifyError;
   }
 
   /**
@@ -479,47 +529,71 @@ class AssetLifecycleService {
   async notifyAdminsAboutLifecycle(summary) {
     if (summary.deadStock.count === 0 && summary.disposal.count === 0) return;
 
-    const admins = await User.find({
-      role: 'ADMIN',
-      is_active: true,
-    })
-      .select('_id')
-      .lean();
+    const supabase = getSupabase();
+    const { data: admins, error: userError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("role", "ADMIN")
+      .eq("is_active", true);
 
-    if (admins.length === 0) return;
+    if (userError) throw userError;
+    if (!admins || admins.length === 0) return;
 
     const notifications = admins.map((admin) => ({
-      recipient: admin._id,
+      recipient: admin.id,
       sender: null,
-      title: '📊 Lifecycle Automation Summary',
+      title: "📊 Lifecycle Automation Summary",
       message: `Lifecycle automation completed: ${summary.deadStock.count} assets → dead stock, ${summary.disposal.count} assets → disposal`,
-      type: 'info',
-      priority: 'low',
+      type: "info",
+      priority: "low",
       is_read: false,
-      action_url: '/inventory/reports',
+      action_url: "/inventory/reports",
       data: {
-        automation_type: 'lifecycle_summary',
+        automation_type: "lifecycle_summary",
         dead_stock_count: summary.deadStock.count,
         disposal_count: summary.disposal.count,
         duration: summary.duration,
       },
     }));
 
-    await Notification.insertMany(notifications);
+    const { error: notifyError } = await supabase
+      .from("notifications")
+      .insert(notifications);
+
+    if (notifyError) throw notifyError;
   }
 
   /**
    * 📊 GET LIFECYCLE STATISTICS
    */
   async getLifecycleStats() {
-    const [activeAssets, deadStockAssets, disposedAssets, eligibleForDeadStock, eligibleForDisposal] =
-      await Promise.all([
-        Asset.countDocuments({ status: { $in: ['Active', 'Available'] } }),
-        Asset.countDocuments({ status: 'Ready for Scrap' }),
-        Asset.countDocuments({ status: 'Disposed' }),
-        this.findOutdatedAssets().then((assets) => assets.length),
-        this.findAssetsReadyForDisposal().then((assets) => assets.length),
-      ]);
+    const supabase = getSupabase();
+
+    const getCount = async (tableName, builderFn) => {
+      let query = supabase
+        .from(tableName)
+        .select("*", { count: "exact", head: true });
+      if (builderFn) {
+        query = builderFn(query);
+      }
+      const { count, error } = await query;
+      if (error) throw error;
+      return count || 0;
+    };
+
+    const [
+      activeAssets,
+      deadStockAssets,
+      disposedAssets,
+      eligibleForDeadStock,
+      eligibleForDisposal,
+    ] = await Promise.all([
+      getCount("assets", (q) => q.in("status", ["Active", "Available"])),
+      getCount("assets", (q) => q.eq("status", "Ready for Scrap")),
+      getCount("assets", (q) => q.eq("status", "Disposed")),
+      this.findOutdatedAssets().then((assets) => assets.length),
+      this.findAssetsReadyForDisposal().then((assets) => assets.length),
+    ]);
 
     return {
       current_state: {
@@ -543,7 +617,7 @@ class AssetLifecycleService {
       ...this.config,
       ...newConfig,
     };
-    console.log('✅ Lifecycle configuration updated:', this.config);
+    console.log("✅ Lifecycle configuration updated:", this.config);
   }
 }
 

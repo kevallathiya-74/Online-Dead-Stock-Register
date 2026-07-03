@@ -1,9 +1,9 @@
 /**
  * ASSET LIFECYCLE AUTOMATION ROUTES
- * 
+ *
  * Provides API endpoints for automated asset lifecycle management.
  * All routes require authentication. Admin-only for execution endpoints.
- * 
+ *
  * ENDPOINTS:
  * - GET  /api/v1/lifecycle/stats       - Get current statistics (Admin, Manager)
  * - POST /api/v1/lifecycle/run         - Run full automation (Admin only)
@@ -11,38 +11,41 @@
  * - POST /api/v1/lifecycle/disposal    - Move to disposal only (Admin only)
  * - GET  /api/v1/lifecycle/config      - Get configuration (Admin, Manager)
  * - PUT  /api/v1/lifecycle/config      - Update configuration (Admin only)
- * 
+ *
  * TESTED: All routes load successfully ✅
  */
 
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const assetLifecycleService = require('../services/assetLifecycleService');
-const scheduledJobs = require('../services/scheduledJobs');
-const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
+const assetLifecycleService = require("../services/assetLifecycleService");
+const scheduledJobs = require("../services/scheduledJobs");
+const { authMiddleware, requireRole } = require("../middleware/authMiddleware");
 
 // Helper middleware for role checks
-const adminOnly = [authMiddleware, requireRole(['ADMIN'])];
-const managerOrAdmin = [authMiddleware, requireRole(['ADMIN', 'INVENTORY_MANAGER'])];
+const adminOnly = [authMiddleware, requireRole(["ADMIN"])];
+const managerOrAdmin = [
+  authMiddleware,
+  requireRole(["ADMIN", "INVENTORY_MANAGER"]),
+];
 
 /**
  * @route   GET /api/v1/lifecycle/stats
  * @desc    Get lifecycle automation statistics
  * @access  Private (Admin, Manager)
  */
-router.get('/stats', managerOrAdmin, async (req, res) => {
+router.get("/stats", managerOrAdmin, async (req, res) => {
   try {
     const stats = await assetLifecycleService.getLifecycleStats();
-    
+
     res.json({
       success: true,
       data: stats,
     });
   } catch (error) {
-    console.error('Error fetching lifecycle stats:', error);
+    console.error("Error fetching lifecycle stats:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch lifecycle statistics',
+      message: "Failed to fetch lifecycle statistics",
       error: error.message,
     });
   }
@@ -53,22 +56,24 @@ router.get('/stats', managerOrAdmin, async (req, res) => {
  * @desc    Manually trigger full lifecycle automation
  * @access  Private (Admin only)
  */
-router.post('/run', adminOnly, async (req, res) => {
+router.post("/run", adminOnly, async (req, res) => {
   try {
-    console.log(`🔧 [API] Lifecycle automation triggered by user: ${req.user.name}`);
-    
+    console.log(
+      `🔧 [API] Lifecycle automation triggered by user: ${req.user.name}`,
+    );
+
     const result = await scheduledJobs.triggerLifecycleNow();
-    
+
     res.json({
       success: true,
-      message: 'Lifecycle automation completed successfully',
+      message: "Lifecycle automation completed successfully",
       data: result,
     });
   } catch (error) {
-    console.error('Error running lifecycle automation:', error);
+    console.error("Error running lifecycle automation:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to run lifecycle automation',
+      message: "Failed to run lifecycle automation",
       error: error.message,
     });
   }
@@ -79,22 +84,24 @@ router.post('/run', adminOnly, async (req, res) => {
  * @desc    Manually trigger dead stock check only
  * @access  Private (Admin only)
  */
-router.post('/dead-stock', adminOnly, async (req, res) => {
+router.post("/dead-stock", adminOnly, async (req, res) => {
   try {
-    console.log(`🔧 [API] Dead stock check triggered by user: ${req.user.name}`);
-    
+    console.log(
+      `🔧 [API] Dead stock check triggered by user: ${req.user.name}`,
+    );
+
     const result = await assetLifecycleService.moveOutdatedToDeadStock();
-    
+
     res.json({
       success: true,
       message: `${result.count} assets moved to dead stock`,
       data: result,
     });
   } catch (error) {
-    console.error('Error running dead stock check:', error);
+    console.error("Error running dead stock check:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to move assets to dead stock',
+      message: "Failed to move assets to dead stock",
       error: error.message,
     });
   }
@@ -105,22 +112,22 @@ router.post('/dead-stock', adminOnly, async (req, res) => {
  * @desc    Manually trigger disposal check only
  * @access  Private (Admin only)
  */
-router.post('/disposal', adminOnly, async (req, res) => {
+router.post("/disposal", adminOnly, async (req, res) => {
   try {
     console.log(`🔧 [API] Disposal check triggered by user: ${req.user.name}`);
-    
+
     const result = await assetLifecycleService.moveDeadStockToDisposal();
-    
+
     res.json({
       success: true,
       message: `${result.count} assets moved to disposal`,
       data: result,
     });
   } catch (error) {
-    console.error('Error running disposal check:', error);
+    console.error("Error running disposal check:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to move assets to disposal',
+      message: "Failed to move assets to disposal",
       error: error.message,
     });
   }
@@ -131,26 +138,26 @@ router.post('/disposal', adminOnly, async (req, res) => {
  * @desc    Update lifecycle automation configuration
  * @access  Private (Admin only)
  */
-router.put('/config', adminOnly, async (req, res) => {
+router.put("/config", adminOnly, async (req, res) => {
   try {
     const { deadStock, disposal } = req.body;
-    
+
     const newConfig = {};
     if (deadStock) newConfig.deadStock = deadStock;
     if (disposal) newConfig.disposal = disposal;
-    
+
     assetLifecycleService.updateConfig(newConfig);
-    
+
     res.json({
       success: true,
-      message: 'Lifecycle configuration updated successfully',
+      message: "Lifecycle configuration updated successfully",
       data: assetLifecycleService.config,
     });
   } catch (error) {
-    console.error('Error updating lifecycle config:', error);
+    console.error("Error updating lifecycle config:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to update lifecycle configuration',
+      message: "Failed to update lifecycle configuration",
       error: error.message,
     });
   }
@@ -161,7 +168,7 @@ router.put('/config', adminOnly, async (req, res) => {
  * @desc    Get current lifecycle automation configuration
  * @access  Private (Admin, Manager)
  */
-router.get('/config', managerOrAdmin, async (req, res) => {
+router.get("/config", managerOrAdmin, async (req, res) => {
   try {
     res.json({
       success: true,
@@ -170,7 +177,7 @@ router.get('/config', managerOrAdmin, async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch lifecycle configuration',
+      message: "Failed to fetch lifecycle configuration",
       error: error.message,
     });
   }

@@ -3,10 +3,10 @@
  * Compresses and optimizes uploaded images using Sharp
  */
 
-const sharp = require('sharp');
-const path = require('path');
-const fs = require('fs').promises;
-const logger = require('../utils/logger');
+const sharp = require("sharp");
+const path = require("path");
+const fs = require("fs").promises;
+const logger = require("../utils/logger");
 
 /**
  * Image optimization middleware
@@ -26,16 +26,19 @@ const optimizeImage = async (req, res, next) => {
       if (!file) continue;
 
       // Only process image files
-      const imageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      const imageTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
       if (!imageTypes.includes(file.mimetype)) {
         optimizedFiles.push(file);
         continue;
       }
 
       // Generate optimized filename
-      const ext = 'jpg'; // Convert all to jpg for consistency
+      const ext = "jpg"; // Convert all to jpg for consistency
       const filename = `optimized-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
-      const outputDir = path.join(process.env.UPLOAD_PATH || 'uploads', 'optimized');
+      const outputDir = path.join(
+        process.env.UPLOAD_PATH || "uploads",
+        "optimized",
+      );
       const outputPath = path.join(outputDir, filename);
 
       // Ensure output directory exists
@@ -48,7 +51,7 @@ const optimizeImage = async (req, res, next) => {
       // Optimize image with Sharp
       await sharp(file.path)
         .resize(1920, 1920, {
-          fit: 'inside',
+          fit: "inside",
           withoutEnlargement: true, // Don't upscale small images
         })
         .jpeg({
@@ -64,7 +67,7 @@ const optimizeImage = async (req, res, next) => {
       const savedBytes = originalSize - optimizedSize;
       const savedPercent = ((savedBytes / originalSize) * 100).toFixed(1);
 
-      logger.info('Image optimized', {
+      logger.info("Image optimized", {
         originalFile: file.originalname,
         originalSize: `${(originalSize / 1024).toFixed(2)}KB`,
         optimizedSize: `${(optimizedSize / 1024).toFixed(2)}KB`,
@@ -76,7 +79,7 @@ const optimizeImage = async (req, res, next) => {
       try {
         await fs.unlink(file.path);
       } catch (err) {
-        logger.warn('Failed to delete original file', { path: file.path });
+        logger.warn("Failed to delete original file", { path: file.path });
       }
 
       // Update file information
@@ -100,7 +103,7 @@ const optimizeImage = async (req, res, next) => {
 
     next();
   } catch (error) {
-    logger.error('Image optimization error', {
+    logger.error("Image optimization error", {
       error: error.message,
       stack: error.stack,
       requestId: req.id,
@@ -120,26 +123,29 @@ const generateThumbnail = async (imagePath, thumbnailSize = 300) => {
     const parsed = path.parse(imagePath);
     const thumbnailPath = path.join(
       parsed.dir,
-      'thumbnails',
-      `thumb-${parsed.name}${parsed.ext}`
+      "thumbnails",
+      `thumb-${parsed.name}${parsed.ext}`,
     );
 
     // Ensure thumbnails directory exists
-    await fs.mkdir(path.join(parsed.dir, 'thumbnails'), { recursive: true });
+    await fs.mkdir(path.join(parsed.dir, "thumbnails"), { recursive: true });
 
     await sharp(imagePath)
       .resize(thumbnailSize, thumbnailSize, {
-        fit: 'cover',
-        position: 'center',
+        fit: "cover",
+        position: "center",
       })
       .jpeg({ quality: 70 })
       .toFile(thumbnailPath);
 
-    logger.info('Thumbnail generated', { imagePath, thumbnailPath });
+    logger.info("Thumbnail generated", { imagePath, thumbnailPath });
 
     return thumbnailPath;
   } catch (error) {
-    logger.error('Thumbnail generation error', { error: error.message, imagePath });
+    logger.error("Thumbnail generation error", {
+      error: error.message,
+      imagePath,
+    });
     throw error;
   }
 };
@@ -160,7 +166,7 @@ const convertToWebP = async (req, res, next) => {
       if (!file) continue;
 
       // Only process image files
-      const imageTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+      const imageTypes = ["image/jpeg", "image/jpg", "image/png"];
       if (!imageTypes.includes(file.mimetype)) {
         convertedFiles.push(file);
         continue;
@@ -168,7 +174,7 @@ const convertToWebP = async (req, res, next) => {
 
       // Generate WebP filename
       const filename = `${path.parse(file.originalname).name}-${Date.now()}.webp`;
-      const outputDir = path.join(process.env.UPLOAD_PATH || 'uploads', 'webp');
+      const outputDir = path.join(process.env.UPLOAD_PATH || "uploads", "webp");
       const outputPath = path.join(outputDir, filename);
 
       // Ensure output directory exists
@@ -177,7 +183,7 @@ const convertToWebP = async (req, res, next) => {
       // Convert to WebP
       await sharp(file.path)
         .resize(1920, 1920, {
-          fit: 'inside',
+          fit: "inside",
           withoutEnlargement: true,
         })
         .webp({ quality: 80 })
@@ -187,14 +193,14 @@ const convertToWebP = async (req, res, next) => {
       try {
         await fs.unlink(file.path);
       } catch (err) {
-        logger.warn('Failed to delete original file', { path: file.path });
+        logger.warn("Failed to delete original file", { path: file.path });
       }
 
       convertedFiles.push({
         ...file,
         filename,
         path: outputPath,
-        mimetype: 'image/webp',
+        mimetype: "image/webp",
       });
     }
 
@@ -206,7 +212,7 @@ const convertToWebP = async (req, res, next) => {
 
     next();
   } catch (error) {
-    logger.error('WebP conversion error', {
+    logger.error("WebP conversion error", {
       error: error.message,
       requestId: req.id,
     });

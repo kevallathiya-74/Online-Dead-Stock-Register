@@ -1,210 +1,287 @@
-const Maintenance = require('../models/maintenance');
-const logger = require('../utils/logger');
+const getSupabase = require("../config/db");
+const logger = require("../utils/logger");
 
 exports.getMaintenanceRecords = async (req, res) => {
   try {
-    const records = await Maintenance.find().populate('asset_id vendor_id created_by').lean();
-    
-    // Transform data to match frontend expectations
-    const transformedRecords = records.map(record => {
-      const asset = record.asset_id;
-      
+    const supabase = getSupabase();
+
+    const { data: records, error } = await supabase.from("maintenances")
+      .select(`
+        *,
+        assets:asset_id ( id, name, unique_asset_id, asset_type ),
+        vendors:vendor_id ( id, company_name )
+      `);
+
+    if (error) throw error;
+
+    const transformedRecords = (records || []).map((record) => {
+      const asset = record.assets;
       return {
-        id: record._id.toString(),
-        asset_id: asset?._id?.toString() || '',
-        asset_name: asset?.name || asset?.unique_asset_id || 'Unknown Asset',
-        type: record.maintenance_type || 'Corrective',
-        description: record.description || 'No description provided',
+        id: record.id,
+        asset_id: asset?.id || "",
+        asset_name: asset?.name || asset?.unique_asset_id || "Unknown Asset",
+        type: record.maintenance_type || "Corrective",
+        description: record.description || "No description provided",
         scheduled_date: record.maintenance_date || new Date().toISOString(),
-        completed_date: record.status === 'Completed' && record.updatedAt ? record.updatedAt.toISOString() : null,
-        status: record.status || 'Scheduled',
-        priority: record.priority || 'Medium',
-        assigned_technician: record.performed_by || 'Unassigned',
+        completed_date:
+          record.status === "Completed" && record.updated_at
+            ? record.updated_at
+            : null,
+        status: record.status || "Scheduled",
+        priority: record.priority || "Medium",
+        assigned_technician: record.performed_by || "Unassigned",
         estimated_cost: record.cost || 0,
-        actual_cost: record.status === 'Completed' ? record.cost : null,
+        actual_cost: record.status === "Completed" ? record.cost : null,
         estimated_duration: record.estimated_duration || 2,
-        actual_duration: record.status === 'Completed' ? record.estimated_duration : null,
-        next_maintenance_date: record.next_maintenance_date ? record.next_maintenance_date.toISOString() : null,
-        notes: record.notes || record.description || '',
-        downtime_impact: record.downtime_impact || 'Low'
+        actual_duration:
+          record.status === "Completed" ? record.estimated_duration : null,
+        next_maintenance_date: record.next_maintenance_date || null,
+        notes: record.description || "",
+        downtime_impact: record.downtime_impact || "Low",
       };
     });
-    
-    logger.info('Maintenance records retrieved', {
+
+    logger.info("Maintenance records retrieved", {
       userId: req.user?.id,
-      count: transformedRecords.length
+      count: transformedRecords.length,
     });
-    
-    res.json({ 
-      success: true,
-      data: transformedRecords 
-    });
+
+    return res.json({ success: true, data: transformedRecords });
   } catch (err) {
-    logger.error('Error fetching maintenance records:', err);
-    res.status(500).json({ 
+    logger.error("Error fetching maintenance records:", err);
+    return res.status(500).json({
       success: false,
-      message: err.message || 'Failed to fetch maintenance records'
+      message: "Failed to fetch maintenance records",
     });
   }
 };
 
 exports.createMaintenanceRecord = async (req, res) => {
   try {
-    const { asset_id, maintenance_type, maintenance_date, description, cost, performed_by, priority, status, estimated_duration, downtime_impact } = req.body;
+    const supabase = getSupabase();
+    const {
+      asset_id,
+      maintenance_type,
+      maintenance_date,
+      description,
+      cost,
+      performed_by,
+      priority,
+      status,
+      estimated_duration,
+      downtime_impact,
+    } = req.body;
 
-    // Validate required fields
     if (!asset_id) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Asset ID is required' 
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Asset ID is required" });
     }
-
     if (!maintenance_type) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Maintenance type is required' 
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Maintenance type is required" });
     }
-
     if (!maintenance_date) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Maintenance date is required' 
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Maintenance date is required" });
     }
 
     // Verify asset exists
-    const Asset = require('../models/asset');
-    const asset = await Asset.findById(asset_id);
-    if (!asset) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Asset not found' 
-      });
+    const { data: asset, error: assetError } = await supabase
+      .from("assets")
+      .select("id, name, unique_asset_id, asset_type")
+      .eq("id", asset_id)
+      .single();
+
+    if (assetError || !asset) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Asset not found" });
     }
 
-    // Create maintenance record
     const maintenanceData = {
       asset_id,
       maintenance_type,
-      maintenance_date: new Date(maintenance_date),
-      description: description || `${maintenance_type} maintenance for ${asset.name || asset.unique_asset_id}`,
+      maintenance_date: new Date(maintenance_date).toISOString(),
+      description:
+        description ||
+        `${maintenance_type} maintenance for ${asset.name || asset.unique_asset_id}`,
       cost: cost || 0,
-      performed_by: performed_by || 'Unassigned',
-      priority: priority || 'Medium',
-      status: status || 'Scheduled',
+      performed_by: performed_by || "Unassigned",
+      priority: priority || "Medium",
+      status: status || "Scheduled",
       estimated_duration: estimated_duration || 2,
-      downtime_impact: downtime_impact || 'Low',
-      created_by: req.user?.id || req.user?._id
+      downtime_impact: downtime_impact || "Low",
+      created_by: req.user?.id || null,
     };
 
-    const rec = new Maintenance(maintenanceData);
-    const saved = await rec.save();
+    const { data: saved, error: insertError } = await supabase
+      .from("maintenances")
+      .insert(maintenanceData)
+      .select(`*, assets:asset_id ( id, name, unique_asset_id, asset_type )`)
+      .single();
 
-    // Populate asset details for response
-    await saved.populate('asset_id', 'name unique_asset_id asset_type');
+    if (insertError) throw insertError;
 
-    logger.info('Maintenance record created', {
+    logger.info("Maintenance record created", {
       userId: req.user?.id,
-      maintenanceId: saved._id,
-      assetId: asset_id
+      maintenanceId: saved.id,
+      assetId: asset_id,
     });
 
-    res.status(201).json({ 
+    return res.status(201).json({
       success: true,
-      message: 'Maintenance scheduled successfully',
-      data: saved 
+      message: "Maintenance scheduled successfully",
+      data: saved,
     });
   } catch (err) {
-    logger.error('Error creating maintenance record:', err);
-    res.status(400).json({ 
+    logger.error("Error creating maintenance record:", err);
+    return res.status(400).json({
       success: false,
-      message: err.message || 'Failed to create maintenance record'
+      message: "Failed to create maintenance record",
     });
   }
 };
 
 exports.getMaintenanceById = async (req, res) => {
   try {
-    const rec = await Maintenance.findById(req.params.id).populate('asset_id', 'name unique_asset_id asset_type').lean();
-    if (!rec) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Maintenance record not found' 
-      });
+    const supabase = getSupabase();
+
+    const { data: rec, error } = await supabase
+      .from("maintenances")
+      .select(`*, assets:asset_id ( id, name, unique_asset_id, asset_type )`)
+      .eq("id", req.params.id)
+      .single();
+
+    if (error || !rec) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Maintenance record not found" });
     }
 
-    res.json({ 
-      success: true,
-      data: rec 
-    });
+    return res.json({ success: true, data: rec });
   } catch (err) {
-    res.status(500).json({ 
+    return res.status(500).json({
       success: false,
-      message: err.message || 'Failed to fetch maintenance record'
+      message: "Failed to fetch maintenance record",
     });
   }
 };
 
 exports.updateMaintenanceRecord = async (req, res) => {
   try {
-    const rec = await Maintenance.findByIdAndUpdate(
-      req.params.id, 
-      req.body, 
-      { new: true, runValidators: true }
-    ).populate('asset_id', 'name unique_asset_id asset_type');
-    
-    if (!rec) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Maintenance record not found' 
-      });
+    const supabase = getSupabase();
+
+    const {
+      asset_id,
+      maintenance_type,
+      maintenance_date,
+      description,
+      notes,
+      cost,
+      performed_by,
+      priority,
+      status,
+      estimated_duration,
+      actual_duration,
+      downtime_impact,
+      next_maintenance_date,
+      vendor_id,
+    } = req.body;
+
+    const updatePayload = {};
+    if (asset_id !== undefined) updatePayload.asset_id = asset_id;
+    if (maintenance_type !== undefined)
+      updatePayload.maintenance_type = maintenance_type;
+    if (maintenance_date !== undefined)
+      updatePayload.maintenance_date = maintenance_date;
+    if (description !== undefined) updatePayload.description = description;
+    if (notes !== undefined) updatePayload.description = notes;
+    if (cost !== undefined) updatePayload.cost = cost;
+    if (performed_by !== undefined) updatePayload.performed_by = performed_by;
+    if (priority !== undefined) updatePayload.priority = priority;
+    if (status !== undefined) updatePayload.status = status;
+    if (estimated_duration !== undefined)
+      updatePayload.estimated_duration = estimated_duration;
+    if (actual_duration !== undefined)
+      updatePayload.actual_duration = actual_duration;
+    if (downtime_impact !== undefined)
+      updatePayload.downtime_impact = downtime_impact;
+    if (next_maintenance_date !== undefined)
+      updatePayload.next_maintenance_date = next_maintenance_date;
+    if (vendor_id !== undefined) updatePayload.vendor_id = vendor_id;
+
+    const { data: rec, error } = await supabase
+      .from("maintenances")
+      .update(updatePayload)
+      .eq("id", req.params.id)
+      .select(`*, assets:asset_id ( id, name, unique_asset_id, asset_type )`)
+      .single();
+
+    if (error || !rec) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Maintenance record not found" });
     }
 
-    logger.info('Maintenance record updated', {
+    logger.info("Maintenance record updated", {
       userId: req.user?.id,
-      maintenanceId: rec._id
+      maintenanceId: rec.id,
     });
 
-    res.json({ 
+    return res.json({
       success: true,
-      message: 'Maintenance record updated successfully', 
-      data: rec 
+      message: "Maintenance record updated successfully",
+      data: rec,
     });
   } catch (err) {
-    logger.error('Error updating maintenance record:', err);
-    res.status(400).json({ 
+    logger.error("Error updating maintenance record:", err);
+    return res.status(400).json({
       success: false,
-      message: err.message || 'Failed to update maintenance record'
+      message: "Failed to update maintenance record",
     });
   }
 };
 
 exports.deleteMaintenanceRecord = async (req, res) => {
   try {
-    const rec = await Maintenance.findByIdAndDelete(req.params.id);
-    if (!rec) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Maintenance record not found' 
-      });
+    const supabase = getSupabase();
+
+    const { data: rec, error: fetchError } = await supabase
+      .from("maintenances")
+      .select("id")
+      .eq("id", req.params.id)
+      .single();
+
+    if (fetchError || !rec) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Maintenance record not found" });
     }
 
-    logger.info('Maintenance record deleted', {
+    const { error: deleteError } = await supabase
+      .from("maintenances")
+      .delete()
+      .eq("id", req.params.id);
+
+    if (deleteError) throw deleteError;
+
+    logger.info("Maintenance record deleted", {
       userId: req.user?.id,
-      maintenanceId: req.params.id
+      maintenanceId: req.params.id,
     });
 
-    res.json({ 
+    return res.json({
       success: true,
-      message: 'Maintenance record deleted successfully' 
+      message: "Maintenance record deleted successfully",
     });
   } catch (err) {
-    logger.error('Error deleting maintenance record:', err);
-    res.status(500).json({ 
+    logger.error("Error deleting maintenance record:", err);
+    return res.status(500).json({
       success: false,
-      message: err.message || 'Failed to delete maintenance record'
+      message: "Failed to delete maintenance record",
     });
   }
 };
@@ -212,64 +289,59 @@ exports.deleteMaintenanceRecord = async (req, res) => {
 // Get technicians (users with maintenance capabilities and their workload)
 exports.getTechnicians = async (req, res) => {
   try {
-    // Get users who have maintenance-related roles or activities
-    const User = require('../models/user');
-    const users = await User.find({ 
-      $or: [
-        { role: 'ADMIN' },
-        { role: 'INVENTORY_MANAGER' },
-        { 'permissions': { $in: ['schedule_maintenance', 'approve_maintenance'] } }
-      ]
-    }).select('name email role full_name').lean();
+    const supabase = getSupabase();
+
+    const { data: users, error: usersError } = await supabase
+      .from("users")
+      .select("id, name, email, role")
+      .in("role", ["ADMIN", "INVENTORY_MANAGER"]);
+
+    if (usersError) throw usersError;
 
     if (!users || users.length === 0) {
-      return res.json({ 
-        success: true,
-        data: [] 
-      });
+      return res.json({ success: true, data: [] });
     }
 
-    // Get current workload for each technician
     const techniciansWithWorkload = await Promise.all(
       users.map(async (user) => {
-        const userName = user.name || user.full_name || user.email.split('@')[0];
-        
-        const currentWorkload = await Maintenance.countDocuments({
-          performed_by: userName,
-          status: { $in: ['Scheduled', 'In Progress'] }
-        });
-        
-        const totalCompleted = await Maintenance.countDocuments({
-          performed_by: userName,
-          status: 'Completed'
-        });
+        const userName = user.name || user.email.split("@")[0];
+
+        const { count: currentWorkload } = await supabase
+          .from("maintenances")
+          .select("id", { count: "exact", head: true })
+          .eq("performed_by", userName)
+          .in("status", ["Scheduled", "In Progress"]);
+
+        const { count: totalCompleted } = await supabase
+          .from("maintenances")
+          .select("id", { count: "exact", head: true })
+          .eq("performed_by", userName)
+          .eq("status", "Completed");
 
         return {
-          id: user._id.toString(),
+          id: user.id,
           name: userName,
           email: user.email,
-          specialization: ['General Maintenance', 'Equipment Repair'],
-          current_workload: currentWorkload,
-          rating: totalCompleted > 0 ? Math.min(5.0, 3.5 + (totalCompleted / 20)) : 4.0,
-          total_completed: totalCompleted
+          specialization: ["General Maintenance", "Equipment Repair"],
+          current_workload: currentWorkload || 0,
+          rating:
+            totalCompleted > 0 ? Math.min(5.0, 3.5 + totalCompleted / 20) : 4.0,
+          total_completed: totalCompleted || 0,
         };
-      })
+      }),
     );
 
-    logger.info('Technicians retrieved', {
+    logger.info("Technicians retrieved", {
       userId: req.user?.id,
-      count: techniciansWithWorkload.length
+      count: techniciansWithWorkload.length,
     });
 
-    res.json({ 
-      success: true,
-      data: techniciansWithWorkload 
-    });
+    return res.json({ success: true, data: techniciansWithWorkload });
   } catch (err) {
-    logger.error('Error fetching technicians:', err);
-    res.status(500).json({ 
+    logger.error("Error fetching technicians:", err);
+    return res.status(500).json({
       success: false,
-      message: err.message || 'Failed to fetch technicians'
+      message: "Failed to fetch technicians",
     });
   }
 };
@@ -277,135 +349,138 @@ exports.getTechnicians = async (req, res) => {
 // Get warranties (assets with warranty information)
 exports.getWarranties = async (req, res) => {
   try {
-    const Asset = require('../models/asset');
-    const Vendor = require('../models/vendor');
-    
-    // Fetch all assets with warranty information
-    const assets = await Asset.find({
-      warranty_expiry: { $exists: true, $ne: null }
-    })
-    .populate('vendor', 'company_name contact_person email phone')
-    .lean();
+    const supabase = getSupabase();
 
-    // Transform to warranty format
-    const warranties = assets.map(asset => {
-      const today = new Date();
+    const { data: assets, error } = await supabase
+      .from("assets")
+      .select(
+        `
+        id, unique_asset_id, name, manufacturer, model, serial_number,
+        asset_type, purchase_date, purchase_cost, warranty_expiry,
+        vendors:vendor ( id, company_name )
+      `,
+      )
+      .not("warranty_expiry", "is", null);
+
+    if (error) throw error;
+
+    const today = new Date();
+    const warranties = (assets || []).map((asset) => {
       const warrantyExpiry = new Date(asset.warranty_expiry);
-      const warrantyStart = asset.purchase_date ? new Date(asset.purchase_date) : new Date(warrantyExpiry.getFullYear() - 1, warrantyExpiry.getMonth(), warrantyExpiry.getDate());
-      const daysUntilExpiry = Math.ceil((warrantyExpiry - today) / (1000 * 60 * 60 * 24));
-      
-      // Determine status
-      let status = 'Active';
-      if (daysUntilExpiry < 0) {
-        status = 'Expired';
-      } else if (daysUntilExpiry <= 30) {
-        status = 'Expiring Soon';
-      }
-      
-      // Determine warranty type based on duration or default
-      let warrantyType = 'Standard';
-      if (warrantyExpiry && warrantyStart) {
-        const warrantyDuration = Math.ceil((warrantyExpiry - warrantyStart) / (1000 * 60 * 60 * 24));
-        if (warrantyDuration > 730) { // More than 2 years
-          warrantyType = 'Extended';
-        } else if (warrantyDuration > 365) { // More than 1 year
-          warrantyType = 'Comprehensive';
-        }
-      }
+      const warrantyStart = asset.purchase_date
+        ? new Date(asset.purchase_date)
+        : new Date(
+            warrantyExpiry.getFullYear() - 1,
+            warrantyExpiry.getMonth(),
+            warrantyExpiry.getDate(),
+          );
+      const daysUntilExpiry = Math.ceil(
+        (warrantyExpiry - today) / (1000 * 60 * 60 * 24),
+      );
+
+      let status = "Active";
+      if (daysUntilExpiry < 0) status = "Expired";
+      else if (daysUntilExpiry <= 30) status = "Expiring Soon";
+
+      const warrantyDuration = Math.ceil(
+        (warrantyExpiry - warrantyStart) / (1000 * 60 * 60 * 24),
+      );
+      let warrantyType = "Standard";
+      if (warrantyDuration > 730) warrantyType = "Extended";
+      else if (warrantyDuration > 365) warrantyType = "Comprehensive";
 
       return {
-        id: asset._id.toString(),
-        assetId: asset.unique_asset_id || asset._id.toString(),
-        assetName: asset.name || asset.model || 'Unknown Asset',
-        manufacturer: asset.manufacturer || 'Unknown',
-        model: asset.model || 'Unknown',
-        serialNumber: asset.serial_number || 'N/A',
-        warrantyType: warrantyType,
+        id: asset.id,
+        assetId: asset.unique_asset_id || asset.id,
+        assetName: asset.name || asset.model || "Unknown Asset",
+        manufacturer: asset.manufacturer || "Unknown",
+        model: asset.model || "Unknown",
+        serialNumber: asset.serial_number || "N/A",
+        warrantyType,
         startDate: warrantyStart.toISOString(),
         endDate: warrantyExpiry.toISOString(),
-        status: status,
-        vendor: asset.vendor?.company_name || 'Unknown Vendor',
+        status,
+        vendor: asset.vendors?.company_name || "Unknown Vendor",
         claimHistory: 0,
-        coverageDetails: `${warrantyType} warranty coverage for ${asset.asset_type || 'asset'}. Includes parts and labor.`,
+        coverageDetails: `${warrantyType} warranty coverage for ${asset.asset_type || "asset"}. Includes parts and labor.`,
         coverageValue: asset.purchase_cost || 0,
-        lastClaimDate: null
+        lastClaimDate: null,
       };
     });
 
-    res.json({ 
+    return res.json({
       success: true,
       data: warranties,
-      total: warranties.length
+      total: warranties.length,
     });
   } catch (err) {
-    res.status(500).json({ 
-      success: false,
-      message: err.message 
-    });
+    return res
+      .status(500)
+      .json({ success: false, message: "An internal server error occurred" });
   }
 };
 
 // File warranty claim
 exports.fileWarrantyClaim = async (req, res) => {
   try {
-    const { warrantyId, assetId, description, issueType, contactPerson, contactEmail } = req.body;
-    
+    const supabase = getSupabase();
+    const { assetId, description, issueType, contactPerson } = req.body;
+
     if (!assetId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Asset ID is required'
-      });
+      return res
+        .status(400)
+        .json({ success: false, message: "Asset ID is required" });
     }
 
-    // Verify the asset exists
-    const Asset = require('../models/asset');
-    const asset = await Asset.findOne({
-      $or: [
-        { _id: assetId },
-        { unique_asset_id: assetId }
-      ]
-    });
+    // Find asset by id or unique_asset_id
+    const { data: asset, error: assetError } = await supabase
+      .from("assets")
+      .select("id, name, unique_asset_id")
+      .or(`id.eq.${assetId},unique_asset_id.eq.${assetId}`)
+      .maybeSingle();
 
-    if (!asset) {
-      return res.status(404).json({
-        success: false,
-        message: 'Asset not found'
-      });
+    if (assetError || !asset) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Asset not found" });
     }
 
-    // Create a maintenance record for the warranty claim
-    const maintenanceRecord = new Maintenance({
-      asset_id: asset._id, // Use MongoDB ObjectId
-      maintenance_type: 'Corrective',
-      description: `Warranty Claim: ${description || 'Warranty service request'}`,
-      status: 'Scheduled',
-      priority: 'High',
+    const maintenanceData = {
+      asset,
+      maintenance_type: "Corrective",
+      description: `Warranty Claim: ${description || "Warranty service request"}`,
+      status: "Scheduled",
+      priority: "High",
       created_by: req.user.id,
-      maintenance_date: new Date(),
-      notes: issueType ? `Issue Type: ${issueType}` : undefined,
-      technician_name: contactPerson || 'Vendor Support',
-      cost: 0 // Warranty covered
-    });
+      maintenance_date: new Date().toISOString(),
+      performed_by: contactPerson || "Vendor Support",
+      cost: 0,
+    };
 
-    await maintenanceRecord.save();
+    const { data: maintenanceRecord, error: insertError } = await supabase
+      .from("maintenances")
+      .insert(maintenanceData)
+      .select()
+      .single();
 
-    // Log the warranty claim
-    logger.info('Warranty claim filed', {
+    if (insertError) throw insertError;
+
+    logger.info("Warranty claim filed", {
       userId: req.user.id,
-      assetId: asset._id,
-      maintenanceId: maintenanceRecord._id
+      assetId: asset.id,
+      maintenanceId: maintenanceRecord.id,
     });
 
-    res.json({
+    return res.json({
       success: true,
-      message: 'Warranty claim filed successfully',
-      data: maintenanceRecord
+      message: "Warranty claim filed successfully",
+      data: maintenanceRecord,
     });
   } catch (err) {
-    logger.error('Error filing warranty claim:', err);
-    res.status(500).json({
+    logger.error("Error filing warranty claim:", err);
+    return res.status(500).json({
       success: false,
-      message: err.message || 'Failed to file warranty claim'
+      message: "Failed to file warranty claim",
     });
   }
 };
@@ -413,304 +488,360 @@ exports.fileWarrantyClaim = async (req, res) => {
 // Get warranty by ID
 exports.getWarrantyById = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const { id } = req.params;
-    const Asset = require('../models/asset');
-    const Vendor = require('../models/vendor');
-    
-    const asset = await Asset.findById(id).populate('vendor', 'company_name contact_person email phone').lean();
-    
-    if (!asset || !asset.warranty_expiry) {
-      return res.status(404).json({
-        success: false,
-        message: 'Warranty not found'
-      });
+
+    const { data: asset, error } = await supabase
+      .from("assets")
+      .select(
+        `
+        id, unique_asset_id, name, manufacturer, model, serial_number,
+        asset_type, purchase_date, purchase_cost, warranty_expiry,
+        vendors:vendor ( id, company_name )
+      `,
+      )
+      .eq("id", id)
+      .single();
+
+    if (error || !asset || !asset.warranty_expiry) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Warranty not found" });
     }
 
     const today = new Date();
     const warrantyExpiry = new Date(asset.warranty_expiry);
-    const warrantyStart = asset.purchase_date ? new Date(asset.purchase_date) : new Date(warrantyExpiry.getFullYear() - 1, warrantyExpiry.getMonth(), warrantyExpiry.getDate());
-    const daysUntilExpiry = Math.ceil((warrantyExpiry - today) / (1000 * 60 * 60 * 24));
-    
-    let status = 'Active';
-    if (daysUntilExpiry < 0) {
-      status = 'Expired';
-    } else if (daysUntilExpiry <= 30) {
-      status = 'Expiring Soon';
-    }
-    
-    let warrantyType = 'Standard';
-    if (warrantyExpiry && warrantyStart) {
-      const warrantyDuration = Math.ceil((warrantyExpiry - warrantyStart) / (1000 * 60 * 60 * 24));
-      if (warrantyDuration > 730) {
-        warrantyType = 'Extended';
-      } else if (warrantyDuration > 365) {
-        warrantyType = 'Comprehensive';
-      }
-    }
+    const warrantyStart = asset.purchase_date
+      ? new Date(asset.purchase_date)
+      : new Date(
+          warrantyExpiry.getFullYear() - 1,
+          warrantyExpiry.getMonth(),
+          warrantyExpiry.getDate(),
+        );
+    const daysUntilExpiry = Math.ceil(
+      (warrantyExpiry - today) / (1000 * 60 * 60 * 24),
+    );
+
+    let status = "Active";
+    if (daysUntilExpiry < 0) status = "Expired";
+    else if (daysUntilExpiry <= 30) status = "Expiring Soon";
+
+    const warrantyDuration = Math.ceil(
+      (warrantyExpiry - warrantyStart) / (1000 * 60 * 60 * 24),
+    );
+    let warrantyType = "Standard";
+    if (warrantyDuration > 730) warrantyType = "Extended";
+    else if (warrantyDuration > 365) warrantyType = "Comprehensive";
 
     const warranty = {
-      _id: asset._id.toString(),
-      id: asset._id.toString(),
-      assetId: asset.unique_asset_id || asset._id.toString(),
-      assetName: asset.name || asset.model || 'Unknown Asset',
-      manufacturer: asset.manufacturer || 'Unknown',
-      model: asset.model || 'Unknown',
-      serialNumber: asset.serial_number || 'N/A',
-      warrantyType: warrantyType,
+      id: asset.id,
+      assetId: asset.unique_asset_id || asset.id,
+      assetName: asset.name || asset.model || "Unknown Asset",
+      manufacturer: asset.manufacturer || "Unknown",
+      model: asset.model || "Unknown",
+      serialNumber: asset.serial_number || "N/A",
+      warrantyType,
       startDate: warrantyStart.toISOString(),
       endDate: warrantyExpiry.toISOString(),
-      status: status,
-      vendor: asset.vendor?.company_name || 'Unknown Vendor',
+      status,
+      vendor: asset.vendors?.company_name || "Unknown Vendor",
       claimHistory: 0,
-      coverageDetails: `${warrantyType} warranty coverage for ${asset.asset_type || 'asset'}. Includes parts and labor.`,
+      coverageDetails: `${warrantyType} warranty coverage for ${asset.asset_type || "asset"}. Includes parts and labor.`,
       coverageValue: asset.purchase_cost || 0,
-      lastClaimDate: null
+      lastClaimDate: null,
     };
 
-    res.json({
-      success: true,
-      data: warranty
-    });
+    return res.json({ success: true, data: warranty });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message
-    });
+    return res
+      .status(500)
+      .json({ success: false, message: "An internal server error occurred" });
   }
 };
 
 // Update warranty
 exports.updateWarranty = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const { id } = req.params;
-    const { endDate, warrantyType, coverageDetails } = req.body;
-    const Asset = require('../models/asset');
-    
-    const asset = await Asset.findById(id);
-    
-    if (!asset) {
-      return res.status(404).json({
-        success: false,
-        message: 'Asset not found'
-      });
+    const { endDate } = req.body;
+
+    const { data: existing, error: fetchError } = await supabase
+      .from("assets")
+      .select("id")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !existing) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Asset not found" });
     }
 
-    if (endDate) asset.warranty_expiry = new Date(endDate);
-    
-    await asset.save();
+    const updatePayload = {};
+    if (endDate)
+      updatePayload.warranty_expiry = new Date(endDate).toISOString();
 
-    res.json({
+    const { data: asset, error: updateError } = await supabase
+      .from("assets")
+      .update(updatePayload)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    return res.json({
       success: true,
-      message: 'Warranty updated successfully',
-      data: asset
+      message: "Warranty updated successfully",
+      data: asset,
     });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message
-    });
+    return res
+      .status(500)
+      .json({ success: false, message: "An internal server error occurred" });
   }
 };
 
 // Extend warranty
 exports.extendWarranty = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const { id } = req.params;
-    const { newEndDate, cost } = req.body;
-    const Asset = require('../models/asset');
-    
-    const asset = await Asset.findById(id);
-    
-    if (!asset) {
-      return res.status(404).json({
-        success: false,
-        message: 'Asset not found'
-      });
+    const { newEndDate } = req.body;
+
+    const { data: existing, error: fetchError } = await supabase
+      .from("assets")
+      .select("id")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !existing) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Asset not found" });
     }
 
-    asset.warranty_expiry = new Date(newEndDate);
-    await asset.save();
+    const { data: asset, error: updateError } = await supabase
+      .from("assets")
+      .update({ warranty_expiry: new Date(newEndDate).toISOString() })
+      .eq("id", id)
+      .select()
+      .single();
 
-    // Log the extension
-    logger.info('Warranty extended', {
+    if (updateError) throw updateError;
+
+    logger.info("Warranty extended", {
       userId: req.user.id,
       assetId: id,
-      newEndDate
+      newEndDate,
     });
 
-    res.json({
+    return res.json({
       success: true,
-      message: 'Warranty extended successfully',
-      data: asset
+      message: "Warranty extended successfully",
+      data: asset,
     });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message
-    });
+    return res
+      .status(500)
+      .json({ success: false, message: "An internal server error occurred" });
   }
 };
 
 // Get warranty claim history
 exports.getWarrantyClaimHistory = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const { id } = req.params;
-    
-    // Find all maintenance records for warranty claims on this asset
-    const claims = await Maintenance.find({
-      asset_id: id,
-      description: { $regex: 'Warranty Claim', $options: 'i' }
-    })
-    .sort({ createdAt: -1 })
-    .lean();
 
-    res.json({
-      success: true,
-      data: claims
-    });
+    const { data: claims, error } = await supabase
+      .from("maintenances")
+      .select("*")
+      .eq("asset_id", id)
+      .ilike("description", "%Warranty Claim%")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    return res.json({ success: true, data: claims || [] });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message
-    });
+    return res
+      .status(500)
+      .json({ success: false, message: "An internal server error occurred" });
   }
 };
 
 // Get warranty statistics
 exports.getWarrantyStats = async (req, res) => {
   try {
-    const Asset = require('../models/asset');
-    
-    const today = new Date();
-    const thirtyDaysFromNow = new Date(today);
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    const supabase = getSupabase();
 
-    const [activeAssets, expiringAssets, expiredAssets, allWarrantyAssets] = await Promise.all([
-      Asset.countDocuments({
-        warranty_expiry: { $exists: true, $ne: null, $gte: thirtyDaysFromNow }
-      }),
-      Asset.countDocuments({
-        warranty_expiry: { $gte: today, $lte: thirtyDaysFromNow }
-      }),
-      Asset.countDocuments({
-        warranty_expiry: { $lt: today }
-      }),
-      Asset.find({
-        warranty_expiry: { $exists: true, $ne: null }
-      }).select('purchase_cost').lean()
+    const today = new Date().toISOString();
+    const thirtyDaysFromNow = new Date(
+      Date.now() + 30 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    const [
+      { count: activeCount },
+      { count: expiringCount },
+      { count: expiredCount },
+      { data: allWarrantyAssets },
+      { count: claimsCount },
+    ] = await Promise.all([
+      supabase
+        .from("assets")
+        .select("id", { count: "exact", head: true })
+        .not("warranty_expiry", "is", null)
+        .gt("warranty_expiry", thirtyDaysFromNow),
+      supabase
+        .from("assets")
+        .select("id", { count: "exact", head: true })
+        .gte("warranty_expiry", today)
+        .lte("warranty_expiry", thirtyDaysFromNow),
+      supabase
+        .from("assets")
+        .select("id", { count: "exact", head: true })
+        .lt("warranty_expiry", today),
+      supabase
+        .from("assets")
+        .select("purchase_cost")
+        .not("warranty_expiry", "is", null),
+      supabase
+        .from("maintenances")
+        .select("id", { count: "exact", head: true })
+        .ilike("description", "%Warranty Claim%"),
     ]);
 
-    const totalCoverageValue = allWarrantyAssets.reduce((sum, asset) => sum + (asset.purchase_cost || 0), 0);
-    
-    // Get warranty claims
-    const claims = await Maintenance.countDocuments({
-      description: { $regex: 'Warranty Claim', $options: 'i' }
-    });
+    const totalCoverageValue = (allWarrantyAssets || []).reduce(
+      (sum, a) => sum + (a.purchase_cost || 0),
+      0,
+    );
+    const totalWarranties =
+      (activeCount || 0) + (expiringCount || 0) + (expiredCount || 0);
+    const claimRate =
+      totalWarranties > 0 ? ((claimsCount || 0) / totalWarranties) * 100 : 0;
 
-    const totalWarranties = activeAssets + expiringAssets + expiredAssets;
-    const claimRate = totalWarranties > 0 ? (claims / totalWarranties) * 100 : 0;
-
-    res.json({
+    return res.json({
       success: true,
       data: {
-        activeCount: activeAssets,
-        expiringCount: expiringAssets,
-        expiredCount: expiredAssets,
+        activeCount: activeCount || 0,
+        expiringCount: expiringCount || 0,
+        expiredCount: expiredCount || 0,
         totalCoverageValue,
-        claimRate: claimRate.toFixed(2)
-      }
+        claimRate: claimRate.toFixed(2),
+      },
     });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message
-    });
+    return res
+      .status(500)
+      .json({ success: false, message: "An internal server error occurred" });
   }
 };
 
 // Export warranty report
 exports.exportWarrantyReport = async (req, res) => {
   try {
-    const { format = 'csv', search = '', status = '' } = req.query;
-    const Asset = require('../models/asset');
-    const Vendor = require('../models/vendor');
-    
-    let query = { warranty_expiry: { $exists: true, $ne: null } };
-    
+    const supabase = getSupabase();
+    const { format = "csv", search = "", status = "" } = req.query;
+
+    let query = supabase
+      .from("assets")
+      .select(
+        `
+        id, unique_asset_id, name, manufacturer, model, serial_number,
+        asset_type, purchase_date, purchase_cost, warranty_expiry,
+        vendors:vendor ( id, company_name )
+      `,
+      )
+      .not("warranty_expiry", "is", null);
+
     if (search) {
-      query.$or = [
-        { unique_asset_id: { $regex: search, $options: 'i' } },
-        { name: { $regex: search, $options: 'i' } },
-        { manufacturer: { $regex: search, $options: 'i' } },
-        { serial_number: { $regex: search, $options: 'i' } }
-      ];
+      query = query.or(
+        `unique_asset_id.ilike.%${search}%,name.ilike.%${search}%,manufacturer.ilike.%${search}%,serial_number.ilike.%${search}%`,
+      );
     }
 
-    const assets = await Asset.find(query).populate('vendor', 'company_name').lean();
+    const { data: assets, error } = await query;
+    if (error) throw error;
 
-    const warranties = assets.map(asset => {
-      const today = new Date();
+    const today = new Date();
+    const warranties = (assets || []).map((asset) => {
       const warrantyExpiry = new Date(asset.warranty_expiry);
-      const warrantyStart = asset.purchase_date ? new Date(asset.purchase_date) : new Date(warrantyExpiry.getFullYear() - 1, warrantyExpiry.getMonth(), warrantyExpiry.getDate());
-      const daysUntilExpiry = Math.ceil((warrantyExpiry - today) / (1000 * 60 * 60 * 24));
-      
-      let itemStatus = 'Active';
-      if (daysUntilExpiry < 0) {
-        itemStatus = 'Expired';
-      } else if (daysUntilExpiry <= 30) {
-        itemStatus = 'Expiring Soon';
-      }
-      
-      let warrantyType = 'Standard';
-      if (warrantyExpiry && warrantyStart) {
-        const warrantyDuration = Math.ceil((warrantyExpiry - warrantyStart) / (1000 * 60 * 60 * 24));
-        if (warrantyDuration > 730) {
-          warrantyType = 'Extended';
-        } else if (warrantyDuration > 365) {
-          warrantyType = 'Comprehensive';
-        }
-      }
+      const warrantyStart = asset.purchase_date
+        ? new Date(asset.purchase_date)
+        : new Date(
+            warrantyExpiry.getFullYear() - 1,
+            warrantyExpiry.getMonth(),
+            warrantyExpiry.getDate(),
+          );
+      const daysUntilExpiry = Math.ceil(
+        (warrantyExpiry - today) / (1000 * 60 * 60 * 24),
+      );
+
+      let itemStatus = "Active";
+      if (daysUntilExpiry < 0) itemStatus = "Expired";
+      else if (daysUntilExpiry <= 30) itemStatus = "Expiring Soon";
+
+      const warrantyDuration = Math.ceil(
+        (warrantyExpiry - warrantyStart) / (1000 * 60 * 60 * 24),
+      );
+      let warrantyType = "Standard";
+      if (warrantyDuration > 730) warrantyType = "Extended";
+      else if (warrantyDuration > 365) warrantyType = "Comprehensive";
 
       return {
-        assetId: asset.unique_asset_id || asset._id.toString(),
-        assetName: asset.name || asset.model || 'Unknown Asset',
-        manufacturer: asset.manufacturer || 'Unknown',
-        model: asset.model || 'Unknown',
-        serialNumber: asset.serial_number || 'N/A',
+        assetId: asset.unique_asset_id || asset.id,
+        assetName: asset.name || asset.model || "Unknown Asset",
+        manufacturer: asset.manufacturer || "Unknown",
+        model: asset.model || "Unknown",
+        serialNumber: asset.serial_number || "N/A",
         warrantyType,
-        vendor: asset.vendor?.company_name || 'Unknown Vendor',
-        startDate: warrantyStart.toISOString().split('T')[0],
-        endDate: warrantyExpiry.toISOString().split('T')[0],
+        vendor: asset.vendors?.company_name || "Unknown Vendor",
+        startDate: warrantyStart.toISOString().split("T")[0],
+        endDate: warrantyExpiry.toISOString().split("T")[0],
         daysUntilExpiry: daysUntilExpiry > 0 ? daysUntilExpiry : 0,
         status: itemStatus,
-        coverageValue: asset.purchase_cost || 0
+        coverageValue: asset.purchase_cost || 0,
       };
     });
 
-    // Filter by status if provided
-    const filteredWarranties = status && status !== 'All'
-      ? warranties.filter(w => w.status === status)
-      : warranties;
+    const filteredWarranties =
+      status && status !== "All"
+        ? warranties.filter((w) => w.status === status)
+        : warranties;
 
-    if (format === 'csv') {
-      // Proper CSV escaping function
+    if (format === "csv") {
       const escapeCsvValue = (value) => {
-        if (value === null || value === undefined) return '';
+        if (value === null || value === undefined) return "";
         const stringValue = String(value);
-        // Escape quotes by doubling them and wrap in quotes if contains comma, quote, or newline
-        if (stringValue.includes('"') || stringValue.includes(',') || stringValue.includes('\n') || stringValue.includes('\r')) {
+        if (
+          stringValue.includes('"') ||
+          stringValue.includes(",") ||
+          stringValue.includes("\n") ||
+          stringValue.includes("\r")
+        ) {
           return `"${stringValue.replace(/"/g, '""')}"`;
         }
         return `"${stringValue}"`;
       };
 
       const csvHeaders = [
-        'Asset ID', 'Asset Name', 'Manufacturer', 'Model', 'Serial Number',
-        'Warranty Type', 'Vendor', 'Start Date', 'End Date', 'Days Until Expiry',
-        'Status', 'Coverage Value (₹)'
+        "Asset ID",
+        "Asset Name",
+        "Manufacturer",
+        "Model",
+        "Serial Number",
+        "Warranty Type",
+        "Vendor",
+        "Start Date",
+        "End Date",
+        "Days Until Expiry",
+        "Status",
+        "Coverage Value (Rs.)",
       ];
 
-      const csvRows = filteredWarranties.map(w => [
+      const csvRows = filteredWarranties.map((w) => [
         escapeCsvValue(w.assetId),
         escapeCsvValue(w.assetName),
         escapeCsvValue(w.manufacturer),
@@ -722,35 +853,41 @@ exports.exportWarrantyReport = async (req, res) => {
         escapeCsvValue(w.endDate),
         escapeCsvValue(w.daysUntilExpiry),
         escapeCsvValue(w.status),
-        escapeCsvValue(w.coverageValue ? w.coverageValue.toLocaleString('en-IN') : '0')
+        escapeCsvValue(
+          w.coverageValue ? w.coverageValue.toLocaleString("en-IN") : "0",
+        ),
       ]);
 
-      // Add BOM for proper Excel UTF-8 support
-      const BOM = '\uFEFF';
-      const csvContent = BOM + [
-        csvHeaders.map(h => escapeCsvValue(h)).join(','),
-        ...csvRows.map(row => row.join(','))
-      ].join('\r\n'); // Use Windows line endings for Excel compatibility
+      const BOM = "\uFEFF";
+      const csvContent =
+        BOM +
+        [
+          csvHeaders.map((h) => escapeCsvValue(h)).join(","),
+          ...csvRows.map((row) => row.join(",")),
+        ].join("\r\n");
 
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename=warranty-report-${new Date().toISOString().split('T')[0]}.csv`);
-      res.send(csvContent);
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: 'Unsupported export format. Only CSV is supported.'
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=warranty-report-${new Date().toISOString().split("T")[0]}.csv`,
+      );
+
+      logger.info("Warranty report exported", {
+        userId: req.user?.id,
+        format,
+        count: filteredWarranties.length,
       });
+
+      return res.send(csvContent);
     }
 
-    logger.info('Warranty report exported', {
-      userId: req.user.id,
-      format,
-      count: filteredWarranties.length
+    return res.status(400).json({
+      success: false,
+      message: "Unsupported export format. Only CSV is supported.",
     });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      message: err.message
-    });
+    return res
+      .status(500)
+      .json({ success: false, message: "An internal server error occurred" });
   }
 };

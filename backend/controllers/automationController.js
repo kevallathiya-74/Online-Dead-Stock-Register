@@ -1,6 +1,6 @@
-const assetDisposalAutomation = require('../services/assetDisposalAutomation');
-const scheduledJobs = require('../services/scheduledJobs');
-const logger = require('../utils/logger');
+const assetDisposalAutomation = require("../services/assetDisposalAutomation");
+const scheduledJobs = require("../services/scheduledJobs");
+const logger = require("../utils/logger");
 
 /**
  * 🤖 DISPOSAL AUTOMATION CONTROLLER
@@ -24,10 +24,10 @@ exports.getAutomationStatus = async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error('Failed to get automation status:', error);
+    logger.error("Failed to get automation status:", error);
     res.status(500).json({
       success: false,
-      error: 'Failed to retrieve automation status',
+      error: "Failed to retrieve automation status",
     });
   }
 };
@@ -36,20 +36,22 @@ exports.getAutomationStatus = async (req, res) => {
 // Manual trigger for disposal automation (Admin only)
 exports.triggerDisposalCheck = async (req, res) => {
   try {
-    logger.info(`🔧 Manual disposal check triggered by user: ${req.user.email}`);
-    
+    logger.info(
+      `🔧 Manual disposal check triggered by user: ${req.user.email}`,
+    );
+
     const result = await scheduledJobs.triggerDisposalCheckNow();
 
     res.json({
       success: true,
-      message: 'Disposal automation completed successfully',
+      message: "Disposal automation completed successfully",
       data: result,
     });
   } catch (error) {
-    logger.error('Failed to trigger disposal check:', error);
+    logger.error("Failed to trigger disposal check:", error);
     res.status(500).json({
       success: false,
-      error: error.message || 'Failed to run disposal automation',
+      error: error.message || "Failed to run disposal automation",
     });
   }
 };
@@ -70,38 +72,45 @@ exports.updateDisposalRules = async (req, res) => {
     if (maxAgeInYears && (maxAgeInYears < 1 || maxAgeInYears > 50)) {
       return res.status(400).json({
         success: false,
-        error: 'maxAgeInYears must be between 1 and 50',
+        error: "maxAgeInYears must be between 1 and 50",
       });
     }
 
-    if (maxDepreciationPercent && (maxDepreciationPercent < 50 || maxDepreciationPercent > 100)) {
+    if (
+      maxDepreciationPercent &&
+      (maxDepreciationPercent < 50 || maxDepreciationPercent > 100)
+    ) {
       return res.status(400).json({
         success: false,
-        error: 'maxDepreciationPercent must be between 50 and 100',
+        error: "maxDepreciationPercent must be between 50 and 100",
       });
     }
 
     const updatedRules = {};
     if (maxAgeInYears !== undefined) updatedRules.maxAgeInYears = maxAgeInYears;
-    if (maxDepreciationPercent !== undefined) updatedRules.maxDepreciationPercent = maxDepreciationPercent;
-    if (minDaysSinceLastUse !== undefined) updatedRules.minDaysSinceLastUse = minDaysSinceLastUse;
-    if (autoMarkConditions !== undefined) updatedRules.autoMarkConditions = autoMarkConditions;
-    if (minPurchaseCostForCheck !== undefined) updatedRules.minPurchaseCostForCheck = minPurchaseCostForCheck;
+    if (maxDepreciationPercent !== undefined)
+      updatedRules.maxDepreciationPercent = maxDepreciationPercent;
+    if (minDaysSinceLastUse !== undefined)
+      updatedRules.minDaysSinceLastUse = minDaysSinceLastUse;
+    if (autoMarkConditions !== undefined)
+      updatedRules.autoMarkConditions = autoMarkConditions;
+    if (minPurchaseCostForCheck !== undefined)
+      updatedRules.minPurchaseCostForCheck = minPurchaseCostForCheck;
 
     assetDisposalAutomation.updateRules(updatedRules);
 
     res.json({
       success: true,
-      message: 'Disposal rules updated successfully',
+      message: "Disposal rules updated successfully",
       data: {
         rules: assetDisposalAutomation.disposalRules,
       },
     });
   } catch (error) {
-    logger.error('Failed to update disposal rules:', error);
+    logger.error("Failed to update disposal rules:", error);
     res.status(500).json({
       success: false,
-      error: 'Failed to update disposal rules',
+      error: "Failed to update disposal rules",
     });
   }
 };
@@ -112,12 +121,16 @@ exports.getEligibleAssets = async (req, res) => {
   try {
     const eligibleAssets = await assetDisposalAutomation.findEligibleAssets();
 
-    const assetsWithReasons = eligibleAssets.map(asset => {
-      const depreciationPercent = assetDisposalAutomation.calculateDepreciation(asset);
-      const reason = assetDisposalAutomation.determineDisposalReason(asset, depreciationPercent);
-      
+    const assetsWithReasons = eligibleAssets.map((asset) => {
+      const depreciationPercent =
+        assetDisposalAutomation.calculateDepreciation(asset);
+      const reason = assetDisposalAutomation.determineDisposalReason(
+        asset,
+        depreciationPercent,
+      );
+
       return {
-        id: asset._id,
+        id: asset.id,
         unique_asset_id: asset.unique_asset_id,
         name: `${asset.manufacturer} ${asset.model}`,
         category: asset.asset_type,
@@ -139,10 +152,10 @@ exports.getEligibleAssets = async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error('Failed to get eligible assets:', error);
+    logger.error("Failed to get eligible assets:", error);
     res.status(500).json({
       success: false,
-      error: 'Failed to retrieve eligible assets',
+      error: "Failed to retrieve eligible assets",
     });
   }
 };
@@ -158,10 +171,10 @@ exports.getSchedulerStatus = async (req, res) => {
       data: status,
     });
   } catch (error) {
-    logger.error('Failed to get scheduler status:', error);
+    logger.error("Failed to get scheduler status:", error);
     res.status(500).json({
       success: false,
-      error: 'Failed to retrieve scheduler status',
+      error: "Failed to retrieve scheduler status",
     });
   }
 };

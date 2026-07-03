@@ -1,5 +1,5 @@
-const Settings = require('../models/settings');
-const logger = require('../utils/logger');
+const logger = require("../utils/logger");
+const settingsService = require("../services/settingsService");
 
 /**
  * Middleware to check if user has access to specific settings category
@@ -12,15 +12,17 @@ const authorizeSettingsCategory = (category) => {
       if (!userRole) {
         return res.status(401).json({
           success: false,
-          message: 'User role not found',
+          message: "User role not found",
         });
       }
 
       // Check if role has access to the category
-      const hasAccess = await Settings.hasAccess(userRole, category);
+      const hasAccess = await settingsService.hasAccess(userRole, category);
 
       if (!hasAccess) {
-        logger.warn(`Access denied: User ${req.user._id} (${userRole}) attempted to access ${category} settings`);
+        logger.warn(
+          `Access denied: User ${req.user.id} (${userRole}) attempted to access ${category} settings`,
+        );
         return res.status(403).json({
           success: false,
           message: `Your role (${userRole}) does not have access to ${category} settings`,
@@ -30,10 +32,10 @@ const authorizeSettingsCategory = (category) => {
 
       next();
     } catch (error) {
-      logger.error('Error in authorizeSettingsCategory:', error);
+      logger.error("Error in authorizeSettingsCategory:", error);
       res.status(500).json({
         success: false,
-        message: 'Error checking permissions',
+        message: "Error checking permissions",
         error: error.message,
       });
     }
@@ -47,12 +49,14 @@ const authorizeSettingsCategory = (category) => {
 const authorizeRolePermissionManagement = (req, res, next) => {
   const userRole = req.user?.role;
 
-  if (userRole !== 'ADMIN') {
-    logger.warn(`Access denied: User ${req.user._id} (${userRole}) attempted to modify role permissions`);
+  if (userRole !== "ADMIN") {
+    logger.warn(
+      `Access denied: User ${req.user.id} (${userRole}) attempted to modify role permissions`,
+    );
     return res.status(403).json({
       success: false,
-      message: 'Only admin can modify role permissions',
-      requiredRole: 'ADMIN',
+      message: "Only admin can modify role permissions",
+      requiredRole: "ADMIN",
     });
   }
 
@@ -69,13 +73,13 @@ const validateSettingsUpdateAccess = async (req, res, next) => {
     if (!userRole) {
       return res.status(401).json({
         success: false,
-        message: 'User role not found',
+        message: "User role not found",
       });
     }
 
     const updates = req.body;
-    const categories = Object.keys(updates).filter(key => 
-      ['security', 'database', 'email', 'application'].includes(key)
+    const categories = Object.keys(updates).filter((key) =>
+      ["security", "database", "email", "application"].includes(key),
     );
 
     if (categories.length === 0) {
@@ -84,26 +88,32 @@ const validateSettingsUpdateAccess = async (req, res, next) => {
 
     // Check if user has access to ALL categories they're trying to update
     const accessChecks = await Promise.all(
-      categories.map(category => Settings.hasAccess(userRole, category))
+      categories.map((category) =>
+        settingsService.hasAccess(userRole, category),
+      ),
     );
 
-    const deniedCategories = categories.filter((_, index) => !accessChecks[index]);
+    const deniedCategories = categories.filter(
+      (_, index) => !accessChecks[index],
+    );
 
     if (deniedCategories.length > 0) {
-      logger.warn(`Access denied: User ${req.user._id} (${userRole}) attempted to update restricted categories: ${deniedCategories.join(', ')}`);
+      logger.warn(
+        `Access denied: User ${req.user.id} (${userRole}) attempted to update restricted categories: ${deniedCategories.join(", ")}`,
+      );
       return res.status(403).json({
         success: false,
-        message: `Your role (${userRole}) does not have access to: ${deniedCategories.join(', ')}`,
+        message: `Your role (${userRole}) does not have access to: ${deniedCategories.join(", ")}`,
         deniedCategories,
       });
     }
 
     next();
   } catch (error) {
-    logger.error('Error in validateSettingsUpdateAccess:', error);
+    logger.error("Error in validateSettingsUpdateAccess:", error);
     res.status(500).json({
       success: false,
-      message: 'Error checking permissions',
+      message: "Error checking permissions",
       error: error.message,
     });
   }

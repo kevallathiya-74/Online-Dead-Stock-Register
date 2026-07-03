@@ -1,7 +1,7 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const qrScanController = require('../controllers/qrScanController');
-const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
+const qrScanController = require("../controllers/qrScanController");
+const { authMiddleware, requireRole } = require("../middleware/authMiddleware");
 
 // All routes require authentication
 router.use(authMiddleware);
@@ -12,7 +12,7 @@ router.use(authMiddleware);
  * @access  All authenticated users
  * @query   mode (lookup|audit|checkout), include_history (boolean)
  */
-router.get('/scan/:qrCode', qrScanController.scanAsset);
+router.get("/scan/:qrCode", qrScanController.scanAsset);
 
 /**
  * @route   POST /api/qr/batch-scan
@@ -20,7 +20,7 @@ router.get('/scan/:qrCode', qrScanController.scanAsset);
  * @access  All authenticated users
  * @body    { qr_codes: string[], mode: string }
  */
-router.post('/batch-scan', qrScanController.batchScan);
+router.post("/batch-scan", qrScanController.batchScan);
 
 /**
  * @route   GET /api/qr/history
@@ -28,7 +28,7 @@ router.post('/batch-scan', qrScanController.batchScan);
  * @access  All authenticated users
  * @query   limit, page, mode, asset_id
  */
-router.get('/history', qrScanController.getScanHistory);
+router.get("/history", qrScanController.getScanHistory);
 
 /**
  * @route   GET /api/qr/stats
@@ -36,7 +36,7 @@ router.get('/history', qrScanController.getScanHistory);
  * @access  All authenticated users
  * @query   period (24h|7d|30d|90d)
  */
-router.get('/stats', qrScanController.getScanStats);
+router.get("/stats", qrScanController.getScanStats);
 
 /**
  * @route   POST /api/qr/quick-audit/:qrCode
@@ -45,9 +45,9 @@ router.get('/stats', qrScanController.getScanStats);
  * @body    { condition, status, location_verified, notes, photos }
  */
 router.post(
-  '/quick-audit/:qrCode',
-  requireRole(['AUDITOR', 'ADMIN']),
-  qrScanController.quickAuditScan
+  "/quick-audit/:qrCode",
+  requireRole(["AUDITOR", "ADMIN"]),
+  qrScanController.quickAuditScan,
 );
 
 module.exports = router;

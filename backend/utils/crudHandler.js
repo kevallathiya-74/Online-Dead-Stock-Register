@@ -1,4 +1,4 @@
-const logger = require('./logger');
+const logger = require("./logger");
 
 /**
  * Generic CRUD handler utility to reduce code duplication across controllers
@@ -18,22 +18,24 @@ exports.createPaginatedListHandler = (Model, options = {}) => {
         page = 1,
         limit = 10,
         search,
-        sort_by = options.defaultSortBy || 'createdAt',
-        sort_order = 'asc'
+        sort_by = options.defaultSortBy || "createdAt",
+        sort_order = "asc",
       } = req.query;
 
       const skip = (page - 1) * limit;
 
       // Build filter object
       let filter = {};
-      
+
       // Apply custom filter builder if provided
       if (options.buildFilter) {
         filter = options.buildFilter(req.query);
       } else {
         // Default filter logic
-        Object.keys(req.query).forEach(key => {
-          if (!['page', 'limit', 'search', 'sort_by', 'sort_order'].includes(key)) {
+        Object.keys(req.query).forEach((key) => {
+          if (
+            !["page", "limit", "search", "sort_by", "sort_order"].includes(key)
+          ) {
             if (options.filterFields && options.filterFields.includes(key)) {
               filter[key] = req.query[key];
             }
@@ -43,13 +45,13 @@ exports.createPaginatedListHandler = (Model, options = {}) => {
 
       // Apply search if search fields are configured
       if (search && options.searchFields && options.searchFields.length > 0) {
-        filter.$or = options.searchFields.map(field => ({
-          [field]: { $regex: search, $options: 'i' }
+        filter.$or = options.searchFields.map((field) => ({
+          [field]: { $regex: search, $options: "i" },
         }));
       }
 
       // Build sort object
-      const sortOrder = sort_order === 'desc' ? -1 : 1;
+      const sortOrder = sort_order === "desc" ? -1 : 1;
       const sortObj = { [sort_by]: sortOrder };
 
       // Execute query with population if specified
@@ -60,7 +62,7 @@ exports.createPaginatedListHandler = (Model, options = {}) => {
 
       if (options.populate) {
         if (Array.isArray(options.populate)) {
-          options.populate.forEach(pop => {
+          options.populate.forEach((pop) => {
             query = query.populate(pop);
           });
         } else {
@@ -84,8 +86,8 @@ exports.createPaginatedListHandler = (Model, options = {}) => {
           total_items: total,
           items_per_page: parseInt(limit),
           has_next: page * limit < total,
-          has_prev: page > 1
-        }
+          has_prev: page > 1,
+        },
       };
 
       // Use custom response formatter if provided
@@ -95,13 +97,16 @@ exports.createPaginatedListHandler = (Model, options = {}) => {
 
       res.json(response);
     } catch (error) {
-      logger.error(`Error in paginated list handler for ${Model.modelName}:`, error);
+      logger.error(
+        `Error in paginated list handler for ${Model.modelName}:`,
+        error,
+      );
       if (next) {
         next(error);
       } else {
-        res.status(500).json({ 
+        res.status(500).json({
           success: false,
-          message: `Failed to fetch ${Model.modelName.toLowerCase()}s` 
+          message: `Failed to fetch ${Model.modelName.toLowerCase()}s`,
         });
       }
     }
@@ -123,7 +128,7 @@ exports.createGetByIdHandler = (Model, options = {}) => {
 
       if (options.populate) {
         if (Array.isArray(options.populate)) {
-          options.populate.forEach(pop => {
+          options.populate.forEach((pop) => {
             query = query.populate(pop);
           });
         } else {
@@ -140,7 +145,7 @@ exports.createGetByIdHandler = (Model, options = {}) => {
       if (!item) {
         return res.status(404).json({
           success: false,
-          message: `${Model.modelName} not found`
+          message: `${Model.modelName} not found`,
         });
       }
 
@@ -149,16 +154,16 @@ exports.createGetByIdHandler = (Model, options = {}) => {
 
       res.json({
         success: true,
-        data
+        data,
       });
     } catch (error) {
       logger.error(`Error fetching ${Model.modelName} by id:`, error);
       if (next) {
         next(error);
       } else {
-        res.status(500).json({ 
+        res.status(500).json({
           success: false,
-          message: `Failed to fetch ${Model.modelName.toLowerCase()}` 
+          message: `Failed to fetch ${Model.modelName.toLowerCase()}`,
         });
       }
     }
@@ -174,7 +179,9 @@ exports.createGetByIdHandler = (Model, options = {}) => {
 exports.createCreateHandler = (Model, options = {}) => {
   return async (req, res, next) => {
     try {
-      const data = options.transformInput ? options.transformInput(req.body, req) : req.body;
+      const data = options.transformInput
+        ? options.transformInput(req.body, req)
+        : req.body;
 
       // Check for duplicates if configured
       if (options.checkDuplicate) {
@@ -182,7 +189,8 @@ exports.createCreateHandler = (Model, options = {}) => {
         if (exists) {
           return res.status(400).json({
             success: false,
-            message: options.duplicateMessage || `${Model.modelName} already exists`
+            message:
+              options.duplicateMessage || `${Model.modelName} already exists`,
           });
         }
       }
@@ -197,26 +205,27 @@ exports.createCreateHandler = (Model, options = {}) => {
 
       res.status(201).json({
         success: true,
-        message: options.successMessage || `${Model.modelName} created successfully`,
-        data: item
+        message:
+          options.successMessage || `${Model.modelName} created successfully`,
+        data: item,
       });
     } catch (error) {
       logger.error(`Error creating ${Model.modelName}:`, error);
-      
+
       // Handle MongoDB duplicate key error
       if (error.code === 11000) {
         return res.status(400).json({
           success: false,
-          message: options.duplicateKeyMessage || 'Duplicate entry detected'
+          message: options.duplicateKeyMessage || "Duplicate entry detected",
         });
       }
 
       if (next) {
         next(error);
       } else {
-        res.status(500).json({ 
+        res.status(500).json({
           success: false,
-          message: `Failed to create ${Model.modelName.toLowerCase()}` 
+          message: `Failed to create ${Model.modelName.toLowerCase()}`,
         });
       }
     }
@@ -233,14 +242,16 @@ exports.createUpdateHandler = (Model, options = {}) => {
   return async (req, res, next) => {
     try {
       const { id } = req.params;
-      const updateData = options.transformInput ? options.transformInput(req.body, req) : req.body;
+      const updateData = options.transformInput
+        ? options.transformInput(req.body, req)
+        : req.body;
 
       // Check if item exists
       const item = await Model.findById(id);
       if (!item) {
         return res.status(404).json({
           success: false,
-          message: `${Model.modelName} not found`
+          message: `${Model.modelName} not found`,
         });
       }
 
@@ -250,16 +261,15 @@ exports.createUpdateHandler = (Model, options = {}) => {
         if (validation && !validation.valid) {
           return res.status(400).json({
             success: false,
-            message: validation.message
+            message: validation.message,
           });
         }
       }
 
-      const updatedItem = await Model.findByIdAndUpdate(
-        id,
-        updateData,
-        { new: true, runValidators: true }
-      );
+      const updatedItem = await Model.findByIdAndUpdate(id, updateData, {
+        new: true,
+        runValidators: true,
+      });
 
       // Run post-update hook if provided
       if (options.afterUpdate) {
@@ -268,17 +278,18 @@ exports.createUpdateHandler = (Model, options = {}) => {
 
       res.json({
         success: true,
-        message: options.successMessage || `${Model.modelName} updated successfully`,
-        data: updatedItem
+        message:
+          options.successMessage || `${Model.modelName} updated successfully`,
+        data: updatedItem,
       });
     } catch (error) {
       logger.error(`Error updating ${Model.modelName}:`, error);
       if (next) {
         next(error);
       } else {
-        res.status(500).json({ 
+        res.status(500).json({
           success: false,
-          message: `Failed to update ${Model.modelName.toLowerCase()}` 
+          message: `Failed to update ${Model.modelName.toLowerCase()}`,
         });
       }
     }
@@ -300,7 +311,7 @@ exports.createDeleteHandler = (Model, options = {}) => {
       if (!item) {
         return res.status(404).json({
           success: false,
-          message: `${Model.modelName} not found`
+          message: `${Model.modelName} not found`,
         });
       }
 
@@ -310,7 +321,7 @@ exports.createDeleteHandler = (Model, options = {}) => {
         if (validation && !validation.valid) {
           return res.status(400).json({
             success: false,
-            message: validation.message
+            message: validation.message,
           });
         }
       }
@@ -318,7 +329,7 @@ exports.createDeleteHandler = (Model, options = {}) => {
       let deletedItem;
       if (options.softDelete) {
         // Soft delete: set is_active to false
-        item[options.softDeleteField || 'is_active'] = false;
+        item[options.softDeleteField || "is_active"] = false;
         if (options.softDeleteTimestampField) {
           item[options.softDeleteTimestampField] = new Date();
         }
@@ -335,17 +346,18 @@ exports.createDeleteHandler = (Model, options = {}) => {
 
       res.json({
         success: true,
-        message: options.successMessage || `${Model.modelName} deleted successfully`,
-        data: deletedItem
+        message:
+          options.successMessage || `${Model.modelName} deleted successfully`,
+        data: deletedItem,
       });
     } catch (error) {
       logger.error(`Error deleting ${Model.modelName}:`, error);
       if (next) {
         next(error);
       } else {
-        res.status(500).json({ 
+        res.status(500).json({
           success: false,
-          message: `Failed to delete ${Model.modelName.toLowerCase()}` 
+          message: `Failed to delete ${Model.modelName.toLowerCase()}`,
         });
       }
     }
@@ -363,12 +375,12 @@ exports.createAuditLog = async (AuditLog, data) => {
       action: data.action,
       performed_by: data.performed_by,
       details: data.details,
-      timestamp: new Date()
+      timestamp: new Date(),
     });
     await auditLog.save();
     return auditLog;
   } catch (error) {
-    logger.error('Error creating audit log:', error);
+    logger.error("Error creating audit log:", error);
     // Don't throw error - audit log failure shouldn't break main operation
   }
 };

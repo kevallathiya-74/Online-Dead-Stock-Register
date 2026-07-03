@@ -1,13 +1,11 @@
 /**
  * User Service Layer
- * Handles all business logic related to users
+ * Handles all business logic related to users using Supabase (PostgreSQL)
  */
 
-const User = require('../models/user');
-const bcrypt = require('bcryptjs');
-const mongoose = require('mongoose');
-const logger = require('../utils/logger');
-const AuditLog = require('../models/auditLog');
+const getSupabase = require("../config/db");
+const bcrypt = require("bcryptjs");
+const logger = require("../utils/logger");
 
 class UserService {
   /**
@@ -17,68 +15,100 @@ class UserService {
    * @returns {Promise<Object>} Created user
    */
   async createUser(userData, createdBy) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    
     try {
+      const supabase = getSupabase();
+
       // Check if user already exists
-      const existingUser = await User.findOne({ email: userData.email }).session(session);
+      const { data: existingUser, error: checkError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", userData.email)
+        .maybeSingle();
+
+      if (checkError) {
+        throw checkError;
+      }
       if (existingUser) {
-        throw new Error('User with this email already exists');
+        throw new Error("User with this email already exists");
       }
-      
+
       // Hash password
-      if (userData.password) {
-        userData.password = await bcrypt.hash(userData.password, 10);
+      let hashedPassword = userData.password;
+      if (hashedPassword) {
+        hashedPassword = await bcrypt.hash(hashedPassword, 10);
       }
-      
+
       // Generate employee_id if not provided
-      if (!userData.employee_id) {
-        userData.employee_id = `EMP-${Date.now()}`;
-      }
-      
+      const employeeId =
+        userData.employee_id || userData.employeeId || `EMP-${Date.now()}`;
+
+      const insertData = {
+        email: userData.email,
+        password: hashedPassword,
+        name: userData.name,
+        role: userData.role,
+        department: userData.department,
+        employee_id: employeeId,
+        vendor_id: userData.vendor_id || userData.vendorId || null,
+        phone: userData.phone || null,
+        is_active:
+          userData.is_active !== undefined
+            ? userData.is_active
+            : userData.isActive !== undefined
+              ? userData.isActive
+              : true,
+      };
+
       // Create user
-      const user = new User(userData);
-      await user.save({ session });
-      
+      const { data: user, error: insertError } = await supabase
+        .from("users")
+        .insert([insertData])
+        .select()
+        .single();
+
+      if (insertError) {
+        throw insertError;
+      }
+
       // Create audit log
-      await AuditLog.create([{
-        entity_type: 'User',
-        entity_id: user._id,
-        action: 'user_created',
-        user_id: createdBy,
-        changes: {
-          new_values: {
-            email: userData.email,
-            name: userData.name,
-            role: userData.role,
-            department: userData.department
-          }
+      const { error: logError } = await supabase.from("audit_logs").insert([
+        {
+          entity_type: "User",
+          entity_id: user.id,
+          action: "user_created",
+          user_id: createdBy,
+          changes: {
+            new_values: {
+              email: userData.email,
+              name: userData.name,
+              role: userData.role,
+              department: userData.department,
+            },
+          },
         },
-        timestamp: new Date()
-      }], { session });
-      
-      await session.commitTransaction();
-      
-      logger.info('User created successfully', {
-        userId: user._id,
+      ]);
+
+      if (logError) {
+        logger.error("Error creating audit log for user creation", {
+          error: logError.message,
+        });
+      }
+
+      logger.info("User created successfully", {
+        userId: user.id,
         email: user.email,
-        createdBy
+        createdBy,
       });
-      
+
       // Return user without password
-      const userObj = user.toObject();
-      delete userObj.password;
+      const { password, ...userObj } = user;
       return userObj;
     } catch (error) {
-      await session.abortTransaction();
-      logger.error('Error creating user', { error: error.message, createdBy });
+      logger.error("Error creating user", { error: error.message, createdBy });
       throw error;
-    } finally {
-      session.endSession();
     }
   }
-  
+
   /**
    * Get users with filters and pagination
    * @param {Object} filters - Filter criteria
@@ -87,65 +117,82 @@ class UserService {
    */
   async getUsers(filters = {}, pagination = {}) {
     try {
-      const { page = 1, limit = 50, sortBy = 'createdAt', sortOrder = 'desc' } = pagination;
-      const skip = (page - 1) * limit;
-      
-      let query = {};
-      
+      const supabase = getSupabase();
+      const {
+        page = 1,
+        limit = 50,
+        sortBy = "created_at",
+        sortOrder = "desc",
+      } = pagination;
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+
+      let query = supabase.from("users").select("*", { count: "exact" });
+
       // Apply filters
       if (filters.role) {
-        query.role = filters.role;
+        query = query.eq("role", filters.role);
       }
-      
+
       if (filters.department) {
-        query.department = filters.department;
+        query = query.eq("department", filters.department);
       }
-      
+
       if (filters.is_active !== undefined) {
-        query.is_active = filters.is_active;
+        query = query.eq("is_active", filters.is_active);
+      } else if (filters.isActive !== undefined) {
+        query = query.eq("is_active", filters.isActive);
       }
-      
+
       // Text search
       if (filters.search) {
-        const searchRegex = { $regex: filters.search, $options: 'i' };
-        query.$or = [
-          { name: searchRegex },
-          { email: searchRegex },
-          { employee_id: searchRegex }
-        ];
+        query = query.or(
+          `name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,employee_id.ilike.%${filters.search}%`,
+        );
       }
-      
-      // Sorting
-      const sort = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
-      
+
+      // Sorting conversion to match DB snake_case
+      let sortByColumn = sortBy;
+      if (sortBy === "createdAt") sortByColumn = "created_at";
+      if (sortBy === "updatedAt") sortByColumn = "updated_at";
+      if (sortBy === "lastLogin") sortByColumn = "last_login";
+      if (sortBy === "employeeId") sortByColumn = "employee_id";
+      if (sortBy === "vendorId") sortByColumn = "vendor_id";
+      if (sortBy === "isActive") sortByColumn = "is_active";
+
+      query = query.order(sortByColumn, { ascending: sortOrder === "asc" });
+
       // Execute query
-      const [users, total] = await Promise.all([
-        User.find(query)
-          .select('-password')
-          .sort(sort)
-          .skip(skip)
-          .limit(limit)
-          .lean(),
-        User.countDocuments(query)
-      ]);
-      
+      const { data, count, error } = await query.range(from, to);
+
+      if (error) {
+        throw error;
+      }
+
+      const users = (data || []).map((u) => {
+        const { password, ...userWithoutPassword } = u;
+        return userWithoutPassword;
+      });
+
+      const total = count || 0;
+
       return {
         data: users,
         pagination: {
-          page,
-          limit,
+          page: Number(page),
+          limit: Number(limit),
           total,
           pages: Math.ceil(total / limit),
           hasNext: page < Math.ceil(total / limit),
-          hasPrev: page > 1
-        }
+          hasPrev: page > 1,
+        },
       };
     } catch (error) {
-      logger.error('Error fetching users', { error: error.message });
+      logger.error("Error fetching users", { error: error.message });
       throw error;
     }
   }
-  
+
   /**
    * Get user by ID
    * @param {String} userId - User ID
@@ -153,19 +200,28 @@ class UserService {
    */
   async getUserById(userId) {
     try {
-      const user = await User.findById(userId).select('-password').lean();
-      
-      if (!user) {
-        throw new Error('User not found');
+      const supabase = getSupabase();
+      const { data: user, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (error || !user) {
+        throw new Error("User not found");
       }
-      
-      return user;
+
+      const { password, ...userWithoutPassword } = user;
+      return userWithoutPassword;
     } catch (error) {
-      logger.error('Error fetching user by ID', { error: error.message, userId });
+      logger.error("Error fetching user by ID", {
+        error: error.message,
+        userId,
+      });
       throw error;
     }
   }
-  
+
   /**
    * Update user
    * @param {String} userId - User ID
@@ -174,60 +230,110 @@ class UserService {
    * @returns {Promise<Object>} Updated user
    */
   async updateUser(userId, updateData, updatedBy) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    
     try {
+      const supabase = getSupabase();
+
       // Get old user data
-      const oldUser = await User.findById(userId).select('-password').session(session);
-      
-      if (!oldUser) {
-        throw new Error('User not found');
+      const { data: oldUser, error: fetchError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (fetchError || !oldUser) {
+        throw new Error("User not found");
       }
-      
+
       // Hash password if being updated
-      if (updateData.password) {
-        updateData.password = await bcrypt.hash(updateData.password, 10);
+      const dataToUpdate = { ...updateData };
+      if (dataToUpdate.password) {
+        dataToUpdate.password = await bcrypt.hash(dataToUpdate.password, 10);
       }
-      
+
+      // Map update fields to database column names
+      const mappedUpdateData = {};
+      const allowedFields = [
+        "email",
+        "password",
+        "name",
+        "role",
+        "department",
+        "employee_id",
+        "employeeId",
+        "vendor_id",
+        "vendorId",
+        "phone",
+        "is_active",
+        "isActive",
+        "resetPasswordToken",
+        "resetPasswordExpires",
+      ];
+
+      for (const field of allowedFields) {
+        if (updateData[field] !== undefined) {
+          if (field === "employeeId")
+            mappedUpdateData.employee_id = updateData[field];
+          else if (field === "vendorId")
+            mappedUpdateData.vendor_id = updateData[field];
+          else if (field === "isActive")
+            mappedUpdateData.is_active = updateData[field];
+          else mappedUpdateData[field] = updateData[field];
+        }
+      }
+
       // Update user
-      const updatedUser = await User.findByIdAndUpdate(
-        userId,
-        updateData,
-        { new: true, session }
-      ).select('-password');
-      
+      const { data: updatedUser, error: updateError } = await supabase
+        .from("users")
+        .update(mappedUpdateData)
+        .eq("id", userId)
+        .select()
+        .single();
+
+      if (updateError) {
+        throw updateError;
+      }
+
       // Create audit log
-      await AuditLog.create([{
-        entity_type: 'User',
-        entity_id: userId,
-        action: 'user_updated',
-        user_id: updatedBy,
-        changes: {
-          old_values: oldUser.toObject(),
-          new_values: updateData
+      const { password: _, ...oldUserWithoutPassword } = oldUser;
+      const { password: __, ...updateDataWithoutPassword } = updateData;
+
+      const { error: logError } = await supabase.from("audit_logs").insert([
+        {
+          entity_type: "User",
+          entity_id: userId,
+          action: "user_updated",
+          user_id: updatedBy,
+          changes: {
+            old_values: oldUserWithoutPassword,
+            new_values: updateDataWithoutPassword,
+          },
         },
-        timestamp: new Date()
-      }], { session });
-      
-      await session.commitTransaction();
-      
-      logger.info('User updated successfully', {
+      ]);
+
+      if (logError) {
+        logger.error("Error creating audit log for user update", {
+          error: logError.message,
+        });
+      }
+
+      logger.info("User updated successfully", {
         userId,
         updatedBy,
-        changes: Object.keys(updateData)
+        changes: Object.keys(updateData),
       });
-      
-      return updatedUser;
+
+      const { password: ___, ...userWithoutPassword } = updatedUser;
+      return userWithoutPassword;
     } catch (error) {
-      await session.abortTransaction();
-      logger.error('Error updating user', { error: error.message, userId, updatedBy });
+      logger.error("Error updating user", {
+        error: error.message,
+        userId,
+        updatedBy,
+      });
       throw error;
-    } finally {
-      session.endSession();
     }
   }
-  
+
   /**
    * Delete user
    * @param {String} userId - User ID
@@ -235,47 +341,60 @@ class UserService {
    * @returns {Promise<void>}
    */
   async deleteUser(userId, deletedBy) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    
     try {
-      const user = await User.findById(userId).select('-password').session(session);
-      
-      if (!user) {
-        throw new Error('User not found');
+      const supabase = getSupabase();
+      const { data: user, error: fetchError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (fetchError || !user) {
+        throw new Error("User not found");
       }
-      
+
       // Instead of hard delete, mark as inactive
-      await User.findByIdAndUpdate(
-        userId,
-        { is_active: false },
-        { session }
-      );
-      
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ is_active: false })
+        .eq("id", userId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      const { password, ...userWithoutPassword } = user;
+
       // Create audit log
-      await AuditLog.create([{
-        entity_type: 'User',
-        entity_id: userId,
-        action: 'user_deactivated',
-        user_id: deletedBy,
-        changes: {
-          old_values: user.toObject()
+      const { error: logError } = await supabase.from("audit_logs").insert([
+        {
+          entity_type: "User",
+          entity_id: userId,
+          action: "user_deactivated",
+          user_id: deletedBy,
+          changes: {
+            old_values: userWithoutPassword,
+          },
         },
-        timestamp: new Date()
-      }], { session });
-      
-      await session.commitTransaction();
-      
-      logger.info('User deactivated successfully', { userId, deletedBy });
+      ]);
+
+      if (logError) {
+        logger.error("Error creating audit log for user deletion", {
+          error: logError.message,
+        });
+      }
+
+      logger.info("User deactivated successfully", { userId, deletedBy });
     } catch (error) {
-      await session.abortTransaction();
-      logger.error('Error deleting user', { error: error.message, userId, deletedBy });
+      logger.error("Error deleting user", {
+        error: error.message,
+        userId,
+        deletedBy,
+      });
       throw error;
-    } finally {
-      session.endSession();
     }
   }
-  
+
   /**
    * Change user password
    * @param {String} userId - User ID
@@ -285,30 +404,43 @@ class UserService {
    */
   async changePassword(userId, oldPassword, newPassword) {
     try {
+      const supabase = getSupabase();
+
       // Get user with password
-      const user = await User.findById(userId).select('+password');
-      
-      if (!user) {
-        throw new Error('User not found');
+      const { data: user, error: fetchError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .single();
+
+      if (fetchError || !user) {
+        throw new Error("User not found");
       }
-      
+
       // Verify old password
       const isValid = await bcrypt.compare(oldPassword, user.password);
       if (!isValid) {
-        throw new Error('Current password is incorrect');
+        throw new Error("Current password is incorrect");
       }
-      
+
       // Hash and update new password
-      user.password = await bcrypt.hash(newPassword, 10);
-      await user.save();
-      
-      logger.info('Password changed successfully', { userId });
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ password: hashedPassword })
+        .eq("id", userId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      logger.info("Password changed successfully", { userId });
     } catch (error) {
-      logger.error('Error changing password', { error: error.message, userId });
+      logger.error("Error changing password", { error: error.message, userId });
       throw error;
     }
   }
-  
+
   /**
    * Update last login time
    * @param {String} userId - User ID
@@ -316,55 +448,84 @@ class UserService {
    */
   async updateLastLogin(userId) {
     try {
-      await User.findByIdAndUpdate(userId, { last_login: new Date() });
-      logger.info('Last login updated', { userId });
+      const supabase = getSupabase();
+      const { error } = await supabase
+        .from("users")
+        .update({ last_login: new Date().toISOString() })
+        .eq("id", userId);
+
+      if (error) {
+        throw error;
+      }
+      logger.info("Last login updated", { userId });
     } catch (error) {
-      logger.error('Error updating last login', { error: error.message, userId });
+      logger.error("Error updating last login", {
+        error: error.message,
+        userId,
+      });
       // Don't throw - this is not critical
     }
   }
-  
+
   /**
    * Get user statistics
    * @returns {Promise<Object>} User statistics
    */
   async getUserStats() {
     try {
-      const stats = await User.aggregate([
-        {
-          $facet: {
-            totalUsers: [{ $count: 'count' }],
-            activeUsers: [
-              { $match: { is_active: true } },
-              { $count: 'count' }
-            ],
-            byRole: [
-              { $group: { _id: '$role', count: { $sum: 1 } } }
-            ],
-            byDepartment: [
-              { $group: { _id: '$department', count: { $sum: 1 } } }
-            ],
-            recentLogins: [
-              { $match: { last_login: { $exists: true } } },
-              { $sort: { last_login: -1 } },
-              { $limit: 10 },
-              { $project: { name: 1, email: 1, last_login: 1, role: 1 } }
-            ]
-          }
+      const supabase = getSupabase();
+
+      const { data: allUsers, error } = await supabase
+        .from("users")
+        .select("role, department, name, email, last_login, is_active");
+
+      if (error) {
+        throw error;
+      }
+
+      const totalUsers = allUsers.length;
+      const activeUsers = allUsers.filter((u) => u.is_active).length;
+
+      const roleMap = {};
+      const deptMap = {};
+      allUsers.forEach((u) => {
+        if (u.role) {
+          roleMap[u.role] = (roleMap[u.role] || 0) + 1;
         }
-      ]);
-      
-      const result = stats[0];
-      
+        if (u.department) {
+          deptMap[u.department] = (deptMap[u.department] || 0) + 1;
+        }
+      });
+
+      const byRole = Object.entries(roleMap).map(([_id, count]) => ({
+        _id,
+        count,
+      }));
+      const byDepartment = Object.entries(deptMap).map(([_id, count]) => ({
+        _id,
+        count,
+      }));
+
+      const recentLogins = allUsers
+        .filter((u) => u.last_login)
+        .sort((a, b) => new Date(b.last_login) - new Date(a.last_login))
+        .slice(0, 10)
+        .map((u) => ({
+          name: u.name,
+          email: u.email,
+          last_login: u.last_login,
+          role: u.role,
+        }));
+
       return {
-        totalUsers: result.totalUsers[0]?.count || 0,
-        activeUsers: result.activeUsers[0]?.count || 0,
-        byRole: result.byRole,
-        byDepartment: result.byDepartment,
-        recentLogins: result.recentLogins
+        totalUsers,
+        activeUsers,
+        byRole,
+        byDepartment,
+        recentLogins,
       };
     } catch (error) {
-      logger.error('Error fetching user stats', { error: error.message });
+      logger.error("Error fetching user stats", { error: error.message });
       throw error;
     }
   }

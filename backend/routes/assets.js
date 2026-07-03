@@ -1,58 +1,74 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const assetCtrl = require('../controllers/assetController');
-// TODO: Re-enable after migrating inventoryController to Supabase
-// const inventoryCtrl = require('../controllers/inventoryController');
-const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
-const { 
-  validateAssetCreation, 
+const assetCtrl = require("../controllers/assetController");
+const inventoryCtrl = require("../controllers/inventoryController");
+const { authMiddleware, requireRole } = require("../middleware/authMiddleware");
+const {
+  validateAssetCreation,
   validateQueryParams,
-  validateObjectId 
-} = require('../middleware/validationMiddleware');
+  validateObjectId,
+} = require("../middleware/validationMiddleware");
 
 // Protected: GET all assets with pagination and filtering
-router.get('/', authMiddleware, validateQueryParams, assetCtrl.getAssets);
+router.get("/", authMiddleware, validateQueryParams, assetCtrl.getAssets);
 
 // GET my assigned assets (employee-specific)
-router.get('/my-assets', authMiddleware, assetCtrl.getMyAssets);
+router.get("/my-assets", authMiddleware, assetCtrl.getMyAssets);
 
 // GET asset statistics - DYNAMIC STATS
-router.get('/stats', authMiddleware, assetCtrl.getAssetStats);
+router.get("/stats", authMiddleware, assetCtrl.getAssetStats);
 
 // Asset Categories (for backward compatibility - main route is in inventory)
 // IMPORTANT: Define specific routes BEFORE param routes like '/:id' to avoid conflicts
-// TODO: Re-enable after migrating inventoryController to Supabase
-// router.get('/categories', authMiddleware, inventoryCtrl.getCategories);
-// router.post('/categories', authMiddleware, requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), inventoryCtrl.createCategory);
-// router.put('/categories/:id', authMiddleware, requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), inventoryCtrl.updateCategory);
-// router.delete('/categories/:id', authMiddleware, requireRole(['ADMIN']), inventoryCtrl.deleteCategory);
+router.get("/categories", authMiddleware, inventoryCtrl.getCategories);
+router.post(
+  "/categories",
+  authMiddleware,
+  requireRole(["ADMIN", "INVENTORY_MANAGER", "IT_MANAGER"]),
+  inventoryCtrl.createCategory,
+);
+router.put(
+  "/categories/:id",
+  authMiddleware,
+  requireRole(["ADMIN", "INVENTORY_MANAGER", "IT_MANAGER"]),
+  inventoryCtrl.updateCategory,
+);
+router.delete(
+  "/categories/:id",
+  authMiddleware,
+  requireRole(["ADMIN"]),
+  inventoryCtrl.deleteCategory,
+);
 
 // Protected: GET single asset
-router.get('/:id', authMiddleware, validateObjectId, assetCtrl.getAssetById);
+router.get("/:id", authMiddleware, validateObjectId, assetCtrl.getAssetById);
 
 // Admin, Inventory Manager, and IT Manager: POST create asset
-router.post('/', 
-  authMiddleware, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER']), 
+router.post(
+  "/",
+  authMiddleware,
+  requireRole(["ADMIN", "INVENTORY_MANAGER", "IT_MANAGER"]),
   validateAssetCreation,
-  assetCtrl.createAsset
+  assetCtrl.createAsset,
 );
 
 // Admin, Inventory Manager, IT Manager, and Auditor: PUT update asset
 // Auditors can update for audit purposes (condition, status, last_audit_date)
-router.put('/:id', 
-  authMiddleware, 
-  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER', 'AUDITOR']),
+router.put(
+  "/:id",
+  authMiddleware,
+  requireRole(["ADMIN", "INVENTORY_MANAGER", "IT_MANAGER", "AUDITOR"]),
   validateObjectId,
-  assetCtrl.updateAsset
+  assetCtrl.updateAsset,
 );
 
 // Admin only: DELETE asset
-router.delete('/:id', 
-  authMiddleware, 
-  requireRole(['ADMIN']),
+router.delete(
+  "/:id",
+  authMiddleware,
+  requireRole(["ADMIN"]),
   validateObjectId,
-  assetCtrl.deleteAsset
+  assetCtrl.deleteAsset,
 );
 
 module.exports = router;

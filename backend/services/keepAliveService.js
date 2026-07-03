@@ -1,5 +1,5 @@
-const cron = require('node-cron');
-const axios = require('axios');
+const cron = require("node-cron");
+const axios = require("axios");
 
 /**
  * 🔥 KEEP-ALIVE SERVICE
@@ -11,7 +11,7 @@ class KeepAliveService {
   constructor() {
     this.pingJob = null;
     this.isActive = false;
-    this.baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    this.baseUrl = process.env.BACKEND_URL || "http://localhost:5000";
     this.pingInterval = 14; // minutes (Render spins down after 15 min of inactivity)
     this.lastPing = null;
     this.successCount = 0;
@@ -23,35 +23,39 @@ class KeepAliveService {
    */
   start() {
     // Only enable for production (Render deployment)
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('⏭️  Keep-alive disabled (not in production mode)');
+    if (process.env.NODE_ENV !== "production") {
+      console.log("⏭️  Keep-alive disabled (not in production mode)");
       return;
     }
 
     if (this.isActive) {
-      console.log('⚠️  Keep-alive already running');
+      console.log("⚠️  Keep-alive already running");
       return;
     }
 
     try {
       // Schedule self-ping every 14 minutes
       // Cron pattern: */14 * * * * = Every 14 minutes
-      this.pingJob = cron.schedule(`*/${this.pingInterval} * * * *`, async () => {
-        await this.selfPing();
-      }, {
-        scheduled: true,
-        timezone: process.env.TIMEZONE || 'Asia/Kolkata',
-      });
+      this.pingJob = cron.schedule(
+        `*/${this.pingInterval} * * * *`,
+        async () => {
+          await this.selfPing();
+        },
+        {
+          scheduled: true,
+          timezone: process.env.TIMEZONE || "Asia/Kolkata",
+        },
+      );
 
       this.isActive = true;
-      console.log('✅ Keep-Alive Service Started');
+      console.log("✅ Keep-Alive Service Started");
       console.log(`🔄 Self-ping every ${this.pingInterval} minutes`);
       console.log(`🌐 Target URL: ${this.baseUrl}/api/health`);
 
       // Immediate first ping
       setTimeout(() => this.selfPing(), 5000);
     } catch (error) {
-      console.error('❌ Failed to start keep-alive service:', error.message);
+      console.error("❌ Failed to start keep-alive service:", error.message);
     }
   }
 
@@ -64,8 +68,8 @@ class KeepAliveService {
       const response = await axios.get(`${this.baseUrl}/api/health`, {
         timeout: 10000, // 10 second timeout
         headers: {
-          'User-Agent': 'KeepAlive-Service',
-          'X-Keep-Alive': 'true',
+          "User-Agent": "KeepAlive-Service",
+          "X-Keep-Alive": "true",
         },
       });
 
@@ -73,7 +77,9 @@ class KeepAliveService {
       this.lastPing = new Date();
       this.successCount++;
 
-      console.log(`✅ Keep-Alive Ping #${this.successCount} | Latency: ${latency}ms | ${this.lastPing.toLocaleTimeString()}`);
+      console.log(
+        `✅ Keep-Alive Ping #${this.successCount} | Latency: ${latency}ms | ${this.lastPing.toLocaleTimeString()}`,
+      );
 
       return {
         success: true,
@@ -82,7 +88,10 @@ class KeepAliveService {
       };
     } catch (error) {
       this.failCount++;
-      console.error(`❌ Keep-Alive Ping Failed (${this.failCount}):`, error.message);
+      console.error(
+        `❌ Keep-Alive Ping Failed (${this.failCount}):`,
+        error.message,
+      );
 
       return {
         success: false,
@@ -99,7 +108,7 @@ class KeepAliveService {
     if (this.pingJob) {
       this.pingJob.stop();
       this.isActive = false;
-      console.log('🛑 Keep-Alive Service Stopped');
+      console.log("🛑 Keep-Alive Service Stopped");
     }
   }
 
@@ -114,7 +123,9 @@ class KeepAliveService {
       failCount: this.failCount,
       pingInterval: `${this.pingInterval} minutes`,
       targetUrl: `${this.baseUrl}/api/health`,
-      uptime: this.lastPing ? Math.floor((Date.now() - this.lastPing.getTime()) / 1000) : null,
+      uptime: this.lastPing
+        ? Math.floor((Date.now() - this.lastPing.getTime()) / 1000)
+        : null,
     };
   }
 }

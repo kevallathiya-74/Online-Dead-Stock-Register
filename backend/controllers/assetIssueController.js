@@ -1,9 +1,5 @@
-const AssetIssue = require('../models/assetIssue');
-const Asset = require('../models/asset');
-const User = require('../models/user');
-const Notification = require('../models/notification');
-const logger = require('../utils/logger');
-const AuditLog = require('../models/auditLog');
+const getSupabase = require("../config/db");
+const logger = require("../utils/logger");
 
 /**
  * @desc    Create a new asset issue
@@ -12,6 +8,7 @@ const AuditLog = require('../models/auditLog');
  */
 const createAssetIssue = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const { id: assetId } = req.params;
     const { issue_description, issue_type, severity, scan_location } = req.body;
     const userId = req.user.id;
@@ -20,59 +17,80 @@ const createAssetIssue = async (req, res) => {
     if (!issue_description || issue_description.trim().length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Issue description is required'
+        message: "Issue description is required",
       });
     }
 
     // Find the asset to get unique_asset_id
-    const asset = await Asset.findById(assetId);
-    if (!asset) {
+    const { data: asset, error: assetError } = await supabase
+      .from("assets")
+      .select("id, unique_asset_id")
+      .eq("id", assetId)
+      .single();
+
+    if (assetError || !asset) {
       return res.status(404).json({
         success: false,
-        message: 'Asset not found'
+        message: "Asset not found",
       });
     }
 
     // Create the issue
-    const newIssue = await AssetIssue.create({
-      asset_id: assetId,
-      unique_asset_id: asset.unique_asset_id,
-      issue_description: issue_description.trim(),
-      issue_type: issue_type || 'Other',
-      severity: severity || 'Medium',
-      reported_by: userId,
-      scan_location: scan_location || 'QR Scanner'
-    });
+    const { data: newIssue, error: insertError } = await supabase
+      .from("asset_issues")
+      .insert({
+        asset_id: assetId,
+        unique_asset_id: asset.unique_asset_id,
+        issue_description: issue_description.trim(),
+        issue_type: issue_type || "Other",
+        severity: severity || "Medium",
+        status: "Open",
+        reported_by: userId,
+        scan_location: scan_location || "QR Scanner",
+        reported_at: new Date().toISOString(),
+      })
+      .select(
+        `
+        *,
+        reporter:users!reported_by(name, email)
+      `,
+      )
+      .single();
 
-    // Populate reporter information
-    await newIssue.populate('reported_by', 'name email');
+    if (insertError) {
+      throw insertError;
+    }
 
     // Create audit log
-    await AuditLog.create({
+    await supabase.from("audit_logs").insert({
       user_id: userId,
-      action: 'Asset Issue Reported',
-      entity_type: 'AssetIssue',
-      entity_id: newIssue._id,
+      action: "Asset Issue Reported",
+      entity_type: "AssetIssue",
+      entity_id: newIssue.id,
       details: {
         asset_id: assetId,
         unique_asset_id: asset.unique_asset_id,
         issue_type: newIssue.issue_type,
         severity: newIssue.severity,
-        description: issue_description.substring(0, 100) + (issue_description.length > 100 ? '...' : '')
-      }
+        description:
+          issue_description.substring(0, 100) +
+          (issue_description.length > 100 ? "..." : ""),
+      },
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      message: 'Asset issue reported successfully',
-      data: newIssue
+      message: "Asset issue reported successfully",
+      data: newIssue,
     });
   } catch (error) {
-    logger.error('Error creating asset issue', { error: error.message, assetId: req.params.id });
-    res.status(500).json({
+    logger.error("Error creating asset issue", {
+      error: error.message,
+      assetId: req.params.id,
+    });
+    return res.status(500).json({
       success: false,
-      message: 'Failed to create asset issue',
-      error: error.message
+      message: "Failed to create asset issue",
     });
   }
 };
@@ -84,42 +102,61 @@ const createAssetIssue = async (req, res) => {
  */
 const getAssetIssues = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const { id: assetId } = req.params;
     const { status, limit = 50 } = req.query;
 
-    // Build query
-    const query = { asset_id: assetId };
-    if (status) {
-      query.status = status;
-    }
-
-    // Get issues
-    const issues = await AssetIssue.find(query)
-      .populate('reported_by', 'name email')
-      .populate('resolved_by', 'name email')
-      .sort({ reported_at: -1 })
+    // Build query for issues
+    let query = supabase
+      .from("asset_issues")
+      .select(
+        `
+        *,
+        reporter:users!reported_by(name, email),
+        resolver:users!resolved_by(name, email)
+      `,
+      )
+      .eq("asset_id", assetId)
+      .order("reported_at", { ascending: false })
       .limit(parseInt(limit));
 
-    // Get open issues count
-    const openIssuesCount = await AssetIssue.countDocuments({
-      asset_id: assetId,
-      status: { $in: ['Open', 'In Progress'] }
-    });
+    if (status) {
+      query = query.eq("status", status);
+    }
 
-    res.json({
+    const { data: issues, error } = await query;
+
+    if (error) {
+      throw error;
+    }
+
+    // Get open issues count
+    const { count: openIssuesCount, error: countError } = await supabase
+      .from("asset_issues")
+      .select("*", { count: "exact", head: true })
+      .eq("asset_id", assetId)
+      .in("status", ["Open", "In Progress"]);
+
+    if (countError) {
+      throw countError;
+    }
+
+    return res.json({
       success: true,
       data: {
         issues,
         total: issues.length,
-        openCount: openIssuesCount
-      }
+        openCount: openIssuesCount || 0,
+      },
     });
   } catch (error) {
-    logger.error('Error fetching asset issues', { error: error.message, assetId: req.params.id });
-    res.status(500).json({
+    logger.error("Error fetching asset issues", {
+      error: error.message,
+      assetId: req.params.id,
+    });
+    return res.status(500).json({
       success: false,
-      message: 'Failed to fetch asset issues',
-      error: error.message
+      message: "Failed to fetch asset issues",
     });
   }
 };
@@ -131,33 +168,47 @@ const getAssetIssues = async (req, res) => {
  */
 const getLatestAssetIssue = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const { id: assetId } = req.params;
 
-    const latestIssue = await AssetIssue.findOne({
-      asset_id: assetId,
-      status: { $in: ['Open', 'In Progress'] }
-    })
-      .populate('reported_by', 'name email')
-      .sort({ reported_at: -1 });
+    const { data: latestIssue, error } = await supabase
+      .from("asset_issues")
+      .select(
+        `
+        *,
+        reporter:users!reported_by(name, email)
+      `,
+      )
+      .eq("asset_id", assetId)
+      .in("status", ["Open", "In Progress"])
+      .order("reported_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
 
     if (!latestIssue) {
       return res.json({
         success: true,
         data: null,
-        message: 'No open issues found for this asset'
+        message: "No open issues found for this asset",
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
-      data: latestIssue
+      data: latestIssue,
     });
   } catch (error) {
-    logger.error('Error fetching latest asset issue', { error: error.message, assetId: req.params.id });
-    res.status(500).json({
+    logger.error("Error fetching latest asset issue", {
+      error: error.message,
+      assetId: req.params.id,
+    });
+    return res.status(500).json({
       success: false,
-      message: 'Failed to fetch latest asset issue',
-      error: error.message
+      message: "Failed to fetch latest asset issue",
     });
   }
 };
@@ -169,76 +220,106 @@ const getLatestAssetIssue = async (req, res) => {
  */
 const updateAssetIssue = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const { id: assetId, issueId } = req.params;
-    const { issue_description, issue_type, severity, status, resolution_notes } = req.body;
+    const {
+      issue_description,
+      issue_type,
+      severity,
+      status,
+      resolution_notes,
+    } = req.body;
     const userId = req.user.id;
     const userRole = req.user.role;
 
     // Find the issue
-    const issue = await AssetIssue.findOne({ _id: issueId, asset_id: assetId });
-    if (!issue) {
+    const { data: issue, error: fetchError } = await supabase
+      .from("asset_issues")
+      .select("*")
+      .eq("id", issueId)
+      .eq("asset_id", assetId)
+      .single();
+
+    if (fetchError || !issue) {
       return res.status(404).json({
         success: false,
-        message: 'Issue not found'
+        message: "Issue not found",
       });
     }
 
     // Check permissions: Only reporter, admin, or inventory manager can update
-    const isReporter = issue.reported_by.toString() === userId.toString();
-    const isAuthorized = isReporter || ['ADMIN', 'INVENTORY_MANAGER'].includes(userRole);
+    const isReporter = issue.reported_by === userId;
+    const isAuthorized =
+      isReporter || ["ADMIN", "INVENTORY_MANAGER"].includes(userRole);
 
     if (!isAuthorized) {
       return res.status(403).json({
         success: false,
-        message: 'You do not have permission to update this issue'
+        message: "You do not have permission to update this issue",
       });
     }
 
-    // Update fields
-    if (issue_description) issue.issue_description = issue_description.trim();
-    if (issue_type) issue.issue_type = issue_type;
-    if (severity) issue.severity = severity;
-    
-    // Status update with resolution handling
+    // Build update payload
+    const updatePayload = {};
+    if (issue_description)
+      updatePayload.issue_description = issue_description.trim();
+    if (issue_type) updatePayload.issue_type = issue_type;
+    if (severity) updatePayload.severity = severity;
+
     if (status) {
-      issue.status = status;
-      if (status === 'Resolved' || status === 'Closed') {
-        issue.resolved_at = new Date();
-        issue.resolved_by = userId;
+      updatePayload.status = status;
+      if (status === "Resolved" || status === "Closed") {
+        updatePayload.resolved_at = new Date().toISOString();
+        updatePayload.resolved_by = userId;
         if (resolution_notes) {
-          issue.resolution_notes = resolution_notes;
+          updatePayload.resolution_notes = resolution_notes;
         }
       }
     }
 
-    await issue.save();
-    await issue.populate('reported_by', 'name email');
-    await issue.populate('resolved_by', 'name email');
+    const { data: updatedIssue, error: updateError } = await supabase
+      .from("asset_issues")
+      .update(updatePayload)
+      .eq("id", issueId)
+      .select(
+        `
+        *,
+        reporter:users!reported_by(name, email),
+        resolver:users!resolved_by(name, email)
+      `,
+      )
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
 
     // Create audit log
-    await AuditLog.create({
+    await supabase.from("audit_logs").insert({
       user_id: userId,
-      action: 'Asset Issue Updated',
-      entity_type: 'AssetIssue',
-      entity_id: issue._id,
+      action: "Asset Issue Updated",
+      entity_type: "AssetIssue",
+      entity_id: issueId,
       details: {
         asset_id: assetId,
         unique_asset_id: issue.unique_asset_id,
-        changes: { status, issue_type, severity }
-      }
+        changes: { status, issue_type, severity },
+      },
     });
 
-    res.json({
+    return res.json({
       success: true,
-      message: 'Asset issue updated successfully',
-      data: issue
+      message: "Asset issue updated successfully",
+      data: updatedIssue,
     });
   } catch (error) {
-    logger.error('Error updating asset issue', { error: error.message, issueId: req.params.issueId });
-    res.status(500).json({
+    logger.error("Error updating asset issue", {
+      error: error.message,
+      issueId: req.params.issueId,
+    });
+    return res.status(500).json({
       success: false,
-      message: 'Failed to update asset issue',
-      error: error.message
+      message: "Failed to update asset issue",
     });
   }
 };
@@ -250,50 +331,69 @@ const updateAssetIssue = async (req, res) => {
  */
 const deleteAssetIssue = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const { id: assetId, issueId } = req.params;
     const userId = req.user.id;
     const userRole = req.user.role;
 
     // Only admin or inventory manager can delete
-    if (!['ADMIN', 'INVENTORY_MANAGER'].includes(userRole)) {
+    if (!["ADMIN", "INVENTORY_MANAGER"].includes(userRole)) {
       return res.status(403).json({
         success: false,
-        message: 'You do not have permission to delete issues'
+        message: "You do not have permission to delete issues",
       });
     }
 
-    const issue = await AssetIssue.findOneAndDelete({ _id: issueId, asset_id: assetId });
-    
-    if (!issue) {
+    // Fetch the issue first to confirm existence and capture metadata for audit log
+    const { data: issue, error: fetchError } = await supabase
+      .from("asset_issues")
+      .select("id, unique_asset_id, issue_type")
+      .eq("id", issueId)
+      .eq("asset_id", assetId)
+      .single();
+
+    if (fetchError || !issue) {
       return res.status(404).json({
         success: false,
-        message: 'Issue not found'
+        message: "Issue not found",
       });
+    }
+
+    const { error: deleteError } = await supabase
+      .from("asset_issues")
+      .delete()
+      .eq("id", issueId)
+      .eq("asset_id", assetId);
+
+    if (deleteError) {
+      throw deleteError;
     }
 
     // Create audit log
-    await AuditLog.create({
+    await supabase.from("audit_logs").insert({
       user_id: userId,
-      action: 'Asset Issue Deleted',
-      entity_type: 'AssetIssue',
+      action: "Asset Issue Deleted",
+      entity_type: "AssetIssue",
       entity_id: issueId,
       details: {
         asset_id: assetId,
         unique_asset_id: issue.unique_asset_id,
-        deleted_issue_type: issue.issue_type
-      }
+        deleted_issue_type: issue.issue_type,
+      },
     });
 
-    res.json({
+    return res.json({
       success: true,
-      message: 'Asset issue deleted successfully'
+      message: "Asset issue deleted successfully",
     });
   } catch (error) {
-    logger.error('Error deleting asset issue', { error: error.message, issueId: req.params.issueId });
-    res.status(500).json({
+    logger.error("Error deleting asset issue", {
+      error: error.message,
+      issueId: req.params.issueId,
+    });
+    return res.status(500).json({
       success: false,
-      message: 'Failed to delete asset issue',
-      error: error.message
+      message: "Failed to delete asset issue",
     });
   }
 };
@@ -305,39 +405,65 @@ const deleteAssetIssue = async (req, res) => {
  */
 const getAllOpenIssues = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const { limit = 100, severity, issue_type } = req.query;
 
-    const query = {
-      status: { $in: ['Open', 'In Progress'] }
-    };
-
-    if (severity) query.severity = severity;
-    if (issue_type) query.issue_type = issue_type;
-
-    const issues = await AssetIssue.find(query)
-      .populate('asset_id', 'unique_asset_id manufacturer model location')
-      .populate('reported_by', 'name email')
-      .sort({ severity: -1, reported_at: -1 })
+    // Build open-issues query
+    let query = supabase
+      .from("asset_issues")
+      .select(
+        `
+        *,
+        asset:assets!asset_id(unique_asset_id, manufacturer, model, location),
+        reporter:users!reported_by(name, email)
+      `,
+      )
+      .in("status", ["Open", "In Progress"])
+      .order("severity", { ascending: false })
+      .order("reported_at", { ascending: false })
       .limit(parseInt(limit));
 
-    const criticalCount = await AssetIssue.countDocuments({ ...query, severity: 'Critical' });
-    const highCount = await AssetIssue.countDocuments({ ...query, severity: 'High' });
+    if (severity) query = query.eq("severity", severity);
+    if (issue_type) query = query.eq("issue_type", issue_type);
 
-    res.json({
+    const { data: issues, error } = await query;
+
+    if (error) {
+      throw error;
+    }
+
+    // Critical count
+    let criticalQuery = supabase
+      .from("asset_issues")
+      .select("*", { count: "exact", head: true })
+      .in("status", ["Open", "In Progress"])
+      .eq("severity", "Critical");
+    if (issue_type) criticalQuery = criticalQuery.eq("issue_type", issue_type);
+    const { count: criticalCount } = await criticalQuery;
+
+    // High count
+    let highQuery = supabase
+      .from("asset_issues")
+      .select("*", { count: "exact", head: true })
+      .in("status", ["Open", "In Progress"])
+      .eq("severity", "High");
+    if (issue_type) highQuery = highQuery.eq("issue_type", issue_type);
+    const { count: highCount } = await highQuery;
+
+    return res.json({
       success: true,
       data: {
         issues,
         total: issues.length,
-        criticalCount,
-        highCount
-      }
+        criticalCount: criticalCount || 0,
+        highCount: highCount || 0,
+      },
     });
   } catch (error) {
-    logger.error('Error fetching open issues', { error: error.message });
-    res.status(500).json({
+    logger.error("Error fetching open issues", { error: error.message });
+    return res.status(500).json({
       success: false,
-      message: 'Failed to fetch open issues',
-      error: error.message
+      message: "Failed to fetch open issues",
     });
   }
 };
@@ -348,5 +474,5 @@ module.exports = {
   getLatestAssetIssue,
   updateAssetIssue,
   deleteAssetIssue,
-  getAllOpenIssues
+  getAllOpenIssues,
 };

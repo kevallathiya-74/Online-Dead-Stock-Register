@@ -1,50 +1,37 @@
-const mongoose = require('mongoose');
-const nodemailer = require('nodemailer');
-const Redis = require('ioredis');
-const logger = require('./logger');
+const getSupabase = require("../config/db");
+const nodemailer = require("nodemailer");
+const Redis = require("ioredis");
+const logger = require("./logger");
 
 /**
- * Test MongoDB connection
+ * Test Supabase Database connection
  */
-async function testDatabaseConnection(connectionString = null) {
+async function testDatabaseConnection() {
   try {
-    const connString = connectionString || process.env.MONGODB_URI;
-    
-    if (!connString) {
-      return {
-        success: false,
-        message: 'No connection string provided',
-        error: 'MONGODB_URI not configured',
-      };
+    const supabase = getSupabase();
+
+    const { data, error } = await supabase
+      .from("users")
+      .select("count")
+      .limit(1);
+
+    if (error) {
+      throw error;
     }
-
-    // Test connection with timeout
-    const testConnection = await mongoose.createConnection(connString, {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 5000,
-    });
-
-    // Verify connection
-    const adminDb = testConnection.db.admin();
-    const info = await adminDb.serverStatus();
-
-    // Close test connection
-    await testConnection.close();
 
     return {
       success: true,
-      message: 'Database connection successful',
+      message: "Database connection successful",
       details: {
-        version: info.version,
-        uptime: info.uptime,
-        connections: info.connections,
+        provider: "Supabase (PostgreSQL)",
+        status: "Connected",
       },
     };
   } catch (error) {
-    logger.error('Database connection test failed:', error);
+    logger.error("Database connection test failed:", error);
     return {
       success: false,
-      message: 'Database connection failed',
+      message: "Database connection failed",
       error: error.message,
     };
   }
@@ -56,9 +43,9 @@ async function testDatabaseConnection(connectionString = null) {
 async function testEmailConnection(emailConfig = null) {
   try {
     const config = emailConfig || {
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587', 10),
-      secure: process.env.SMTP_SECURE === 'true',
+      host: process.env.SMTP_HOST || "smtp.gmail.com",
+      port: parseInt(process.env.SMTP_PORT || "587", 10),
+      secure: process.env.SMTP_SECURE === "true",
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASSWORD,
@@ -68,8 +55,8 @@ async function testEmailConnection(emailConfig = null) {
     if (!config.auth.user || !config.auth.pass) {
       return {
         success: false,
-        message: 'Email credentials not provided',
-        error: 'SMTP_USER and SMTP_PASSWORD not configured',
+        message: "Email credentials not provided",
+        error: "SMTP_USER and SMTP_PASSWORD not configured",
       };
     }
 
@@ -81,7 +68,7 @@ async function testEmailConnection(emailConfig = null) {
 
     return {
       success: true,
-      message: 'Email connection successful',
+      message: "Email connection successful",
       details: {
         host: config.host,
         port: config.port,
@@ -90,10 +77,10 @@ async function testEmailConnection(emailConfig = null) {
       },
     };
   } catch (error) {
-    logger.error('Email connection test failed:', error);
+    logger.error("Email connection test failed:", error);
     return {
       success: false,
-      message: 'Email connection failed',
+      message: "Email connection failed",
       error: error.message,
     };
   }
@@ -104,15 +91,15 @@ async function testEmailConnection(emailConfig = null) {
  */
 async function testRedisConnection(redisUrl = null) {
   let client = null;
-  
+
   try {
     const url = redisUrl || process.env.REDIS_URL;
 
     if (!url) {
       return {
         success: false,
-        message: 'No Redis URL provided',
-        error: 'REDIS_URL not configured',
+        message: "No Redis URL provided",
+        error: "REDIS_URL not configured",
       };
     }
 
@@ -123,8 +110,8 @@ async function testRedisConnection(redisUrl = null) {
     });
 
     // Handle connection errors
-    client.on('error', (err) => {
-      logger.error('Redis client error:', err);
+    client.on("error", (err) => {
+      logger.error("Redis client error:", err);
     });
 
     // Connect
@@ -135,37 +122,41 @@ async function testRedisConnection(redisUrl = null) {
 
     // Get server info
     const info = await client.info();
-    const lines = info.split('\r\n');
-    const version = lines.find(line => line.startsWith('redis_version:'))?.split(':')[1];
-    const uptime = lines.find(line => line.startsWith('uptime_in_seconds:'))?.split(':')[1];
+    const lines = info.split("\r\n");
+    const version = lines
+      .find((line) => line.startsWith("redis_version:"))
+      ?.split(":")[1];
+    const uptime = lines
+      .find((line) => line.startsWith("uptime_in_seconds:"))
+      ?.split(":")[1];
 
     // Close connection
     await client.quit();
 
     return {
       success: true,
-      message: 'Redis connection successful',
+      message: "Redis connection successful",
       details: {
         response: pong,
-        version: version || 'unknown',
-        uptime: uptime ? `${uptime} seconds` : 'unknown',
+        version: version || "unknown",
+        uptime: uptime ? `${uptime} seconds` : "unknown",
       },
     };
   } catch (error) {
-    logger.error('Redis connection test failed:', error);
-    
+    logger.error("Redis connection test failed:", error);
+
     // Ensure client is closed
-    if (client && client.status === 'ready') {
+    if (client && client.status === "ready") {
       try {
         await client.quit();
       } catch (closeError) {
-        logger.error('Error closing Redis client:', closeError);
+        logger.error("Error closing Redis client:", closeError);
       }
     }
 
     return {
       success: false,
-      message: 'Redis connection failed',
+      message: "Redis connection failed",
       error: error.message,
     };
   }
@@ -185,11 +176,13 @@ async function testAllConnections(config = {}) {
     results.redis = await testRedisConnection(config.redisUrl);
   }
 
-  const allSuccess = Object.values(results).every(result => result.success);
+  const allSuccess = Object.values(results).every((result) => result.success);
 
   return {
     success: allSuccess,
-    message: allSuccess ? 'All connections successful' : 'Some connections failed',
+    message: allSuccess
+      ? "All connections successful"
+      : "Some connections failed",
     results,
   };
 }
@@ -214,24 +207,24 @@ async function sendTestEmail(emailConfig, testAddress) {
     const info = await transporter.sendMail({
       from: `"${emailConfig.fromName}" <${emailConfig.fromEmail}>`,
       to: testAddress,
-      subject: 'DSR - Test Email',
-      text: 'This is a test email from DSR system to verify email configuration.',
-      html: '<p>This is a test email from <strong>DSR system</strong> to verify email configuration.</p>',
+      subject: "DSR - Test Email",
+      text: "This is a test email from DSR system to verify email configuration.",
+      html: "<p>This is a test email from <strong>DSR system</strong> to verify email configuration.</p>",
     });
 
     return {
       success: true,
-      message: 'Test email sent successfully',
+      message: "Test email sent successfully",
       details: {
         messageId: info.messageId,
         recipient: testAddress,
       },
     };
   } catch (error) {
-    logger.error('Test email failed:', error);
+    logger.error("Test email failed:", error);
     return {
       success: false,
-      message: 'Failed to send test email',
+      message: "Failed to send test email",
       error: error.message,
     };
   }

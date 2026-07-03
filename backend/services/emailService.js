@@ -1,4 +1,4 @@
-const nodemailer = require('nodemailer');
+const nodemailer = require("nodemailer");
 
 /**
  * Email Service for sending notifications
@@ -10,32 +10,34 @@ let transporter = null;
 
 const initializeTransporter = () => {
   if (transporter) return transporter;
-  
+
   // Configure based on environment
   const emailConfig = {
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    host: process.env.EMAIL_HOST || "smtp.gmail.com",
     port: process.env.EMAIL_PORT || 587,
-    secure: process.env.EMAIL_SECURE === 'true', // true for 465, false for other ports
+    secure: process.env.EMAIL_SECURE === "true", // true for 465, false for other ports
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD
-    }
+      pass: process.env.EMAIL_PASSWORD,
+    },
   };
 
   // For development, use ethereal email (fake SMTP service)
-  if (process.env.NODE_ENV === 'development' && !process.env.EMAIL_USER) {
-    console.log('⚠️  Email service in development mode - emails will be logged to console');
+  if (process.env.NODE_ENV === "development" && !process.env.EMAIL_USER) {
+    console.log(
+      "⚠️  Email service in development mode - emails will be logged to console",
+    );
     return null; // Will use console.log instead
   }
 
   transporter = nodemailer.createTransport(emailConfig);
-  
+
   // Verify connection
   transporter.verify((error, success) => {
     if (error) {
-      console.error('❌ Email service initialization failed:', error.message);
+      console.error("❌ Email service initialization failed:", error.message);
     } else {
-      console.log('✅ Email service ready');
+      console.log("✅ Email service ready");
     }
   });
 
@@ -46,42 +48,48 @@ const initializeTransporter = () => {
 const sendEmail = async ({ to, subject, html, text }) => {
   try {
     const transport = initializeTransporter();
-    
+
     // In development without email config, just log
     if (!transport) {
-      console.log('\n📧 EMAIL (Development Mode):');
-      console.log('To:', to);
-      console.log('Subject:', subject);
-      console.log('Body:', text || html);
-      console.log('---\n');
+      console.log("\n📧 EMAIL (Development Mode):");
+      console.log("To:", to);
+      console.log("Subject:", subject);
+      console.log("Body:", text || html);
+      console.log("---\n");
       return { success: true, dev_mode: true };
     }
 
     const mailOptions = {
-      from: `"${process.env.EMAIL_FROM_NAME || 'Asset Management System'}" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
-      to: Array.isArray(to) ? to.join(', ') : to,
+      from: `"${process.env.EMAIL_FROM_NAME || "Asset Management System"}" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+      to: Array.isArray(to) ? to.join(", ") : to,
       subject,
       html,
-      text
+      text,
     };
 
     const info = await transport.sendMail(mailOptions);
-    console.log('✅ Email sent:', info.messageId);
-    
+    console.log("✅ Email sent:", info.messageId);
+
     return {
       success: true,
-      messageId: info.messageId
+      messageId: info.messageId,
     };
   } catch (error) {
-    console.error('❌ Failed to send email:', error.message);
+    console.error("❌ Failed to send email:", error.message);
     throw error;
   }
 };
 
 // Template: Audit Reminder
-const sendAuditReminder = async ({ recipients, auditName, auditDate, auditType, assetsCount }) => {
+const sendAuditReminder = async ({
+  recipients,
+  auditName,
+  auditDate,
+  auditType,
+  assetsCount,
+}) => {
   const subject = `Reminder: Scheduled Audit "${auditName}" - ${auditDate}`;
-  
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -115,7 +123,7 @@ const sendAuditReminder = async ({ recipients, auditName, auditDate, auditType, 
           <p>Please ensure you are prepared to conduct this audit on the scheduled date.</p>
           
           <p style="text-align: center;">
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/audits" class="button">View Audit Details</a>
+            <a href="${process.env.FRONTEND_URL || "http://localhost:3000"}/audits" class="button">View Audit Details</a>
           </p>
         </div>
         <div class="footer">
@@ -137,19 +145,24 @@ const sendAuditReminder = async ({ recipients, auditName, auditDate, auditType, 
     
     Please ensure you are prepared to conduct this audit on the scheduled date.
     
-    View details at: ${process.env.FRONTEND_URL || 'http://localhost:3000'}/audits
+    View details at: ${process.env.FRONTEND_URL || "http://localhost:3000"}/audits
   `;
 
   return sendEmail({ to: recipients, subject, html, text });
 };
 
 // Template: Audit Completion Notification
-const sendAuditCompletionNotification = async ({ recipients, auditName, completionDate, statistics }) => {
+const sendAuditCompletionNotification = async ({
+  recipients,
+  auditName,
+  completionDate,
+  statistics,
+}) => {
   const subject = `Audit Completed: "${auditName}"`;
-  
+
   const { total, found, notFound, damaged, missing } = statistics;
   const completionRate = ((found / total) * 100).toFixed(1);
-  
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -199,12 +212,16 @@ const sendAuditCompletionNotification = async ({ recipients, auditName, completi
           
           <p><strong>Completion Rate:</strong> ${completionRate}%</p>
           
-          ${missing > 0 ? `<div class="alert">
+          ${
+            missing > 0
+              ? `<div class="alert">
             <strong>⚠️ Attention Required:</strong> ${missing} asset(s) are missing and require immediate attention.
-          </div>` : ''}
+          </div>`
+              : ""
+          }
           
           <p style="text-align: center;">
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/audits/reports" class="button">View Full Report</a>
+            <a href="${process.env.FRONTEND_URL || "http://localhost:3000"}/audits/reports" class="button">View Full Report</a>
           </p>
         </div>
         <div class="footer">
@@ -228,9 +245,9 @@ const sendAuditCompletionNotification = async ({ recipients, auditName, completi
     
     Completion Rate: ${completionRate}%
     
-    ${missing > 0 ? `⚠️ ${missing} asset(s) are missing and require immediate attention.` : ''}
+    ${missing > 0 ? `⚠️ ${missing} asset(s) are missing and require immediate attention.` : ""}
     
-    View full report at: ${process.env.FRONTEND_URL || 'http://localhost:3000'}/audits/reports
+    View full report at: ${process.env.FRONTEND_URL || "http://localhost:3000"}/audits/reports
     
     Completed on: ${new Date(completionDate).toLocaleString()}
   `;
@@ -239,9 +256,13 @@ const sendAuditCompletionNotification = async ({ recipients, auditName, completi
 };
 
 // Template: Audit Overdue Notification
-const sendAuditOverdueNotification = async ({ recipients, auditName, dueDate }) => {
+const sendAuditOverdueNotification = async ({
+  recipients,
+  auditName,
+  dueDate,
+}) => {
   const subject = `⚠️ Overdue Audit: "${auditName}"`;
-  
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -273,7 +294,7 @@ const sendAuditOverdueNotification = async ({ recipients, auditName, dueDate }) 
           <p>Please complete this audit as soon as possible or reschedule if needed.</p>
           
           <p style="text-align: center;">
-            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/audits" class="button">Complete Audit Now</a>
+            <a href="${process.env.FRONTEND_URL || "http://localhost:3000"}/audits" class="button">Complete Audit Now</a>
           </p>
         </div>
         <div class="footer">
@@ -293,7 +314,7 @@ const sendAuditOverdueNotification = async ({ recipients, auditName, dueDate }) 
     
     Please complete this audit as soon as possible or reschedule if needed.
     
-    Complete audit at: ${process.env.FRONTEND_URL || 'http://localhost:3000'}/audits
+    Complete audit at: ${process.env.FRONTEND_URL || "http://localhost:3000"}/audits
   `;
 
   return sendEmail({ to: recipients, subject, html, text });
@@ -304,5 +325,5 @@ module.exports = {
   sendAuditReminder,
   sendAuditCompletionNotification,
   sendAuditOverdueNotification,
-  initializeTransporter
+  initializeTransporter,
 };

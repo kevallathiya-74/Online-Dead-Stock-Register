@@ -3,8 +3,8 @@
  * Provides helper functions for database operations with Supabase PostgreSQL
  */
 
-const getSupabase = require('../config/db');
-const logger = require('../utils/logger');
+const getSupabase = require("../config/db");
+const logger = require("../utils/logger");
 
 /**
  * Check if Supabase connection is healthy
@@ -13,16 +13,19 @@ const logger = require('../utils/logger');
 const isConnectionHealthy = async () => {
   try {
     const supabase = getSupabase();
-    const { data, error } = await supabase.from('users').select('count').limit(1);
-    
+    const { data, error } = await supabase
+      .from("users")
+      .select("count")
+      .limit(1);
+
     if (error) {
-      logger.error('Connection health check failed:', error.message);
+      logger.error("Connection health check failed:", error.message);
       return false;
     }
-    
+
     return true;
   } catch (error) {
-    logger.error('Connection health check failed:', error.message);
+    logger.error("Connection health check failed:", error.message);
     return false;
   }
 };
@@ -34,9 +37,9 @@ const isConnectionHealthy = async () => {
 const getConnectionState = () => {
   try {
     const supabase = getSupabase();
-    return supabase ? 'connected' : 'disconnected';
+    return supabase ? "connected" : "disconnected";
   } catch (error) {
-    return 'error';
+    return "error";
   }
 };
 
@@ -48,14 +51,16 @@ const getConnectionInfo = () => {
   try {
     const supabase = getSupabase();
     return {
-      state: 'connected',
-      database: 'PostgreSQL (Supabase)',
-      url: process.env.SUPABASE_URL ? process.env.SUPABASE_URL.substring(0, 30) + '...' : 'Not configured'
+      state: "connected",
+      database: "PostgreSQL (Supabase)",
+      url: process.env.SUPABASE_URL
+        ? process.env.SUPABASE_URL.substring(0, 30) + "..."
+        : "Not configured",
     };
   } catch (error) {
     return {
-      state: 'error',
-      error: error.message
+      state: "error",
+      error: error.message,
     };
   }
 };
@@ -76,32 +81,38 @@ const ensureConnection = async () => {
  */
 const withRetry = async (operation, maxRetries = 3) => {
   let lastError;
-  
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       // Execute the operation
       return await operation();
-      
     } catch (error) {
       lastError = error;
-      logger.error(`Operation failed (attempt ${attempt}/${maxRetries}):`, error.message);
-      
+      logger.error(
+        `Operation failed (attempt ${attempt}/${maxRetries}):`,
+        error.message,
+      );
+
       // Check if it's a network/connection error
-      if (error.code === 'PGRST301' || error.message?.includes('network') || error.message?.includes('timeout')) {
+      if (
+        error.code === "PGRST301" ||
+        error.message?.includes("network") ||
+        error.message?.includes("timeout")
+      ) {
         if (attempt < maxRetries) {
           logger.warn(`Retrying after connection error...`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
           continue;
         }
       }
-      
+
       // If not a connection error or last attempt, throw
       if (attempt === maxRetries) {
         throw error;
       }
     }
   }
-  
+
   throw lastError;
 };
 
@@ -110,15 +121,11 @@ const withRetry = async (operation, maxRetries = 3) => {
  * @returns {object}
  */
 const getPoolStats = () => {
-  try {
-    return {
-      status: 'Supabase manages connection pooling automatically',
-      type: 'PostgreSQL via Supabase',
-      pooler: 'PgBouncer (managed by Supabase)'
-    };
-  } catch (error) {
-    return { error: error.message };
-  }
+  return {
+    status: "Supabase manages connection pooling automatically",
+    type: "PostgreSQL via Supabase",
+    pooler: "PgBouncer (managed by Supabase)",
+  };
 };
 
 /**
@@ -129,9 +136,9 @@ const getPoolStats = () => {
 const normalizeFilter = (filter) => {
   // Convert common MongoDB operators to PostgreSQL equivalents
   const normalized = {};
-  
+
   for (const [key, value] of Object.entries(filter)) {
-    if (typeof value === 'object' && value !== null) {
+    if (typeof value === "object" && value !== null) {
       // Handle MongoDB operators
       if (value.$eq) normalized[key] = { eq: value.$eq };
       else if (value.$ne) normalized[key] = { neq: value.$ne };
@@ -146,7 +153,7 @@ const normalizeFilter = (filter) => {
       normalized[key] = value;
     }
   }
-  
+
   return normalized;
 };
 
@@ -157,5 +164,5 @@ module.exports = {
   ensureConnection,
   withRetry,
   getPoolStats,
-  normalizeFilter
+  normalizeFilter,
 };

@@ -1,5 +1,5 @@
-const nodemailer = require('nodemailer');
-require('dotenv').config();
+const nodemailer = require("nodemailer");
+require("dotenv").config();
 
 class EmailService {
   constructor() {
@@ -7,8 +7,8 @@ class EmailService {
       service: process.env.EMAIL_SERVICE,
       auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD
-      }
+        pass: process.env.EMAIL_PASSWORD,
+      },
     });
   }
 
@@ -16,10 +16,10 @@ class EmailService {
   async verifyConnection() {
     try {
       await this.transporter.verify();
-      console.log('✅ Email service is ready');
+      console.log("✅ Email service is ready");
       return true;
     } catch (error) {
-      console.error('❌ Email service error:', error);
+      console.error("❌ Email service error:", error);
       return false;
     }
   }
@@ -27,11 +27,11 @@ class EmailService {
   // Send password reset email
   async sendPasswordResetEmail(to, resetToken) {
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-    
+
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to,
-      subject: 'Password Reset - Dead Stock Management System',
+      subject: "Password Reset - Dead Stock Management System",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #2c3e50;">Dead Stock Management System</h2>
@@ -56,15 +56,15 @@ class EmailService {
             This is an automated email, please do not reply.
           </p>
         </div>
-      `
+      `,
     };
 
     try {
       await this.transporter.sendMail(mailOptions);
-      console.log('✅ Password reset email sent to:', to);
+      console.log("✅ Password reset email sent to:", to);
       return true;
     } catch (error) {
-      console.error('❌ Error sending password reset email:', error);
+      console.error("❌ Error sending password reset email:", error);
       throw error;
     }
   }
@@ -74,7 +74,7 @@ class EmailService {
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to,
-      subject: 'Welcome to Dead Stock Management System',
+      subject: "Welcome to Dead Stock Management System",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #2c3e50;">Welcome to Dead Stock Management System</h2>
@@ -93,15 +93,15 @@ class EmailService {
             This is an automated email, please do not reply.
           </p>
         </div>
-      `
+      `,
     };
 
     try {
       await this.transporter.sendMail(mailOptions);
-      console.log('✅ Welcome email sent to:', to);
+      console.log("✅ Welcome email sent to:", to);
       return true;
     } catch (error) {
-      console.error('❌ Error sending welcome email:', error);
+      console.error("❌ Error sending welcome email:", error);
       throw error;
     }
   }
@@ -111,7 +111,7 @@ class EmailService {
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to,
-      subject: 'Asset Assignment Notification',
+      subject: "Asset Assignment Notification",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #2c3e50;">Asset Assignment Notification</h2>
@@ -129,15 +129,15 @@ class EmailService {
             This is an automated email, please do not reply.
           </p>
         </div>
-      `
+      `,
     };
 
     try {
       await this.transporter.sendMail(mailOptions);
-      console.log('✅ Asset assignment email sent to:', to);
+      console.log("✅ Asset assignment email sent to:", to);
       return true;
     } catch (error) {
-      console.error('❌ Error sending asset assignment email:', error);
+      console.error("❌ Error sending asset assignment email:", error);
       throw error;
     }
   }

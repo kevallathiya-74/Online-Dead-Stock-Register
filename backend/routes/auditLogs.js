@@ -1,21 +1,33 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const auditCtrl = require('../controllers/auditLogController');
-const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
+const auditCtrl = require("../controllers/auditLogController");
+const { authMiddleware, requireRole } = require("../middleware/authMiddleware");
 
 // All routes require authentication
 router.use(authMiddleware);
 
 // Get my activity history (employee-specific)
-router.get('/my-activity', auditCtrl.getMyActivity);
+router.get("/my-activity", auditCtrl.getMyActivity);
 
 // Get audit logs with filtering
-router.get('/', requireRole(['ADMIN', 'AUDITOR', 'IT_MANAGER']), auditCtrl.getAuditLogs);
+router.get(
+  "/",
+  requireRole(["ADMIN", "AUDITOR", "IT_MANAGER"]),
+  auditCtrl.getAuditLogs,
+);
 
 // Get audit statistics
-router.get('/stats', requireRole(['ADMIN', 'AUDITOR']), auditCtrl.getAuditStats);
+router.get(
+  "/stats",
+  requireRole(["ADMIN", "AUDITOR"]),
+  auditCtrl.getAuditStats,
+);
 
 // Export audit logs
-router.get('/export', requireRole(['ADMIN', 'AUDITOR']), auditCtrl.exportAuditLogs);
+router.get(
+  "/export",
+  requireRole(["ADMIN", "AUDITOR"]),
+  auditCtrl.exportAuditLogs,
+);
 
 module.exports = router;

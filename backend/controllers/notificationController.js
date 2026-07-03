@@ -1,30 +1,40 @@
-const Notification = require('../models/notification');
-const User = require('../models/user');
-const logger = require('../utils/logger');
+const getSupabase = require("../config/db");
+const logger = require("../utils/logger");
 
 // Get user notifications with pagination
 exports.getUserNotifications = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const userId = req.user.id;
     const { page = 1, limit = 20, is_read, type } = req.query;
-    const skip = (page - 1) * limit;
+    const from = (parseInt(page) - 1) * parseInt(limit);
+    const to = from + parseInt(limit) - 1;
 
-    // Build filter
-    let filter = { recipient: userId };
-    if (is_read !== undefined) filter.is_read = is_read === 'true';
-    if (type) filter.type = type;
+    let query = supabase
+      .from("notifications")
+      .select(
+        `
+        *,
+        sender_info:sender(id, name, email)
+      `,
+        { count: "exact" },
+      )
+      .eq("recipient", userId)
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
-    const notifications = await Notification.find(filter)
-      .populate('sender', 'full_name email')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+    if (is_read !== undefined) query = query.eq("is_read", is_read === "true");
+    if (type) query = query.eq("type", type);
 
-    const total = await Notification.countDocuments(filter);
-    const unreadCount = await Notification.countDocuments({ 
-      recipient: userId, 
-      is_read: false 
-    });
+    const { data: notifications, count, error } = await query;
+    if (error) throw error;
+
+    // Get unread count
+    const { count: unreadCount } = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("recipient", userId)
+      .eq("is_read", false);
 
     res.json({
       success: true,
@@ -32,203 +42,244 @@ exports.getUserNotifications = async (req, res) => {
         notifications,
         pagination: {
           current_page: parseInt(page),
-          total_pages: Math.ceil(total / limit),
-          total_notifications: total,
-          unread_count: unreadCount,
-          has_next: page * limit < total,
-          has_prev: page > 1
-        }
-      }
+          total_pages: Math.ceil(count / parseInt(limit)),
+          total_notifications: count,
+          unread_count: unreadCount || 0,
+          has_next: parseInt(page) * parseInt(limit) < count,
+          has_prev: parseInt(page) > 1,
+        },
+      },
     });
   } catch (error) {
-    logger.error('Error fetching notifications:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch notifications' });
+    logger.error("Error fetching notifications:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch notifications" });
   }
 };
 
 // Get unread notification count
 exports.getUnreadCount = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const userId = req.user.id;
-    const unreadCount = await Notification.countDocuments({ 
-      recipient: userId, 
-      is_read: false 
-    });
+    const { count: unreadCount, error } = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("recipient", userId)
+      .eq("is_read", false);
 
-    res.json({ success: true, data: { unread_count: unreadCount } });
+    if (error) throw error;
+    res.json({ success: true, data: { unread_count: unreadCount || 0 } });
   } catch (error) {
-    logger.error('Error fetching unread count:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch unread count' });
+    logger.error("Error fetching unread count:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch unread count" });
   }
 };
 
 // Mark notification as read
 exports.markAsRead = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const { id } = req.params;
     const userId = req.user.id;
 
-    const notification = await Notification.findOneAndUpdate(
-      { _id: id, recipient: userId },
-      { 
-        is_read: true,
-        read_at: new Date()
-      },
-      { new: true }
-    );
+    const { data: notification, error } = await supabase
+      .from("notifications")
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("recipient", userId)
+      .select()
+      .single();
 
-    if (!notification) {
-      return res.status(404).json({ success: false, message: 'Notification not found' });
+    if (error || !notification) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Notification not found" });
     }
 
     res.json({
       success: true,
       data: notification,
-      message: 'Notification marked as read'
+      message: "Notification marked as read",
     });
   } catch (error) {
-    logger.error('Error marking notification as read:', error);
-    res.status(500).json({ success: false, message: 'Failed to mark notification as read' });
+    logger.error("Error marking notification as read:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Failed to mark notification as read" });
   }
 };
 
 // Mark all notifications as read
 exports.markAllAsRead = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const userId = req.user.id;
 
-    await Notification.updateMany(
-      { recipient: userId, is_read: false },
-      { 
-        is_read: true,
-        read_at: new Date()
-      }
-    );
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq("recipient", userId)
+      .eq("is_read", false);
 
-    res.json({ message: 'All notifications marked as read' });
+    if (error) throw error;
+    res.json({ message: "All notifications marked as read" });
   } catch (error) {
-    logger.error('Error marking all notifications as read:', error);
-    res.status(500).json({ message: 'Failed to mark all notifications as read' });
+    logger.error("Error marking all notifications as read:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to mark all notifications as read" });
   }
 };
 
 // Delete notification
 exports.deleteNotification = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const { id } = req.params;
     const userId = req.user.id;
 
-    const notification = await Notification.findOneAndDelete({
-      _id: id,
-      recipient: userId
-    });
+    const { data: notification, error: findError } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("id", id)
+      .eq("recipient", userId)
+      .single();
 
-    if (!notification) {
-      return res.status(404).json({ message: 'Notification not found' });
+    if (findError || !notification) {
+      return res.status(404).json({ message: "Notification not found" });
     }
 
-    res.json({ message: 'Notification deleted successfully' });
+    const { error } = await supabase
+      .from("notifications")
+      .delete()
+      .eq("id", id)
+      .eq("recipient", userId);
+
+    if (error) throw error;
+    res.json({ message: "Notification deleted successfully" });
   } catch (error) {
-    logger.error('Error deleting notification:', error);
-    res.status(500).json({ message: 'Failed to delete notification' });
+    logger.error("Error deleting notification:", error);
+    res.status(500).json({ message: "Failed to delete notification" });
   }
 };
 
 // Delete all read notifications
 exports.deleteAllRead = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const userId = req.user.id;
 
-    await Notification.deleteMany({
-      recipient: userId,
-      is_read: true
-    });
+    const { error } = await supabase
+      .from("notifications")
+      .delete()
+      .eq("recipient", userId)
+      .eq("is_read", true);
 
-    res.json({ message: 'All read notifications deleted successfully' });
+    if (error) throw error;
+    res.json({ message: "All read notifications deleted successfully" });
   } catch (error) {
-    logger.error('Error deleting read notifications:', error);
-    res.status(500).json({ message: 'Failed to delete read notifications' });
+    logger.error("Error deleting read notifications:", error);
+    res.status(500).json({ message: "Failed to delete read notifications" });
   }
 };
 
 // Create notification (for admin/system use)
 exports.createNotification = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const {
       recipient_id,
       title,
       message,
-      type = 'info',
-      priority = 'medium',
+      type = "info",
+      priority = "medium",
       data = null,
       action_url = null,
-      expires_at = null
+      expires_at = null,
     } = req.body;
 
     // Verify recipient exists
-    const recipient = await User.findById(recipient_id);
-    if (!recipient) {
-      return res.status(404).json({ message: 'Recipient user not found' });
+    const { data: recipient, error: userError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("id", recipient_id)
+      .single();
+
+    if (userError || !recipient) {
+      return res.status(404).json({ message: "Recipient user not found" });
     }
 
-    const notification = new Notification({
-      recipient: recipient_id,
-      sender: req.user.id,
-      title,
-      message,
-      type,
-      priority,
-      data,
-      action_url,
-      expires_at
-    });
+    const { data: notification, error } = await supabase
+      .from("notifications")
+      .insert({
+        recipient: recipient_id,
+        sender: req.user.id,
+        title,
+        message,
+        type,
+        priority,
+        data,
+        action_url,
+        expires_at,
+      })
+      .select(
+        `
+        *,
+        sender_info:sender(id, name, email),
+        recipient_info:recipient(id, name, email)
+      `,
+      )
+      .single();
 
-    await notification.save();
-
-    // Populate sender info for response
-    await notification.populate('sender', 'full_name email');
-    await notification.populate('recipient', 'full_name email');
-
-    res.status(201).json({
-      message: 'Notification created successfully',
-      notification
-    });
+    if (error) throw error;
+    res
+      .status(201)
+      .json({ message: "Notification created successfully", notification });
   } catch (error) {
-    logger.error('Error creating notification:', error);
-    res.status(500).json({ message: 'Failed to create notification' });
+    logger.error("Error creating notification:", error);
+    res.status(500).json({ message: "Failed to create notification" });
   }
 };
 
 // Create system notification (no sender)
 exports.createSystemNotification = async (req, res) => {
   try {
+    const supabase = getSupabase();
     const {
       recipient_id,
       title,
       message,
-      type = 'system',
-      priority = 'medium',
+      type = "system",
+      priority = "medium",
       data = null,
       action_url = null,
-      expires_at = null
+      expires_at = null,
     } = req.body;
 
-    // If recipient_id is 'all', send to all active users
-    let recipients = [];
-    if (recipient_id === 'all') {
-      const users = await User.find({ status: 'active' }).select('_id');
-      recipients = users.map(user => user._id);
+    let recipientIds = [];
+    if (recipient_id === "all") {
+      const { data: users } = await supabase
+        .from("users")
+        .select("id")
+        .eq("status", "active");
+      recipientIds = (users || []).map((u) => u.id);
     } else {
-      // Verify recipient exists
-      const recipient = await User.findById(recipient_id);
-      if (!recipient) {
-        return res.status(404).json({ message: 'Recipient user not found' });
+      const { data: recipient, error: userError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("id", recipient_id)
+        .single();
+      if (userError || !recipient) {
+        return res.status(404).json({ message: "Recipient user not found" });
       }
-      recipients = [recipient_id];
+      recipientIds = [recipient_id];
     }
 
-    // Create notifications for all recipients
-    const notifications = recipients.map(recipientId => ({
+    const notifications = recipientIds.map((recipientId) => ({
       recipient: recipientId,
       title,
       message,
@@ -236,18 +287,21 @@ exports.createSystemNotification = async (req, res) => {
       priority,
       data,
       action_url,
-      expires_at
+      expires_at,
     }));
 
-    await Notification.insertMany(notifications);
+    const { error } = await supabase
+      .from("notifications")
+      .insert(notifications);
+    if (error) throw error;
 
     res.status(201).json({
-      message: `System notification sent to ${recipients.length} user(s)`,
-      count: recipients.length
+      message: `System notification sent to ${recipientIds.length} user(s)`,
+      count: recipientIds.length,
     });
   } catch (error) {
-    logger.error('Error creating system notification:', error);
-    res.status(500).json({ message: 'Failed to create system notification' });
+    logger.error("Error creating system notification:", error);
+    res.status(500).json({ message: "Failed to create system notification" });
   }
 };
 
@@ -255,22 +309,21 @@ exports.createSystemNotification = async (req, res) => {
 exports.getNotificationTypes = async (req, res) => {
   try {
     const types = [
-      'info',
-      'warning', 
-      'error',
-      'success',
-      'maintenance',
-      'audit',
-      'approval',
-      'asset_assigned',
-      'asset_returned',
-      'warranty_expiring',
-      'system'
+      "info",
+      "warning",
+      "error",
+      "success",
+      "maintenance",
+      "audit",
+      "approval",
+      "asset_assigned",
+      "asset_returned",
+      "warranty_expiring",
+      "system",
     ];
-
     res.json({ types });
   } catch (error) {
-    logger.error('Error fetching notification types:', error);
-    res.status(500).json({ message: 'Failed to fetch notification types' });
+    logger.error("Error fetching notification types:", error);
+    res.status(500).json({ message: "Failed to fetch notification types" });
   }
 };

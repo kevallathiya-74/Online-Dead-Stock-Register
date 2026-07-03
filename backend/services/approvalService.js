@@ -1,77 +1,116 @@
-const Approval = require('../models/approval');
-const AuditLog = require('../models/auditLog');
-const Notification = require('../models/notification');
-const logger = require('../utils/logger');
-const mongoose = require('mongoose');
+const getSupabase = require("../config/db");
+const logger = require("../utils/logger");
+
+/**
+ * Helper to map Supabase database fields to match mongoose-like _id and object structures
+ */
+const mapApproval = (approval) => {
+  if (!approval) return null;
+  const mapped = { ...approval, _id: approval.id };
+  if (mapped.requested_by) {
+    mapped.requested_by = {
+      ...mapped.requested_by,
+      _id: mapped.requested_by.id,
+      id: mapped.requested_by.id,
+    };
+  }
+  if (mapped.approver) {
+    mapped.approver = {
+      ...mapped.approver,
+      _id: mapped.approver.id,
+      id: mapped.approver.id,
+    };
+  }
+  if (mapped.asset_id) {
+    mapped.asset_id = {
+      ...mapped.asset_id,
+      _id: mapped.asset_id.id,
+      id: mapped.asset_id.id,
+    };
+  }
+  return mapped;
+};
 
 /**
  * Get all approval requests with filters
  */
-exports.getApprovals = async (filters = {}, pagination = {}, userRole, userId) => {
+exports.getApprovals = async (
+  filters = {},
+  pagination = {},
+  userRole,
+  userId,
+) => {
+  const supabase = getSupabase();
   try {
     const { page = 1, limit = 10 } = pagination;
-    const skip = (page - 1) * limit;
-    
-    // Build query based on user role
-    const query = {};
-    
+    const fromRange = (page - 1) * limit;
+    const toRange = fromRange + limit - 1;
+
+    // Start building query
+    let query = supabase.from("approvals").select(
+      `
+        *,
+        requested_by:users!requested_by(id, name, email, role, employee_id),
+        approver:users!approver(id, name, email, role),
+        asset_id:assets!asset_id(id, name, unique_asset_id, asset_type)
+      `,
+      { count: "exact" },
+    );
+
     // Role-based access control
-    if (userRole === 'Vendor') {
-      query.requested_by = userId;
-    } else if (userRole === 'Manager' || userRole === 'Department Head') {
-      // Managers see approvals they need to approve or have approved
-      query.$or = [
-        { approver: userId },
-        { requested_by: userId }
-      ];
+    if (userRole === "Vendor") {
+      query = query.eq("requested_by", userId);
+    } else if (userRole === "Manager" || userRole === "Department Head") {
+      // Managers see approvals they need to approve or have approved, or requested
+      query = query.or(`approver.eq.${userId},requested_by.eq.${userId}`);
     }
     // Admin, INVENTORY_MANAGER, and IT_MANAGER see all approvals
-    
+
     // Status filter
     if (filters.status) {
-      query.status = filters.status;
+      query = query.eq("status", filters.status);
     }
-    
+
     // Type filter
     if (filters.type) {
-      query.request_type = filters.type;
+      query = query.eq("request_type", filters.type);
     }
-    
+
     // Date range filter
-    if (filters.startDate || filters.endDate) {
-      query.created_at = {};
-      if (filters.startDate) {
-        query.created_at.$gte = new Date(filters.startDate);
-      }
-      if (filters.endDate) {
-        query.created_at.$lte = new Date(filters.endDate);
-      }
+    if (filters.startDate) {
+      query = query.gte(
+        "created_at",
+        new Date(filters.startDate).toISOString(),
+      );
     }
-    
-    // Execute query
-    const [approvals, total] = await Promise.all([
-      Approval.find(query)
-        .populate('requested_by', 'name email role employee_id')
-        .populate('approver', 'name email role')
-        .populate('asset_id', 'name unique_asset_id asset_type')
-        .sort({ created_at: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Approval.countDocuments(query)
-    ]);
-    
+    if (filters.endDate) {
+      query = query.lte("created_at", new Date(filters.endDate).toISOString());
+    }
+
+    // Execute query with sorting and range pagination
+    const {
+      data: approvals,
+      count: total,
+      error,
+    } = await query
+      .order("created_at", { ascending: false })
+      .range(fromRange, toRange);
+
+    if (error) throw error;
+
+    const mappedApprovals = (approvals || []).map(mapApproval);
+
     return {
-      approvals,
+      approvals: mappedApprovals,
       pagination: {
-        total,
+        total: total || 0,
         page,
-        pages: Math.ceil(total / limit),
-        limit
-      }
+        pages: Math.ceil((total || 0) / limit),
+        limit,
+      },
     };
   } catch (error) {
-    logger.error('Error in getApprovals service:', error);
+    logger.error("Error in getApprovals service:", error);
     throw error;
   }
 };
@@ -80,32 +119,47 @@ exports.getApprovals = async (filters = {}, pagination = {}, userRole, userId) =
  * Get approval by ID
  */
 exports.getApprovalById = async (approvalId, userRole, userId) => {
+  const supabase = getSupabase();
   try {
-    const approval = await Approval.findById(approvalId)
-      .populate('requested_by', 'name email role department employee_id')
-      .populate('approver', 'name email role')
-      .populate('asset_id', 'name unique_asset_id asset_type status')
-      .lean();
-    
+    const { data: approval, error } = await supabase
+      .from("approvals")
+      .select(
+        `
+        *,
+        requested_by:users!requested_by(id, name, email, role, department, employee_id),
+        approver:users!approver(id, name, email, role),
+        asset_id:assets!asset_id(id, name, unique_asset_id, asset_type, status)
+      `,
+      )
+      .eq("id", approvalId)
+      .maybeSingle();
+
+    if (error) throw error;
     if (!approval) {
       return null;
     }
-    
+
+    const mapped = mapApproval(approval);
+
     // Check access rights
-    const hasAccess = 
-      userRole === 'ADMIN' ||
-      userRole === 'INVENTORY_MANAGER' ||
-      userRole === 'IT_MANAGER' ||
-      approval.requested_by._id.toString() === userId.toString() ||
-      approval.approver?._id.toString() === userId.toString();
-    
+    const hasAccess =
+      userRole === "ADMIN" ||
+      userRole === "INVENTORY_MANAGER" ||
+      userRole === "IT_MANAGER" ||
+      (mapped.requested_by &&
+        (mapped.requested_by.id.toString() === userId.toString() ||
+          mapped.requested_by._id.toString() === userId.toString())) ||
+      (mapped.approver &&
+        (mapped.approver.id.toString() === userId.toString() ||
+          mapped.approver._id.toString() === userId.toString()));
+
     if (!hasAccess) {
-      throw new Error('Unauthorized access to approval request');
+      throw new Error("Unauthorized access to approval request");
     }
-    
-    return approval;
+
+    return mapped;
   } catch (error) {
-    logger.error('Error in getApprovalById service:', error);
+    logger.error("Error in getApprovalById service:", error);
     throw error;
   }
 };
@@ -114,69 +168,92 @@ exports.getApprovalById = async (approvalId, userRole, userId) => {
  * Create new approval request
  */
 exports.createApproval = async (approvalData, userId) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-  
+  const supabase = getSupabase();
   try {
-    // Create approval
-    const approval = new Approval({
-      ...approvalData,
+    const now = new Date().toISOString();
+
+    // Map Mongoose-like fields to PostgreSQL approvals schema columns
+    const newApproval = {
+      request_type: approvalData.request_type || approvalData.requestType,
+      asset_id: approvalData.asset_id || approvalData.assetId || null,
       requested_by: userId,
-      status: 'Pending'
-    });
-    
-    await approval.save({ session });
-    
+      approver: approvalData.approver || null,
+      current_approver_id:
+        approvalData.current_approver_id ||
+        approvalData.currentApproverId ||
+        null,
+      status: "Pending",
+      request_data:
+        approvalData.request_data || approvalData.requestData || null,
+      comments: approvalData.comments || null,
+      approval_chain:
+        approvalData.approval_chain || approvalData.approvalChain || null,
+      final_decision:
+        approvalData.final_decision || approvalData.finalDecision || null,
+      final_decision_date:
+        approvalData.final_decision_date ||
+        approvalData.finalDecisionDate ||
+        null,
+      created_at: now,
+      updated_at: now,
+    };
+
+    const { data: approval, error } = await supabase
+      .from("approvals")
+      .insert([newApproval])
+      .select()
+      .single();
+
+    if (error) throw error;
+
     // Create notification for managers/admins who can approve
-    const User = require('../models/user');
-    const approvers = await User.find({
-      role: { $in: ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER'] },
-      is_active: true
-    }).select('_id');
-    
-    // Create notifications for all approvers
-    const notifications = approvers.map(approver => ({
-      user_id: approver._id,
-      type: 'approval_required',
-      title: 'New Approval Request',
-      message: `New ${approvalData.request_type} approval request requires your attention`,
-      related_entity_type: 'Approval',
-      related_entity_id: approval._id,
-      priority: 'medium'
-    }));
-    
-    if (notifications.length > 0) {
-      await Notification.create(notifications, { session });
+    const { data: approvers, error: approversError } = await supabase
+      .from("users")
+      .select("id")
+      .in("role", ["ADMIN", "INVENTORY_MANAGER", "IT_MANAGER"])
+      .eq("is_active", true);
+
+    if (!approversError && approvers && approvers.length > 0) {
+      const notifications = approvers.map((approver) => ({
+        recipient: approver.id,
+        type: "approval",
+        title: "New Approval Request",
+        message: `New ${newApproval.request_type} approval request requires your attention`,
+        priority: "medium",
+        data: {
+          related_entity_type: "Approval",
+          related_entity_id: approval.id,
+        },
+      }));
+
+      await supabase.from("notifications").insert(notifications);
     }
-    
+
     // Create audit log
-    await AuditLog.create([{
-      user_id: userId,
-      action: 'CREATE',
-      entity_type: 'Approval',
-      entity_id: approval._id,
-      changes: {
-        new: approval.toObject()
+    await supabase.from("audit_logs").insert([
+      {
+        user_id: userId,
+        action: "CREATE",
+        entity_type: "Approval",
+        entity_id: approval.id,
+        changes: {
+          new: approval,
+        },
+        ip_address: "system",
+        user_agent: "backend-service",
       },
-      ip_address: 'system',
-      user_agent: 'backend-service'
-    }], { session });
-    
-    await session.commitTransaction();
-    
-    logger.info('Approval request created', {
-      approvalId: approval._id,
+    ]);
+
+    logger.info("Approval request created", {
+      approvalId: approval.id,
       type: approval.request_type,
-      userId
+      userId,
     });
-    
-    return approval.toObject();
+
+    return mapApproval(approval);
   } catch (error) {
-    await session.abortTransaction();
-    logger.error('Error in createApproval service:', error);
+    logger.error("Error in createApproval service:", error);
     throw error;
-  } finally {
-    session.endSession();
   }
 };
 
@@ -184,85 +261,105 @@ exports.createApproval = async (approvalData, userId) => {
  * Process approval decision (approve or reject)
  */
 exports.processApproval = async (approvalId, decision, comments, userId) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-  
+  const supabase = getSupabase();
   try {
-    const approval = await Approval.findById(approvalId).session(session);
-    
+    const { data: approval, error: findError } = await supabase
+      .from("approvals")
+      .select("*")
+      .eq("id", approvalId)
+      .maybeSingle();
+
+    if (findError) throw findError;
     if (!approval) {
-      await session.abortTransaction();
-      session.endSession();
       return null;
     }
-    
+
     // Verify request is still pending
-    if (approval.status !== 'Pending') {
-      await session.abortTransaction();
-      session.endSession();
-      throw new Error('This approval request has already been processed');
+    if (approval.status !== "Pending") {
+      throw new Error("This approval request has already been processed");
     }
-    
+
     // Update approval status
-    approval.status = decision === 'Approved' ? 'Accepted' : 'Rejected';
-    approval.approver = userId;
-    approval.comments = comments || '';
-    approval.approved_at = new Date();
-    approval.updated_at = new Date();
-    
-    await approval.save({ session });
-    
+    const decisionStatus = decision === "Approved" ? "Accepted" : "Rejected";
+    const now = new Date().toISOString();
+
+    const { data: updatedApproval, error: updateError } = await supabase
+      .from("approvals")
+      .update({
+        status: decisionStatus,
+        approver: userId,
+        comments: comments || "",
+        approved_at: now,
+        updated_at: now,
+      })
+      .eq("id", approvalId)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
     // Create notification for requester
-    const notificationType = decision === 'Approved' ? 'approval_approved' : 'approval_rejected';
-    const notificationTitle = decision === 'Approved' ? 'Request Approved' : 'Request Rejected';
+    const notificationType = "approval";
+    const notificationTitle =
+      decision === "Approved" ? "Request Approved" : "Request Rejected";
     const notificationMessage = `Your ${approval.request_type} request has been ${decision.toLowerCase()}`;
-    
-    await Notification.create([{
-      user_id: approval.requested_by,
-      type: notificationType,
-      title: notificationTitle,
-      message: notificationMessage,
-      related_entity_type: 'Approval',
-      related_entity_id: approval._id,
-      priority: 'high'
-    }], { session });
-    
-    // Create audit log
-    await AuditLog.create([{
-      user_id: userId,
-      action: 'UPDATE',
-      entity_type: 'Approval',
-      entity_id: approval._id,
-      changes: {
-        status: decision === 'Approved' ? 'Accepted' : 'Rejected',
-        comments
+
+    await supabase.from("notifications").insert([
+      {
+        recipient: approval.requested_by,
+        type: notificationType,
+        title: notificationTitle,
+        message: notificationMessage,
+        priority: "high",
+        data: {
+          related_entity_type: "Approval",
+          related_entity_id: approvalId,
+        },
       },
-      ip_address: 'system',
-      user_agent: 'backend-service'
-    }], { session });
-    
-    await session.commitTransaction();
-    
-    logger.info('Approval processed', {
-      approvalId: approval._id,
+    ]);
+
+    // Create audit log
+    await supabase.from("audit_logs").insert([
+      {
+        user_id: userId,
+        action: "UPDATE",
+        entity_type: "Approval",
+        entity_id: approvalId,
+        changes: {
+          status: decisionStatus,
+          comments,
+        },
+        ip_address: "system",
+        user_agent: "backend-service",
+      },
+    ]);
+
+    logger.info("Approval processed", {
+      approvalId: approvalId,
       decision,
-      userId
+      userId,
     });
-    
+
     // Populate and return
-    const populatedApproval = await Approval.findById(approvalId)
-      .populate('requested_by', 'name email employee_id')
-      .populate('approver', 'name email')
-      .populate('asset_id', 'name unique_asset_id asset_type')
-      .lean();
-    
-    return populatedApproval;
+    const { data: populatedApproval, error: popError } = await supabase
+      .from("approvals")
+      .select(
+        `
+        *,
+        requested_by:users!requested_by(id, name, email, employee_id),
+        approver:users!approver(id, name, email),
+        asset_id:assets!asset_id(id, name, unique_asset_id, asset_type)
+      `,
+      )
+      .eq("id", approvalId)
+      .single();
+
+    if (popError) throw popError;
+
+    return mapApproval(populatedApproval);
   } catch (error) {
-    await session.abortTransaction();
-    logger.error('Error in processApproval service:', error);
+    logger.error("Error in processApproval service:", error);
     throw error;
-  } finally {
-    session.endSession();
   }
 };
 
@@ -270,28 +367,38 @@ exports.processApproval = async (approvalId, decision, comments, userId) => {
  * Get pending approvals for a user (role-based)
  */
 exports.getPendingApprovalsForUser = async (userId, userRole) => {
+  const supabase = getSupabase();
   try {
     // If user is an approver (Admin, Inventory Manager, IT Manager), show all pending
-    const isApprover = ['ADMIN', 'INVENTORY_MANAGER', 'IT_MANAGER'].includes(userRole);
-    
-    const query = {
-      status: 'Pending'
-    };
-    
+    const isApprover = ["ADMIN", "INVENTORY_MANAGER", "IT_MANAGER"].includes(
+      userRole,
+    );
+
+    let query = supabase
+      .from("approvals")
+      .select(
+        `
+        *,
+        requested_by:users!requested_by(id, name, email, employee_id),
+        asset_id:assets!asset_id(id, name, unique_asset_id, asset_type)
+      `,
+      )
+      .eq("status", "Pending");
+
     // If not an approver, only show their own requests
     if (!isApprover) {
-      query.requested_by = userId;
+      query = query.eq("requested_by", userId);
     }
-    
-    const pendingApprovals = await Approval.find(query)
-      .populate('requested_by', 'name email employee_id')
-      .populate('asset_id', 'name unique_asset_id asset_type')
-      .sort({ created_at: -1 })
-      .lean();
-    
-    return pendingApprovals;
+
+    const { data: pendingApprovals, error } = await query.order("created_at", {
+      ascending: false,
+    });
+
+    if (error) throw error;
+
+    return (pendingApprovals || []).map(mapApproval);
   } catch (error) {
-    logger.error('Error in getPendingApprovalsForUser service:', error);
+    logger.error("Error in getPendingApprovalsForUser service:", error);
     throw error;
   }
 };
@@ -300,75 +407,100 @@ exports.getPendingApprovalsForUser = async (userId, userRole) => {
  * Get approval statistics
  */
 exports.getApprovalStats = async (userId, userRole) => {
+  const supabase = getSupabase();
   try {
-    const matchQuery = userRole === 'Admin' ? {} : {
-      $or: [
-        { requested_by: userId },
-        { current_approver_id: userId },
-        { 'approval_chain.approver_id': userId }
-      ]
-    };
-    
-    const stats = await Approval.aggregate([
-      { $match: matchQuery },
-      {
-        $facet: {
-          byStatus: [
-            {
-              $group: {
-                _id: '$status',
-                count: { $sum: 1 }
-              }
-            }
-          ],
-          byType: [
-            {
-              $group: {
-                _id: '$request_type',
-                count: { $sum: 1 }
-              }
-            }
-          ],
-          avgProcessingTime: [
-            {
-              $match: {
-                final_decision_date: { $exists: true }
-              }
-            },
-            {
-              $project: {
-                processingTime: {
-                  $subtract: ['$final_decision_date', '$created_at']
-                }
-              }
-            },
-            {
-              $group: {
-                _id: null,
-                avgTime: { $avg: '$processingTime' }
-              }
-            }
-          ],
-          total: [
-            { $count: 'total' }
-          ]
-        }
+    const { data: allApprovals, error } = await supabase
+      .from("approvals")
+      .select(
+        "status, request_type, created_at, final_decision_date, approval_chain, requested_by, current_approver_id",
+      );
+
+    if (error) throw error;
+
+    // Filter approvals in JS based on role
+    const filteredApprovals = (allApprovals || []).filter((approval) => {
+      if (userRole && userRole.toUpperCase() === "ADMIN") {
+        return true;
       }
-    ]);
-    
+
+      const requestedByStr = approval.requested_by
+        ? approval.requested_by.toString()
+        : "";
+      const currentApproverStr = approval.current_approver_id
+        ? approval.current_approver_id.toString()
+        : "";
+      const userIdStr = userId ? userId.toString() : "";
+
+      if (requestedByStr === userIdStr || currentApproverStr === userIdStr) {
+        return true;
+      }
+
+      // Check approval_chain (JSONB)
+      if (approval.approval_chain && Array.isArray(approval.approval_chain)) {
+        return approval.approval_chain.some((chainItem) => {
+          const approverIdStr =
+            chainItem && chainItem.approver_id
+              ? chainItem.approver_id.toString()
+              : "";
+          return approverIdStr === userIdStr;
+        });
+      }
+
+      return false;
+    });
+
+    const statusMap = {};
+    const typeMap = {};
+    let totalProcessingTime = 0;
+    let processedCount = 0;
+
+    filteredApprovals.forEach((app) => {
+      // byStatus
+      if (app.status) {
+        statusMap[app.status] = (statusMap[app.status] || 0) + 1;
+      }
+
+      // byType
+      if (app.request_type) {
+        typeMap[app.request_type] = (typeMap[app.request_type] || 0) + 1;
+      }
+
+      // avgProcessingTime
+      if (app.final_decision_date && app.created_at) {
+        const timeDiff =
+          new Date(app.final_decision_date) - new Date(app.created_at);
+        totalProcessingTime += timeDiff;
+        processedCount += 1;
+      }
+    });
+
+    const byStatus = Object.entries(statusMap).map(([_id, count]) => ({
+      _id,
+      count,
+    }));
+    const byType = Object.entries(typeMap).map(([_id, count]) => ({
+      _id,
+      count,
+    }));
+
     // Convert avg time from ms to days
-    const avgTimeDays = stats[0].avgProcessingTime[0]?.avgTime 
-      ? (stats[0].avgProcessingTime[0].avgTime / (1000 * 60 * 60 * 24)).toFixed(2)
-      : 0;
-    
+    const avgTimeDays =
+      processedCount > 0
+        ? (
+            totalProcessingTime /
+            (1000 * 60 * 60 * 24) /
+            processedCount
+          ).toFixed(2)
+        : 0;
+
     return {
-      byStatus: stats[0].byStatus,
-      byType: stats[0].byType,
+      byStatus,
+      byType,
       avgProcessingTimeDays: avgTimeDays,
-      total: stats[0].total[0]?.total || 0
+      total: filteredApprovals.length,
     };
   } catch (error) {
-    logger.error('Error in getApprovalStats service:', error);
+    logger.error("Error in getApprovalStats service:", error);
     throw error;
   }
 };

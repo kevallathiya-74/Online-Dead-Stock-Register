@@ -1,9 +1,9 @@
-const settingsService = require('../services/settingsService');
-const logger = require('../utils/logger');
+const settingsService = require("../services/settingsService");
+const logger = require("../utils/logger");
 
 /**
  * SYSTEM SETTINGS CONTROLLER
- * Manages system-wide configuration settings with MongoDB persistence
+ * Manages system-wide configuration settings with Supabase persistence
  */
 
 // Get all settings
@@ -12,17 +12,16 @@ exports.getSettings = async (req, res) => {
     const userRole = req.user?.role;
     const settings = await settingsService.getSettings(false, userRole);
 
-    res.json({
+    return res.json({
       success: true,
       data: settings,
-      message: 'Settings retrieved successfully',
+      message: "Settings retrieved successfully",
     });
   } catch (error) {
-    logger.error('Error in getSettings:', error);
-    res.status(500).json({
+    logger.error("Error in getSettings:", error);
+    return res.status(500).json({
       success: false,
-      message: 'Failed to retrieve settings',
-      error: error.message,
+      message: "Failed to retrieve settings",
     });
   }
 };
@@ -31,42 +30,34 @@ exports.getSettings = async (req, res) => {
 exports.updateSettings = async (req, res) => {
   try {
     const updates = req.body;
-    const userId = req.user._id;
-    const ipAddress = req.clientIp || req.ip || req.connection?.remoteAddress || 'Unknown';
-    const userAgent = req.get('user-agent') || 'Unknown';
+    const userId = req.user.id;
+    const ipAddress =
+      req.clientIp || req.ip || req.connection?.remoteAddress || "Unknown";
+    const userAgent = req.get("user-agent") || "Unknown";
 
-    const settings = await settingsService.updateSettings(updates, userId, ipAddress, userAgent);
+    const settings = await settingsService.updateSettings(
+      updates,
+      userId,
+      ipAddress,
+      userAgent,
+    );
 
     // Sanitize password in response
-    const response = settings.toObject();
+    const response = { ...settings };
     if (response.email && response.email.smtpPassword) {
-      response.email.smtpPassword = '••••••••';
+      response.email = { ...response.email, smtpPassword: "••••••••" };
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: response,
-      message: 'Settings updated successfully',
+      message: "Settings updated successfully",
     });
   } catch (error) {
-    logger.error('Error in updateSettings:', error);
-    
-    // Handle validation errors
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: Object.values(error.errors).map(e => ({
-          field: e.path,
-          message: e.message,
-        })),
-      });
-    }
-
-    res.status(500).json({
+    logger.error("Error in updateSettings:", error);
+    return res.status(500).json({
       success: false,
-      message: 'Failed to update settings',
-      error: error.message,
+      message: "Failed to update settings",
     });
   }
 };
@@ -76,48 +67,43 @@ exports.updateCategory = async (req, res) => {
   try {
     const { category } = req.params;
     const updates = req.body;
-    const userId = req.user._id;
-    const ipAddress = req.clientIp || req.ip || req.connection?.remoteAddress || 'Unknown';
-    const userAgent = req.get('user-agent') || 'Unknown';
+    const userId = req.user.id || req.user._id;
+    const ipAddress =
+      req.clientIp || req.ip || req.connection?.remoteAddress || "Unknown";
+    const userAgent = req.get("user-agent") || "Unknown";
 
-    const settings = await settingsService.updateCategory(category, updates, userId, ipAddress, userAgent);
+    const settings = await settingsService.updateCategory(
+      category,
+      updates,
+      userId,
+      ipAddress,
+      userAgent,
+    );
 
     // Sanitize password in response
-    const response = settings.toObject();
+    const response = { ...settings };
     if (response.email && response.email.smtpPassword) {
-      response.email.smtpPassword = '••••••••';
+      response.email = { ...response.email, smtpPassword: "••••••••" };
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: response,
       message: `${category} settings updated successfully`,
     });
   } catch (error) {
-    logger.error('Error in updateCategory:', error);
-    
-    if (error.message.includes('Invalid category')) {
+    logger.error("Error in updateCategory:", error);
+
+    if (error.message && error.message.includes("Invalid category")) {
       return res.status(400).json({
         success: false,
         message: error.message,
       });
     }
 
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: Object.values(error.errors).map(e => ({
-          field: e.path,
-          message: e.message,
-        })),
-      });
-    }
-
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: 'Failed to update category settings',
-      error: error.message,
+      message: "Failed to update category settings",
     });
   }
 };
@@ -130,24 +116,23 @@ exports.searchSettings = async (req, res) => {
     if (!query) {
       return res.status(400).json({
         success: false,
-        message: 'Search query is required',
+        message: "Search query is required",
       });
     }
 
     const results = await settingsService.searchSettings(query);
 
-    res.json({
+    return res.json({
       success: true,
       data: results,
       count: results.length,
-      message: 'Search completed successfully',
+      message: "Search completed successfully",
     });
   } catch (error) {
-    logger.error('Error in searchSettings:', error);
-    res.status(500).json({
+    logger.error("Error in searchSettings:", error);
+    return res.status(500).json({
       success: false,
-      message: 'Search failed',
-      error: error.message,
+      message: "Search failed",
     });
   }
 };
@@ -167,18 +152,17 @@ exports.getHistory = async (req, res) => {
 
     const result = await settingsService.getHistory(filters);
 
-    res.json({
+    return res.json({
       success: true,
       data: result.history,
       pagination: result.pagination,
-      message: 'History retrieved successfully',
+      message: "History retrieved successfully",
     });
   } catch (error) {
-    logger.error('Error in getHistory:', error);
-    res.status(500).json({
+    logger.error("Error in getHistory:", error);
+    return res.status(500).json({
       success: false,
-      message: 'Failed to retrieve history',
-      error: error.message,
+      message: "Failed to retrieve history",
     });
   }
 };
@@ -189,17 +173,16 @@ exports.getRecentChanges = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 10;
     const changes = await settingsService.getRecentChanges(limit);
 
-    res.json({
+    return res.json({
       success: true,
       data: changes,
-      message: 'Recent changes retrieved successfully',
+      message: "Recent changes retrieved successfully",
     });
   } catch (error) {
-    logger.error('Error in getRecentChanges:', error);
-    res.status(500).json({
+    logger.error("Error in getRecentChanges:", error);
+    return res.status(500).json({
       success: false,
-      message: 'Failed to retrieve recent changes',
-      error: error.message,
+      message: "Failed to retrieve recent changes",
     });
   }
 };
@@ -208,19 +191,19 @@ exports.getRecentChanges = async (req, res) => {
 exports.testDatabaseConnection = async (req, res) => {
   try {
     const { connectionString } = req.body;
-    const result = await settingsService.testDatabaseConnection(connectionString);
+    const result =
+      await settingsService.testDatabaseConnection(connectionString);
 
-    res.json({
+    return res.json({
       success: result.success,
       data: result,
       message: result.message,
     });
   } catch (error) {
-    logger.error('Error in testDatabaseConnection:', error);
-    res.status(500).json({
+    logger.error("Error in testDatabaseConnection:", error);
+    return res.status(500).json({
       success: false,
-      message: 'Connection test failed',
-      error: error.message,
+      message: "Connection test failed",
     });
   }
 };
@@ -231,17 +214,16 @@ exports.testEmailConnection = async (req, res) => {
     const emailConfig = req.body.emailConfig || null;
     const result = await settingsService.testEmailConnection(emailConfig);
 
-    res.json({
+    return res.json({
       success: result.success,
       data: result,
       message: result.message,
     });
   } catch (error) {
-    logger.error('Error in testEmailConnection:', error);
-    res.status(500).json({
+    logger.error("Error in testEmailConnection:", error);
+    return res.status(500).json({
       success: false,
-      message: 'Connection test failed',
-      error: error.message,
+      message: "Connection test failed",
     });
   }
 };
@@ -252,17 +234,16 @@ exports.testRedisConnection = async (req, res) => {
     const { redisUrl } = req.body;
     const result = await settingsService.testRedisConnection(redisUrl);
 
-    res.json({
+    return res.json({
       success: result.success,
       data: result,
       message: result.message,
     });
   } catch (error) {
-    logger.error('Error in testRedisConnection:', error);
-    res.status(500).json({
+    logger.error("Error in testRedisConnection:", error);
+    return res.status(500).json({
       success: false,
-      message: 'Connection test failed',
-      error: error.message,
+      message: "Connection test failed",
     });
   }
 };
@@ -272,17 +253,16 @@ exports.testAllConnections = async (req, res) => {
   try {
     const result = await settingsService.testAllConnections();
 
-    res.json({
+    return res.json({
       success: result.success,
       data: result,
       message: result.message,
     });
   } catch (error) {
-    logger.error('Error in testAllConnections:', error);
-    res.status(500).json({
+    logger.error("Error in testAllConnections:", error);
+    return res.status(500).json({
       success: false,
-      message: 'Connection tests failed',
-      error: error.message,
+      message: "Connection tests failed",
     });
   }
 };
@@ -295,23 +275,22 @@ exports.sendTestEmail = async (req, res) => {
     if (!email) {
       return res.status(400).json({
         success: false,
-        message: 'Email address is required',
+        message: "Email address is required",
       });
     }
 
     const result = await settingsService.sendTestEmail(email);
 
-    res.json({
+    return res.json({
       success: result.success,
       data: result,
       message: result.message,
     });
   } catch (error) {
-    logger.error('Error in sendTestEmail:', error);
-    res.status(500).json({
+    logger.error("Error in sendTestEmail:", error);
+    return res.status(500).json({
       success: false,
-      message: 'Failed to send test email',
-      error: error.message,
+      message: "Failed to send test email",
     });
   }
 };
@@ -319,23 +298,27 @@ exports.sendTestEmail = async (req, res) => {
 // Reset settings to defaults
 exports.resetToDefaults = async (req, res) => {
   try {
-    const userId = req.user._id;
-    const ipAddress = req.clientIp || req.ip || req.connection?.remoteAddress || 'Unknown';
-    const userAgent = req.get('user-agent') || 'Unknown';
+    const userId = req.user.id || req.user._id;
+    const ipAddress =
+      req.clientIp || req.ip || req.connection?.remoteAddress || "Unknown";
+    const userAgent = req.get("user-agent") || "Unknown";
 
-    const settings = await settingsService.resetToDefaults(userId, ipAddress, userAgent);
+    const settings = await settingsService.resetToDefaults(
+      userId,
+      ipAddress,
+      userAgent,
+    );
 
-    res.json({
+    return res.json({
       success: true,
       data: settings,
-      message: 'Settings reset to defaults successfully',
+      message: "Settings reset to defaults successfully",
     });
   } catch (error) {
-    logger.error('Error in resetToDefaults:', error);
-    res.status(500).json({
+    logger.error("Error in resetToDefaults:", error);
+    return res.status(500).json({
       success: false,
-      message: 'Failed to reset settings',
-      error: error.message,
+      message: "Failed to reset settings",
     });
   }
 };
@@ -345,17 +328,16 @@ exports.exportSettings = async (req, res) => {
   try {
     const exportData = await settingsService.exportSettings();
 
-    res.json({
+    return res.json({
       success: true,
       data: exportData,
-      message: 'Settings exported successfully',
+      message: "Settings exported successfully",
     });
   } catch (error) {
-    logger.error('Error in exportSettings:', error);
-    res.status(500).json({
+    logger.error("Error in exportSettings:", error);
+    return res.status(500).json({
       success: false,
-      message: 'Failed to export settings',
-      error: error.message,
+      message: "Failed to export settings",
     });
   }
 };
@@ -364,31 +346,36 @@ exports.exportSettings = async (req, res) => {
 exports.importSettings = async (req, res) => {
   try {
     const importData = req.body;
-    const userId = req.user._id;
-    const ipAddress = req.clientIp || req.ip || req.connection?.remoteAddress || 'Unknown';
-    const userAgent = req.get('user-agent') || 'Unknown';
+    const userId = req.user.id || req.user._id;
+    const ipAddress =
+      req.clientIp || req.ip || req.connection?.remoteAddress || "Unknown";
+    const userAgent = req.get("user-agent") || "Unknown";
 
-    const settings = await settingsService.importSettings(importData, userId, ipAddress, userAgent);
+    const settings = await settingsService.importSettings(
+      importData,
+      userId,
+      ipAddress,
+      userAgent,
+    );
 
-    res.json({
+    return res.json({
       success: true,
       data: settings,
-      message: 'Settings imported successfully',
+      message: "Settings imported successfully",
     });
   } catch (error) {
-    logger.error('Error in importSettings:', error);
-    
-    if (error.message.includes('Invalid import data')) {
+    logger.error("Error in importSettings:", error);
+
+    if (error.message && error.message.includes("Invalid import data")) {
       return res.status(400).json({
         success: false,
         message: error.message,
       });
     }
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: 'Failed to import settings',
-      error: error.message,
+      message: "Failed to import settings",
     });
   }
 };
@@ -399,17 +386,16 @@ exports.getAccessibleCategories = async (req, res) => {
     const userRole = req.user?.role;
     const categories = await settingsService.getAccessibleCategories(userRole);
 
-    res.json({
+    return res.json({
       success: true,
       data: categories,
-      message: 'Accessible categories retrieved successfully',
+      message: "Accessible categories retrieved successfully",
     });
   } catch (error) {
-    logger.error('Error in getAccessibleCategories:', error);
-    res.status(500).json({
+    logger.error("Error in getAccessibleCategories:", error);
+    return res.status(500).json({
       success: false,
-      message: 'Failed to retrieve accessible categories',
-      error: error.message,
+      message: "Failed to retrieve accessible categories",
     });
   }
 };
@@ -419,17 +405,16 @@ exports.getRolePermissions = async (req, res) => {
   try {
     const permissions = await settingsService.getRolePermissions();
 
-    res.json({
+    return res.json({
       success: true,
       data: permissions,
-      message: 'Role permissions retrieved successfully',
+      message: "Role permissions retrieved successfully",
     });
   } catch (error) {
-    logger.error('Error in getRolePermissions:', error);
-    res.status(500).json({
+    logger.error("Error in getRolePermissions:", error);
+    return res.status(500).json({
       success: false,
-      message: 'Failed to retrieve role permissions',
-      error: error.message,
+      message: "Failed to retrieve role permissions",
     });
   }
 };
@@ -438,22 +423,23 @@ exports.getRolePermissions = async (req, res) => {
 exports.updateRolePermissions = async (req, res) => {
   try {
     const { category, roles } = req.body;
-    const userId = req.user._id;
-    const ipAddress = req.clientIp || req.ip || req.connection?.remoteAddress || 'Unknown';
-    const userAgent = req.get('user-agent') || 'Unknown';
+    const userId = req.user.id || req.user._id;
+    const ipAddress =
+      req.clientIp || req.ip || req.connection?.remoteAddress || "Unknown";
+    const userAgent = req.get("user-agent") || "Unknown";
 
     if (!category || !roles || !Array.isArray(roles)) {
       return res.status(400).json({
         success: false,
-        message: 'Category and roles array are required',
+        message: "Category and roles array are required",
       });
     }
 
-    const validCategories = ['security', 'database', 'email', 'application'];
+    const validCategories = ["security", "database", "email", "application"];
     if (!validCategories.includes(category)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid category',
+        message: "Invalid category",
       });
     }
 
@@ -462,20 +448,19 @@ exports.updateRolePermissions = async (req, res) => {
       roles,
       userId,
       ipAddress,
-      userAgent
+      userAgent,
     );
 
-    res.json({
+    return res.json({
       success: true,
       data: permissions,
-      message: 'Role permissions updated successfully',
+      message: "Role permissions updated successfully",
     });
   } catch (error) {
-    logger.error('Error in updateRolePermissions:', error);
-    res.status(500).json({
+    logger.error("Error in updateRolePermissions:", error);
+    return res.status(500).json({
       success: false,
-      message: 'Failed to update role permissions',
-      error: error.message,
+      message: "Failed to update role permissions",
     });
   }
 };

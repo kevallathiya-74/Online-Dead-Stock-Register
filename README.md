@@ -1,372 +1,410 @@
 <div align="center">
 
-# 🏢 Online Dead Stock Register
+# 🏢 DeadStockApp - Online Dead Stock Register
 
-> A modern, production-ready enterprise asset management system built with the MERN stack (MongoDB, Express, React, Node.js) and TypeScript.
+> A modern, production-ready enterprise asset lifecycle and dead stock management system built with Express, React (Vite/TS), PostgreSQL (Supabase), and Redis.
 
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen)](https://nodejs.org/)
-[![React](https://img.shields.io/badge/react-18.2.0-blue)](https://reactjs.org/)
-[![TypeScript](https://img.shields.io/badge/typescript-4.9.5-blue)](https://www.typescriptlang.org/)
+[![Vercel Deployment](https://img.shields.io/badge/Vercel-Deployment-black?style=flat&logo=vercel)](https://deadstockapp.vercel.app)
+[![Render Backend](https://img.shields.io/badge/Render-API-lightgrey?style=flat&logo=render)](https://deadstockapp.onrender.com)
+[![Supabase Database](https://img.shields.io/badge/Supabase-Database-3ECF8E?style=flat&logo=supabase)](https://supabase.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 </div>
 
-## ✨ Features
+---
 
-### Core Functionality
+## 📖 Table of Contents
+1. [Project Overview & Purpose](#-project-overview--purpose)
+2. [Key Features](#-key-features)
+3. [Technology Stack](#-technology-stack)
+4. [System Architecture](#-system-architecture)
+5. [Monorepo Directory Structure](#-monorepo-directory-structure)
+6. [Prerequisites & System Requirements](#-prerequisites--system-requirements)
+7. [Environment Variables Guide](#-environment-variables-guide)
+8. [Database Setup & Schema DDL](#-database-setup--schema-ddl)
+9. [Local Development Installation](#-local-development-installation)
+10. [Development Workflow & Commands](#-development-workflow--commands)
+11. [Testing & Quality Gates](#-testing--quality-gates)
+12. [Production Build & Deployment Guide](#-production-build--deployment-guide)
+13. [Vercel & Render MCP Server Integrations](#-vercel--render-mcp-server-integrations)
+14. [Security Best Practices](#-security-best-practices)
+15. [Performance Optimization](#-performance-optimization)
+16. [Backup, Recovery, & Troubleshooting](#-backup-recovery--troubleshooting)
+17. [Contribution Guidelines & Coding Standards](#-contribution-guidelines--coding-standards)
+18. [License](#-license)
 
-- 🔐 **Role-Based Access Control** - 5 user roles (Admin, Inventory Manager, IT Manager, Auditor, Vendor)
-- 📦 **Asset Lifecycle Management** - Track assets from purchase to disposal
-- 📱 **QR Code System** - Generate and scan QR codes with camera integration
-- ✅ **Multi-Level Approvals** - Approval workflows for requests and transfers
-- 🔍 **Comprehensive Audit Logging** - Track all user actions and changes
-- � **Role-Specific Dashboards** - Customized views for each user role
-- 🔔 **Real-Time Notifications** - In-app and email notifications
-- 📄 **Export & Reporting** - Generate reports in JSON, CSV, and PDF formats
-- 👥 **Vendor Portal** - Dedicated interface for vendor management
-- 🛠️ **Maintenance Tracking** - Schedule and track asset maintenance
+---
 
-### Technical Highlights
+## 🌟 Project Overview & Purpose
+**DeadStockApp** (Online Dead Stock Register) is an enterprise-grade solution designed to catalog, track, transfer, audit, and dispose of institutional assets and dead stock (scrap, obsolete, or non-functional items). 
 
-- 🔒 **JWT Authentication** - Secure token-based authentication
-- 🌐 **RESTful API** - Clean, versioned API architecture
-- 📸 **Photo Management** - Upload and manage asset photos
-- 🔎 **Advanced Search & Filtering** - Find assets quickly with multiple filters
-- 📱 **Responsive Design** - Works seamlessly on mobile, tablet, and desktop
-- 🚀 **Production Ready** - Configured for Vercel (frontend) and Render (backend) deployment
+### The Problem
+Large organizations often struggle with:
+* Lack of visibility into underutilized assets, leading to redundant purchases.
+* Cumbersome manual asset audits and transfers.
+* Inefficient procedures for scraping or writing off obsolete hardware and equipment.
+* Missing history trails or audit trails for compliance validation.
 
-## 🚀 Quick Start
+### Our Solution
+DeadStockApp automates this lifecycle by introducing role-scoped access control, QR-based scanning, automated request workflows, and audit trail generation, ensuring cost savings and compliance at every step.
 
-### Prerequisites
+---
 
-- Node.js (v14.0.0 or higher)
-- MongoDB (v4.4 or higher)
-- npm or yarn
+## ✨ Key Features
 
-### Installation
+* 🔐 **Role-Based Access Control (RBAC)**: Distinct permissions for `ADMIN`, `INVENTORY_MANAGER`, `IT_MANAGER`, `AUDITOR`, and `VENDOR`.
+* 📦 **Asset Lifecycle Tracking**: From purchase orders, invoices, and cataloging to maintenance, scrap status, and disposal.
+* 📱 **QR Code System**: Fully integrated camera scanning and QR label generation for quick in-field asset inspections.
+* 🔄 **Multi-Level Approvals**: Multi-step verification workflow for inter-department transfers and disposal write-offs.
+* 📊 **Role-Specific Dashboards**: Custom dashboards designed for each user's operational scope (e.g., read-only sheets for Auditors).
+* 📝 **Compliance Audit Logging**: Comprehensive, automated history tracking for every update or transaction.
+* 🚀 **Telemetry & Winston Ingestion**: Robust JSON console logging in production with client unhandled error forwarding.
+* 🗄️ **Cache-Aside Caching**: High-performance category querying backed by Redis caching.
 
-1. **Clone the repository**
+---
 
+## 🛠️ Technology Stack
+
+### Frontend Client
+* **Core**: React 18.2 with TypeScript, built on **Vite** for fast HMR.
+* **State Management**: Redux Toolkit & TanStack Query (React Query).
+* **Styling**: Tailwind CSS & Material-UI (MUI) components.
+* **Forms**: React Hook Form & Yup schema validation.
+* **Charts**: Recharts & Chart.js for interactive analytics dashboards.
+* **E2E Testing**: Playwright for end-to-end user flow verification.
+
+### Backend API
+* **Runtime**: Node.js & Express.js.
+* **Database**: PostgreSQL hosted on **Supabase Cloud**.
+* **Cache**: Redis for category list caching.
+* **Logger**: Winston (colorized dev format, structured JSON prod format).
+* **Authentication**: JWT (JSON Web Tokens) with cryptographically secure signatures.
+* **API Documentation**: Interactive Swagger UI endpoints.
+* **Testing**: Jest & Supertest for integration test runners.
+
+---
+
+## 🗺️ System Architecture
+
+The following diagram illustrates how the frontend, API service, database, cache, and telemetry systems communicate:
+
+```mermaid
+graph TD
+    User([User Client]) -->|Loads Frontend| Vercel[Vercel Frontend Hosting <br/> https://deadstockapp.vercel.app]
+    User -->|Sends API Requests| Render[Render Web Service API <br/> https://deadstockapp.onrender.com]
+    
+    Render -->|Queries & Updates| Supabase[(Supabase Cloud PostgreSQL)]
+    Render -->|Cache-Aside Queries| Redis[(Redis Cache / Upstash)]
+    
+    User -->|Forwards Frontend Errors| Render
+    Render -->|JSON Outputs| Telemetry[Winston Console Log Stream]
+```
+
+---
+
+## 📁 Monorepo Directory Structure
+
+The project is structured as a monorepo with separate root-level folder domains:
+
+```
+Online-Dead-Stock-Register/
+├── frontend/                     # React Vite TypeScript frontend
+│   ├── src/
+│   │   ├── components/           # Shared & layout components (ErrorBoundary, Sidebar)
+│   │   ├── context/              # App contexts (AuthContext)
+│   │   ├── pages/                # Pages grouped by role-based routing directories
+│   │   ├── utils/                # Utility helpers (logger.ts client telemetry)
+│   │   └── App.tsx               # Main routing tree and provider wrappers
+│   ├── tests/                    # Playwright end-to-end integration tests
+│   ├── package.json              # Frontend package settings
+│   └── vite.config.ts            # Vite build configuration
+│
+├── backend/                      # Node.js Express API backend
+│   ├── config/                   # Configuration adapters (db.js, redis.js)
+│   ├── controllers/              # Business controllers (auth, assets, logs)
+│   ├── database/                 # SQL DDL schemas and migration verifiers
+│   ├── middleware/               # Auth, security, and log rate-limiter rules
+│   ├── routes/                   # Router mount definitions (logRoutes.js, api routes)
+│   ├── tests/                    # Backend Jest integration tests
+│   ├── utils/                    # Winston logger core config
+│   ├── server.js                 # Express server bootstrap entry point
+│   └── package.json              # Backend package configuration
+│
+├── vercel.json                   # Vercel Monorepo build and SPA routing config
+└── README.md                     # This master documentation
+```
+
+---
+
+## ⚙️ Prerequisites & System Requirements
+
+Ensure your development machine has the following tools installed:
+
+| Software | Version | Purpose |
+| :--- | :--- | :--- |
+| **Node.js** | `>= 18.2.0` | Runtime environment for frontend/backend scripts |
+| **npm** | `>= 9.0.0` | Package manager |
+| **Git** | `>= 2.30.0` | Version control |
+| **PostgreSQL** | `v15 / v16` | Database engine (managed by Supabase) |
+| **Redis** *(Optional)* | `>= 6.0` | In-memory cache layer |
+
+---
+
+## 🔑 Environment Variables Guide
+
+Environment variables are loaded automatically from `.env` files in development. 
+
+### Backend Environment Configuration
+Create **[backend/.env](file:///D:/Keval/Online-Dead-Stock-Register/backend/.env)** matching the template in **[backend/.env.example](file:///D:/Keval/Online-Dead-Stock-Register/backend/.env.example)**:
+
+```ini
+# Server Mode & Port
+NODE_ENV=development
+PORT=5000
+FRONTEND_URL=http://localhost:5173
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,https://deadstockapp.vercel.app
+
+# Supabase PostgreSQL connection
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_key
+SUPABASE_SECRET_KEY=your_supabase_service_role_key
+SUPABASE_JWKS_URL=https://your-project.supabase.co/auth/v1/.well-known/jwks.json
+
+# Auth Cryptography Secret
+JWT_SECRET=your_32_character_hex_string
+
+# Caching (Redis)
+REDIS_ENABLED=false # Set to true to enable Redis
+REDIS_URL=redis://127.0.0.1:6379
+
+# Logging
+LOG_LEVEL=debug # debug, info, warn, error
+TIMEZONE=UTC
+```
+
+### Frontend Environment Configuration
+Create **[frontend/.env](file:///D:/Keval/Online-Dead-Stock-Register/frontend/.env)** matching the template in **[frontend/.env.example](file:///D:/Keval/Online-Dead-Stock-Register/frontend/.env.example)**:
+
+```ini
+VITE_NODE_ENV=development
+
+# Leave VITE_API_BASE_URL blank in local development to use Vite's built-in 
+# proxy (which automatically forwards /api to http://localhost:5000)
+VITE_API_BASE_URL=
+```
+
+---
+
+## 🗄️ Database Setup & Schema DDL
+
+The database contains **24 verified tables** that manage users, assets, approvals, transactions, audit logs, and more. 
+
+### Database Schema Structure
+The official, consolidated database schema is kept in **[backend/database/schema.sql](file:///D:/Keval/Online-Dead-Stock-Register/backend/database/schema.sql)**.
+
+To import or reset your database, run the SQL commands in `schema.sql` inside your PostgreSQL client or Supabase SQL Editor.
+
+### Verifying Your Live Schema
+An automated checker script is included in the project to verify that your active database schema matches the required definition. To run the verification checks:
+
+```bash
+cd backend
+node database/verify_schema.js
+```
+The script will output `PASS` for all 24 tables if your Supabase schema is completely compliant and ready.
+
+---
+
+## 🚀 Local Development Installation
+
+Follow these steps to set up the project locally:
+
+### 1. Clone the Repository
 ```bash
 git clone https://github.com/kevallathiya-74/Online-Dead-Stock-Register.git
 cd Online-Dead-Stock-Register
 ```
 
-2. **Install dependencies**
-
+### 2. Configure Environment Files
+Copy the example templates to their active env paths:
 ```bash
-# Frontend
-npm install
+# Set up backend env
+cp backend/.env.example backend/.env
 
-# Backend
-cd backend
-npm install
+# Set up frontend env
+cp frontend/.env.example frontend/.env
 ```
+*Open `backend/.env` and fill in your actual Supabase URL and service role keys.*
 
-3. **Configure environment variables**
-
+### 3. Install Dependencies
+Install all package dependencies for the monorepo from the root directory:
 ```bash
-# Backend: Create .env file in backend directory
-cd backend
-cp .env.example .env
-# Edit .env with your configuration
+npm install
 ```
+*(This triggers the root `postinstall` script, downloading packages for both the root workspace and the frontend/backend subdirectories).*
 
-**CRITICAL: CORS Configuration** 🔒
-
-The backend uses environment-driven CORS for security. You MUST configure `ALLOWED_ORIGINS` in your `.env` file:
-
-```env
-# Development (local testing)
-ALLOWED_ORIGINS=http://localhost:3000
-
-# Production (deployed frontend)
-ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
-```
-
-**⚠️ Security Rules:**
-- NEVER use wildcards (`*`) in production
-- Always use HTTPS in production
-- Include ALL frontend domains (www and non-www)
-- If not set, defaults to `http://localhost:3000` only
-- Unauthorized origins will be blocked with CORS error
-
-**Required environment variables:**
-- `MONGODB_URI` - MongoDB Atlas connection string
-- `JWT_SECRET` - Generate with: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
-- `ALLOWED_ORIGINS` - Comma-separated list of frontend URLs
-- `EMAIL_USER` & `EMAIL_PASSWORD` - For sending notifications
-
-See `backend/.env.example` for complete configuration template.
-
-4. **Seed database with test data**
-
+### 4. Seed Database Users
+Run the user seeder to create test accounts:
 ```bash
 cd backend
 node seed/seedUsers.js
 ```
 
-5. **Start the application**
+---
 
+## 💻 Development Workflow & Commands
+
+Use the following commands during active development:
+
+### Running the Services Locally
+
+#### 1. Start the Backend API
 ```bash
-# Terminal 1 - Backend (from backend directory)
-npm start
-
-# Terminal 2 - Frontend (from root directory)
+cd backend
 npm run dev
 ```
+*Runs the server on `http://localhost:5000`. Swagger documentation is mounted at `http://localhost:5000/api-docs`.*
 
-6. **Access the application**
-
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:5000
-- API Docs: http://localhost:5000/api-docs
-
-### Default Login Credentials
-
-| Role              | Email              | Password     |
-| ----------------- | ------------------ | ------------ |
-| Admin             | admin@test.com     | admin123     |
-| Inventory Manager | inventory@test.com | inventory123 |
-| IT Manager        | itmanager@test.com | itmanager123 |
-| Auditor           | auditor@test.com   | auditor123   |
-| Vendor            | vendor@test.com    | vendor123    |
-
-> ⚠️ **Security Note**: Change these passwords before deploying to production!
-
-## 🛠️ Tech Stack
-
-**Frontend**
-
-- React 18.2 with TypeScript
-- Material-UI v5 (Component Library)
-- Redux Toolkit (State Management)
-- React Router v6 (Routing)
-- Axios (HTTP Client)
-- Recharts (Data Visualization)
-- Vite (Build Tool)
-
-**Backend**
-
-- Node.js & Express.js
-- MongoDB & Mongoose
-- JWT (Authentication)
-- Multer (File Uploads)
-- Winston (Logging)
-- Swagger (API Documentation)
-- Nodemailer (Email Service)
-
-## 📁 Project Structure
-
-```
-Online-Dead-Stock-Register/
-├── src/                          # Frontend React application
-│   ├── components/               # Reusable UI components
-│   ├── pages/                    # Page components (dashboards, auth)
-│   ├── services/                 # API service layer
-│   ├── types/                    # TypeScript definitions
-│   ├── utils/                    # Utility functions
-│   └── App.tsx                   # Main app component
-│
-├── backend/                      # Backend Express application
-│   ├── config/                   # Configuration (DB, Swagger)
-│   ├── controllers/              # Route controllers
-│   ├── models/                   # MongoDB schemas
-│   ├── routes/                   # API routes
-│   ├── middleware/               # Custom middleware
-│   ├── services/                 # Business logic
-│   ├── seed/                     # Database seed scripts
-│   └── server.js                 # Express server entry point
-│
-├── public/                       # Static assets
-├── .env.example                  # Environment template
-└── vercel.json                   # Vercel deployment config
-```
-
-## 📜 Available Scripts
-
-**Frontend**
-
+#### 2. Start the Frontend Client
 ```bash
-npm run dev              # Start development server
-npm run build            # Build for production
-npm run preview          # Preview production build
+cd frontend
+npm run dev
 ```
-
-**Backend**
-
-```bash
-npm start                # Start Express server
-node seed/seedUsers.js   # Seed test user accounts
-```
-
-## 📡 API Overview
-
-The backend provides a comprehensive REST API with the following endpoints:
-
-**Authentication**: `/api/v1/auth` - Login, signup, password reset  
-**Assets**: `/api/v1/assets` - CRUD operations, QR generation/scanning, bulk operations  
-**Users**: `/api/v1/users` - User management, profile operations  
-**Vendors**: `/api/v1/vendors` - Vendor management, purchase orders  
-**Dashboard**: `/api/v1/dashboard` - Statistics, analytics, reports  
-**Approvals**: `/api/v1/approvals` - Approval workflows  
-**Audit Logs**: `/api/v1/audit-logs` - System audit trail  
-**QR Scanning**: `/api/v1/qr` - QR code scanning operations
-
-**Interactive Documentation**: Access Swagger UI at `http://localhost:5000/api-docs` for complete API reference with try-it-out functionality.
-
-## 🔒 Security
-
-The application implements enterprise-grade security features:
-
-- 🔐 **JWT Authentication** with secure token management
-- � **Password Hashing** using bcryptjs
-- 🛡️ **CORS Protection** with origin whitelisting
-- 🚫 **Rate Limiting** to prevent abuse
-- 🔒 **Security Headers** via Helmet.js
-- ✅ **Input Validation** and sanitization
-- 📝 **Comprehensive Audit Logging**
-- 🔐 **Role-Based Access Control (RBAC)**
-
-## 🚀 Deployment
-
-This project is configured for automatic deployment to:
-
-**Frontend**: [Vercel](https://vercel.com) (recommended)
-
-- Configuration: `vercel.json`
-- Auto-deploy on git push
-- Free tier available
-
-**Backend**: [Render](https://render.com) (recommended)
-
-- Configuration: `backend/render.yaml`
-- Auto-deploy on git push
-- Free tier available
-
-**Database**: [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
-
-- Managed MongoDB hosting
-- Free tier available (512MB)
-
-### Quick Deploy Steps
-
-1. **Create MongoDB Atlas cluster**
-   - Get connection string
-2. **Deploy Backend to Render**
-
-   - Connect GitHub repository
-   - Set environment variables (MONGODB_URI, JWT_SECRET, etc.)
-   - Render auto-detects `render.yaml`
-
-3. **Deploy Frontend to Vercel**
-   - Connect GitHub repository
-   - Set `VITE_API_BASE_URL` to your Render backend URL
-   - Vercel auto-detects `vercel.json`
-
-### Environment Variables
-
-**Backend** (`backend/.env`)
-
-```env
-# Database
-MONGODB_URI=your_mongodb_atlas_connection_string
-
-# Authentication (minimum 32 characters)
-JWT_SECRET=your_generated_secret_key
-JWT_EXPIRE_IN=12h
-
-# CORS Configuration (CRITICAL FOR PRODUCTION)
-# Comma-separated list of allowed frontend origins
-# Example: ALLOWED_ORIGINS=https://yourapp.vercel.app,https://www.yourapp.vercel.app
-ALLOWED_ORIGINS=https://your-app.vercel.app
-
-# Server
-NODE_ENV=production
-PORT=5000
-
-# Frontend URL (for email links)
-FRONTEND_URL=https://your-app.vercel.app
-
-# Email Configuration
-EMAIL_SERVICE=gmail
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASSWORD=your_app_specific_password
-EMAIL_FROM=Your App <noreply@yourapp.com>
-```
-
-**Frontend** (Vercel Environment Variables)
-
-```env
-VITE_API_BASE_URL=https://your-backend.onrender.com/api/v1
-VITE_NODE_ENV=production
-```
-
-**🔒 CORS Security Checklist:**
-
-1. ✅ Set `ALLOWED_ORIGINS` in Render backend environment variables
-2. ✅ Use your actual Vercel domain (e.g., `https://yourapp.vercel.app`)
-3. ✅ Include both `www` and non-`www` versions if applicable
-4. ✅ NEVER use wildcards (`*`) in production
-5. ✅ Always use HTTPS in production
-6. ✅ Test CORS after deployment with browser dev tools
-
-**Common CORS Issues:**
-- **"CORS policy blocked"** → Check `ALLOWED_ORIGINS` includes your frontend URL
-- **Mixed content errors** → Ensure both frontend and backend use HTTPS
-- **Credentials issue** → Verify `credentials: true` in API calls matches server
-
-**Frontend** (Vercel dashboard)
-
-```env
-VITE_API_BASE_URL=https://your-backend.onrender.com
-```
+*Launches Vite on `http://localhost:5173`. Proxies `/api` routes locally to port `5000`.*
 
 ---
 
-## 🤝 Contributing
+## 🧪 Testing & Quality Gates
 
-Contributions are welcome! Please follow these steps:
+The project maintains high standards of code quality and includes test runners and validation tools.
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+### 1. Run Backend Integration Tests
+We use Jest for unit and integration testing:
+```bash
+cd backend
+npm test
+```
 
-**Commit Message Format**: Use conventional commits (feat, fix, docs, style, refactor, test, chore)
+### 2. Run TypeScript Verification
+Verify there are 0 compilation errors across the frontend:
+```bash
+cd frontend
+npx tsc --noEmit
+```
+
+### 3. Pre-commit Hooks
+The project has a pre-commit check file located at `.git/hooks/pre-commit` to prevent committing code that fails test or TypeScript checks. Make sure the hooks are executable:
+```bash
+chmod +x .git/hooks/pre-commit
+```
+
+### Default Credentials for Development Testing:
+
+| Role | Email | Password |
+| :--- | :--- | :--- |
+| **Admin** | `admin@test.com` | `admin123` |
+| **Inventory Manager** | `inventory@test.com` | `inventory123` |
+| **IT Manager** | `it.manager@test.com` | `itmanager123` |
+| **Auditor** | `auditor@test.com` | `auditor123` |
+| **Vendor** | `vendor@test.com` | `vendor123` |
+
+---
+
+## 🚀 Production Build & Deployment Guide
+
+To deploy the project live in production, follow these platform-specific setup procedures:
+
+### Frontend Deployment (Vercel)
+The project is configured for Vercel deployment with the domain **`deadstockapp.vercel.app`**.
+
+1. Connect your repository to **Vercel**.
+2. Vercel will automatically read the root-level **[vercel.json](file:///D:/Keval/Online-Dead-Stock-Register/vercel.json)**.
+3. Configure the **Environment Variables** in Vercel settings:
+   * `VITE_NODE_ENV` = `production`
+   * `VITE_API_BASE_URL` = `https://deadstockapp.onrender.com/api/v1`
+4. Deploy the project. The build outputs will be compiled and hosted at your Vercel URL.
+
+### Backend Deployment (Render)
+The Express backend is hosted at the URL **`https://deadstockapp.onrender.com`**.
+
+1. Create a **Web Service** on Render pointing to your repository.
+2. In Render configuration, set:
+   * **Root Directory**: `backend`
+   * **Build Command**: `npm install`
+   * **Start Command**: `node server.js`
+3. Add your production environment variables to Render's **Environment Dashboard** (e.g. `SUPABASE_URL`, `SUPABASE_KEY`, `JWT_SECRET`, and `ALLOWED_ORIGINS=https://deadstockapp.vercel.app`).
+4. Save and build the service.
+
+---
+
+## 🔌 Vercel & Render MCP Server Integrations
+
+Model Context Protocol (MCP) servers are configured for this project to allow AI coding tools (such as Claude Code or Cursor) to manage your production infrastructure safely.
+
+### Configured remote servers:
+* **Vercel MCP**: `https://mcp.vercel.com` (Tracks deployments, build configs, and analytics).
+* **Render MCP**: `https://mcp.render.com/mcp` (Monitors logs, server metrics, databases, and variables).
+
+The local config file containing these connections is **[opencode.json](file:///D:/Keval/Online-Dead-Stock-Register/opencode.json)**. 
+
+> [!WARNING]
+> Keep `opencode.json` secure. It contains API keys that permit remote access to your workspaces. This file is ignored from git tracking in `.gitignore`.
+
+---
+
+## 🔒 Security Best Practices
+
+1. **Service Role Keys**: Never expose your Supabase `service_role` (secret) key to the frontend client. This key bypasses Row-Level Security (RLS).
+2. **CORS Whitelist**: Always secure the `ALLOWED_ORIGINS` environment variable in production. Do not permit `*` origins; target only `https://deadstockapp.vercel.app`.
+3. **Ingestion Rate-Limiting**: The backend client logging ingestion route `/api/v1/logs` is rate-limited (30 logs/min per IP) to prevent log-flooding Denial of Service (DoS) attempts.
+4. **Token Expiry**: Configure your JWT tokens to expire within short durations (e.g., `24h`) and require re-authentication.
+
+---
+
+## ⚡ Performance Optimization
+
+* **Redis Caching**: Enable Redis caching (`REDIS_ENABLED=true`) in production to cache category structures, reducing query load on Supabase.
+* **Asset Query Pagination**: All asset and transaction lists leverage offset-based pagination to prevent heavy memory utilization.
+* **Frontend Queue Ingestion**: Client unhandled errors are compiled and buffered locally in a client queue, then periodically sent in batches to prevent network congestion.
+
+---
+
+## 🛠️ Backup, Recovery, & Troubleshooting
+
+### Database Backups
+* **Supabase automated backups**: Enable automatic daily backups in your Supabase project dashboard settings.
+* **Manual SQL dumps**: Run the pg_dump command to extract a database snapshot manually:
+  ```bash
+  pg_dump -H your-project.supabase.co -U postgres -d postgres > backup.sql
+  ```
+
+### Common Troubleshooting Issues
+* **Vercel Build Fails (Missing package.json)**:
+  Make sure you have a root `package.json` with the `"postinstall"` script configured. Vercel requires this root descriptor in monorepos to download sub-folder dependencies.
+* **CORS Blocked Errors**:
+  If the frontend receives CORS errors, check that `ALLOWED_ORIGINS` in your backend `.env` contains the exact URL of your Vercel deployment (e.g. `https://deadstockapp.vercel.app`), without a trailing slash.
+* **Redis Connection Refused**:
+  If you are running the backend without local Redis, verify `REDIS_ENABLED` is set to `false` in `.env` to fall back to in-memory caching.
+
+---
+
+## 🤝 Contribution Guidelines & Coding Standards
+
+We welcome contributions! Please follow our styling and version control rules:
+
+### Git Commit Conventions
+We follow **Conventional Commits**:
+* `feat: add category filter to asset list` (For new features)
+* `fix: prevent token verification crash on empty header` (For bugs)
+* `docs: update deployment guidelines` (For documentation)
+* `refactor: clean up dashboard controller conditional logic` (For structure changes)
+
+### Coding Standards
+* **JavaScript/TypeScript**: Enforced via ESLint. Run `npm run lint` in folders before committing.
+* **CSS/Styling**: Use Material-UI themes or Tailwind CSS. Avoid writing inline styling structures.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
-
----
-
-## 👨‍💻 Author
-
-**Keval Lathiya**
-
-- GitHub: [@kevallathiya-74](https://github.com/kevallathiya-74)
-
----
-
-## ⭐ Support
-
-If you find this project helpful, please consider giving it a ⭐ on GitHub!
-
-For issues or questions:
-
-- Check existing [GitHub Issues](https://github.com/kevallathiya-74/Online-Dead-Stock-Register/issues)
-- Open a new issue for bugs or feature requests
-
----
-
-<div align="center">
-
-**Built with ❤️ using the MERN Stack**
-
-[⬆ Back to Top](#-online-dead-stock-register)
-
-</div>
+This project is licensed under the MIT License. See the [LICENSE](file:///D:/Keval/Online-Dead-Stock-Register/LICENSE) file for details.

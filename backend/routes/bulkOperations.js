@@ -1,8 +1,8 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const bulkOpsController = require('../controllers/bulkOperationsController');
-const { authMiddleware, requireRole } = require('../middleware/authMiddleware');
-const { importUpload } = require('../middleware/uploadMiddleware');
+const bulkOpsController = require("../controllers/bulkOperationsController");
+const { authMiddleware, requireRole } = require("../middleware/authMiddleware");
+const { importUpload } = require("../middleware/uploadMiddleware");
 
 // All routes require authentication
 router.use(authMiddleware);
@@ -13,7 +13,7 @@ router.use(authMiddleware);
  * @access  All authenticated users
  * @body    { asset_ids: string[], operation: string, ...params }
  */
-router.post('/validate', bulkOpsController.validateBulkOperation);
+router.post("/validate", bulkOpsController.validateBulkOperation);
 
 /**
  * @route   POST /api/bulk/update-status
@@ -22,9 +22,9 @@ router.post('/validate', bulkOpsController.validateBulkOperation);
  * @body    { asset_ids: string[], status: string, notes: string }
  */
 router.post(
-  '/update-status',
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']),
-  bulkOpsController.bulkUpdateStatus
+  "/update-status",
+  requireRole(["ADMIN", "INVENTORY_MANAGER"]),
+  bulkOpsController.bulkUpdateStatus,
 );
 
 /**
@@ -35,9 +35,9 @@ router.post(
  * @query   force=true (to reassign already assigned assets)
  */
 router.post(
-  '/assign',
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']),
-  bulkOpsController.bulkAssign
+  "/assign",
+  requireRole(["ADMIN", "INVENTORY_MANAGER"]),
+  bulkOpsController.bulkAssign,
 );
 
 /**
@@ -48,9 +48,9 @@ router.post(
  * @query   force=true (to delete active/assigned assets)
  */
 router.post(
-  '/delete',
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']),
-  bulkOpsController.bulkDelete
+  "/delete",
+  requireRole(["ADMIN", "INVENTORY_MANAGER"]),
+  bulkOpsController.bulkDelete,
 );
 
 /**
@@ -60,9 +60,9 @@ router.post(
  * @body    { asset_ids: string[], maintenance_type: string, scheduled_date: string, description: string, priority: string, assigned_technician: string }
  */
 router.post(
-  '/schedule-maintenance',
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']),
-  bulkOpsController.bulkScheduleMaintenance
+  "/schedule-maintenance",
+  requireRole(["ADMIN", "INVENTORY_MANAGER"]),
+  bulkOpsController.bulkScheduleMaintenance,
 );
 
 /**
@@ -72,9 +72,9 @@ router.post(
  * @body    { asset_ids: string[], location: string, notes: string }
  */
 router.post(
-  '/update-location',
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']),
-  bulkOpsController.bulkUpdateLocation
+  "/update-location",
+  requireRole(["ADMIN", "INVENTORY_MANAGER"]),
+  bulkOpsController.bulkUpdateLocation,
 );
 
 /**
@@ -84,9 +84,9 @@ router.post(
  * @body    { asset_ids: string[], condition: string, notes: string }
  */
 router.post(
-  '/update-condition',
-  requireRole(['ADMIN', 'INVENTORY_MANAGER', 'AUDITOR']),
-  bulkOpsController.bulkUpdateCondition
+  "/update-condition",
+  requireRole(["ADMIN", "INVENTORY_MANAGER", "AUDITOR"]),
+  bulkOpsController.bulkUpdateCondition,
 );
 
 /**
@@ -95,7 +95,7 @@ router.post(
  * @access  All authenticated users (own operations), Admin (all operations)
  * @query   limit, page, action_type
  */
-router.get('/history', bulkOpsController.getBulkOperationHistory);
+router.get("/history", bulkOpsController.getBulkOperationHistory);
 
 /**
  * @route   POST /api/bulk-operations/import-assets
@@ -104,10 +104,10 @@ router.get('/history', bulkOpsController.getBulkOperationHistory);
  * @body    FormData with 'file' field containing CSV/Excel
  */
 router.post(
-  '/import-assets',
-  requireRole(['ADMIN', 'INVENTORY_MANAGER']),
-  importUpload.single('file'),
-  bulkOpsController.importAssets
+  "/import-assets",
+  requireRole(["ADMIN", "INVENTORY_MANAGER"]),
+  importUpload.single("file"),
+  bulkOpsController.importAssets,
 );
 
 /**
@@ -116,6 +116,6 @@ router.post(
  * @access  All authenticated users
  * @query   format=csv|xlsx (default: csv)
  */
-router.get('/template', bulkOpsController.generateImportTemplate);
+router.get("/template", bulkOpsController.generateImportTemplate);
 
 module.exports = router;

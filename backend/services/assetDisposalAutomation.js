@@ -1,13 +1,8 @@
-const Asset = require('../models/asset');
-const DisposalRecord = require('../models/disposalRecord');
-const Notification = require('../models/notification');
-const AuditLog = require('../models/auditLog');
-const User = require('../models/user');
-const mongoose = require('mongoose');
+const getSupabase = require("../config/db");
 
 /**
  * 🤖 AUTOMATED ASSET DISPOSAL SERVICE
- * Automatically marks assets for disposal based on configurable rules
+ * Automatically marks assets for disposal based on configurable rules using Supabase
  */
 
 class AssetDisposalAutomation {
@@ -17,7 +12,7 @@ class AssetDisposalAutomation {
       maxAgeInYears: 7, // Assets older than 7 years
       maxDepreciationPercent: 90, // Depreciated more than 90%
       minDaysSinceLastUse: 365, // Not used for 1 year
-      autoMarkConditions: ['Beyond Repair', 'Obsolete'], // Auto-mark these conditions
+      autoMarkConditions: ["Beyond Repair", "Obsolete"], // Auto-mark these conditions
       minPurchaseCostForCheck: 1000, // Only check assets worth more than ₹1000
     };
   }
@@ -26,38 +21,35 @@ class AssetDisposalAutomation {
    * 🎯 MAIN AUTOMATION FUNCTION
    * Runs direct disposal check
    */
-  async runDisposalCheck(triggeredBy = 'SCHEDULED_JOB') {
+  async runDisposalCheck(triggeredBy = "SCHEDULED_JOB") {
     try {
-      console.log('🤖 [DISPOSAL AUTOMATION] Starting direct disposal check...');
+      console.log("🤖 [DISPOSAL AUTOMATION] Starting direct disposal check...");
       return await this.runDisposalCheckDirect(triggeredBy);
     } catch (error) {
-      console.error('❌ Failed to run disposal check:', error);
+      console.error("❌ Failed to run disposal check:", error);
       throw error;
     }
   }
 
   /**
-   * DIRECT PROCESSING (FALLBACK)
-   * Used when job queue is not available
+   * DIRECT PROCESSING
    */
   async runDisposalCheckDirect() {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
     try {
-      console.log('🤖 [DISPOSAL AUTOMATION] Starting direct disposal check...');
-      
+      console.log("🤖 [DISPOSAL AUTOMATION] Starting direct disposal check...");
+
       const startTime = Date.now();
       const eligibleAssets = await this.findEligibleAssets();
-      
-      console.log(`📊 Found ${eligibleAssets.length} assets eligible for disposal`);
+
+      console.log(
+        `📊 Found ${eligibleAssets.length} assets eligible for disposal`,
+      );
 
       if (eligibleAssets.length === 0) {
-        await session.commitTransaction();
         return {
           success: true,
           processed: 0,
-          message: 'No assets eligible for disposal at this time',
+          message: "No assets eligible for disposal at this time",
         };
       }
 
@@ -71,10 +63,13 @@ class AssetDisposalAutomation {
       // Process each eligible asset
       for (const asset of eligibleAssets) {
         try {
-          await this.processAssetForDisposal(asset, session);
+          await this.processAssetForDisposal(asset);
           results.success++;
         } catch (error) {
-          console.error(`❌ Failed to process asset ${asset.unique_asset_id}:`, error.message);
+          console.error(
+            `❌ Failed to process asset ${asset.unique_asset_id}:`,
+            error.message,
+          );
           results.failed++;
           results.errors.push({
             asset_id: asset.unique_asset_id,
@@ -84,10 +79,10 @@ class AssetDisposalAutomation {
         results.processed++;
       }
 
-      await session.commitTransaction();
-      
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(`✅ [DISPOSAL AUTOMATION] Completed in ${duration}s - Success: ${results.success}, Failed: ${results.failed}`);
+      console.log(
+        `✅ [DISPOSAL AUTOMATION] Completed in ${duration}s - Success: ${results.success}, Failed: ${results.failed}`,
+      );
 
       // Notify admins about the automation run
       await this.notifyAdminsAboutAutomation(results);
@@ -98,11 +93,8 @@ class AssetDisposalAutomation {
         duration,
       };
     } catch (error) {
-      await session.abortTransaction();
-      console.error('❌ [DISPOSAL AUTOMATION] Fatal error:', error);
+      console.error("❌ [DISPOSAL AUTOMATION] Fatal error:", error);
       throw error;
-    } finally {
-      session.endSession();
     }
   }
 
@@ -111,62 +103,51 @@ class AssetDisposalAutomation {
    * Query assets that meet disposal criteria
    */
   async findEligibleAssets() {
-    const currentDate = new Date();
-    
-    // Calculate cutoff dates
     const maxAgeCutoff = new Date();
-    maxAgeCutoff.setFullYear(maxAgeCutoff.getFullYear() - this.disposalRules.maxAgeInYears);
-    
+    maxAgeCutoff.setFullYear(
+      maxAgeCutoff.getFullYear() - this.disposalRules.maxAgeInYears,
+    );
+
     const lastUseCutoff = new Date();
-    lastUseCutoff.setDate(lastUseCutoff.getDate() - this.disposalRules.minDaysSinceLastUse);
+    lastUseCutoff.setDate(
+      lastUseCutoff.getDate() - this.disposalRules.minDaysSinceLastUse,
+    );
 
-    // Build query for eligible assets
-    const query = {
-      status: { 
-        $nin: ['Disposed', 'Ready for Scrap'] // Don't re-process already marked assets
-      },
-      $or: [
-        // Rule 1: Assets older than max age
-        {
-          purchase_date: { $lte: maxAgeCutoff },
-          purchase_cost: { $gte: this.disposalRules.minPurchaseCostForCheck }
-        },
-        // Rule 2: Assets with auto-mark conditions
-        {
-          condition: { $in: this.disposalRules.autoMarkConditions }
-        },
-        // Rule 3: High depreciation (calculated field)
-        {
-          purchase_date: { $exists: true },
-          purchase_cost: { $gte: this.disposalRules.minPurchaseCostForCheck }
-        },
-        // Rule 4: Not used for extended period
-        {
-          last_audit_date: { 
-            $lte: lastUseCutoff,
-            $ne: null 
-          }
-        }
-      ]
-    };
+    const supabase = getSupabase();
+    const { data: assets, error } = await supabase
+      .from("assets")
+      .select(
+        "*, assigned_user:users(name, email), vendor:vendors(vendor_name)",
+      )
+      .not("status", "eq", "Disposed")
+      .not("status", "eq", "Ready for Scrap");
 
-    const assets = await Asset.find(query)
-      .populate('assigned_user', 'name email')
-      .populate('vendor', 'vendor_name')
-      .lean();
+    if (error) {
+      console.error("Error fetching assets for disposal:", error);
+      throw error;
+    }
 
-    // Filter by depreciation percentage (calculated runtime)
-    return assets.filter(asset => {
+    if (!assets) return [];
+
+    // Filter by depreciation percentage (calculated runtime) and other rules
+    return assets.filter((asset) => {
       if (!asset.purchase_date || !asset.purchase_cost) return false;
-      
-      const depreciationPercent = this.calculateDepreciation(asset);
-      const meetsDepreciation = depreciationPercent >= this.disposalRules.maxDepreciationPercent;
-      
-      const isOldEnough = new Date(asset.purchase_date) <= maxAgeCutoff;
-      const hasAutoCondition = this.disposalRules.autoMarkConditions.includes(asset.condition);
-      const notUsedRecently = asset.last_audit_date && new Date(asset.last_audit_date) <= lastUseCutoff;
 
-      return meetsDepreciation || isOldEnough || hasAutoCondition || notUsedRecently;
+      const depreciationPercent = this.calculateDepreciation(asset);
+      const meetsDepreciation =
+        depreciationPercent >= this.disposalRules.maxDepreciationPercent;
+
+      const isOldEnough = new Date(asset.purchase_date) <= maxAgeCutoff;
+      const hasAutoCondition = this.disposalRules.autoMarkConditions.some(
+        (cond) => cond.toLowerCase() === (asset.condition || "").toLowerCase(),
+      );
+      const notUsedRecently =
+        asset.last_audit_date &&
+        new Date(asset.last_audit_date) <= lastUseCutoff;
+
+      return (
+        meetsDepreciation || isOldEnough || hasAutoCondition || notUsedRecently
+      );
     });
   }
 
@@ -175,22 +156,24 @@ class AssetDisposalAutomation {
    */
   calculateDepreciation(asset) {
     if (!asset.purchase_date || !asset.purchase_cost) return 0;
-    
+
     const purchaseDate = new Date(asset.purchase_date);
     const currentDate = new Date();
-    const ageInYears = (currentDate - purchaseDate) / (1000 * 60 * 60 * 24 * 365);
-    
+    const ageInYears =
+      (currentDate - purchaseDate) / (1000 * 60 * 60 * 24 * 365);
+
     // Straight-line depreciation: 10% per year
     const depreciationPercent = Math.min(ageInYears * 10, 100);
-    
+
     return depreciationPercent;
   }
 
   /**
    * ⚙️ PROCESS SINGLE ASSET FOR DISPOSAL
    */
-  async processAssetForDisposal(asset, session) {
+  async processAssetForDisposal(asset) {
     console.log(`🔄 Processing asset: ${asset.unique_asset_id}`);
+    const supabase = getSupabase();
 
     // Step 1: Calculate current value after depreciation
     const depreciationPercent = this.calculateDepreciation(asset);
@@ -200,53 +183,73 @@ class AssetDisposalAutomation {
     // Step 2: Determine disposal reason
     const reason = this.determineDisposalReason(asset, depreciationPercent);
 
+    // Map condition to allowed database check constraint values: excellent, good, fair, poor, damaged
+    let currentCondition = (asset.condition || "").toLowerCase();
+    const validConditions = ["excellent", "good", "fair", "poor", "damaged"];
+    if (!validConditions.includes(currentCondition)) {
+      currentCondition = "poor";
+    }
+    // If condition was excellent/good, update to poor (obsolete replacement in PG schema)
+    const condition =
+      currentCondition === "excellent" || currentCondition === "good"
+        ? "poor"
+        : currentCondition;
+
     // Step 3: Update asset status to "Ready for Scrap"
-    await Asset.findByIdAndUpdate(
-      asset._id,
-      {
-        status: 'Ready for Scrap',
-        condition: asset.condition === 'Excellent' || asset.condition === 'Good' 
-          ? 'Obsolete' 
-          : asset.condition,
-        notes: `${asset.notes || ''}\n[AUTO] Marked for disposal on ${new Date().toLocaleDateString()}: ${reason}`.trim(),
-      },
-      { session }
-    );
+    const { error: assetError } = await supabase
+      .from("assets")
+      .update({
+        status: "Ready for Scrap",
+        condition: condition,
+        notes:
+          `${asset.notes || ""}\n[AUTO] Marked for disposal on ${new Date().toLocaleDateString()}: ${reason}`.trim(),
+      })
+      .eq("id", asset.id);
+
+    if (assetError) throw assetError;
 
     // Step 4: Create disposal record
-    const disposalRecord = await DisposalRecord.create([{
-      asset_id: asset.unique_asset_id,
-      asset_name: `${asset.manufacturer} ${asset.model}`,
-      category: asset.category || asset.asset_type,
-      disposal_method: 'Scrap',
-      disposal_value: disposalValue,
-      disposal_date: new Date(),
-      approved_by: 'SYSTEM', // Automated system approval
-      approved_at: new Date(), // Auto-approved timestamp
-      status: 'pending',
-      remarks: `Automated disposal marking: ${reason}`,
-      document_reference: `AUTO-${Date.now()}-${asset.unique_asset_id}`,
-      created_by: null, // System-generated
-    }], { session });
+    const { error: disposalError } = await supabase
+      .from("disposal_records")
+      .insert({
+        asset_id: asset.unique_asset_id,
+        asset_name: `${asset.manufacturer} ${asset.model}`,
+        category: asset.category || asset.asset_type || "Other",
+        disposal_method: "Scrap",
+        disposal_value: disposalValue,
+        disposal_date: new Date().toISOString(),
+        approved_by: "SYSTEM", // Automated system approval
+        status: "pending",
+        remarks: `Automated disposal marking: ${reason}`,
+        document_reference: `AUTO-${Date.now()}-${asset.unique_asset_id}`,
+        created_by: null, // System-generated
+      });
+
+    if (disposalError) throw disposalError;
 
     // Step 5: Create audit log
-    await AuditLog.create([{
-      action: 'AUTOMATED_DISPOSAL_MARK',
-      entity_type: 'Asset',
-      entity_id: asset._id,
+    const { error: auditError } = await supabase.from("audit_logs").insert({
+      action: "AUTOMATED_DISPOSAL_MARK",
+      entity_type: "Asset",
+      entity_id: asset.id,
+      asset_id: asset.id,
       description: `Asset automatically marked for disposal. Reason: ${reason}`,
+      severity: "warning",
       changes: {
         old_status: asset.status,
-        new_status: 'Ready for Scrap',
+        new_status: "Ready for Scrap",
         depreciation_percent: Math.round(depreciationPercent),
         disposal_value: disposalValue,
       },
       performed_by: null, // System-generated
-      ip_address: 'system-automation',
-    }], { session });
+      ip_address: "system-automation",
+      timestamp: new Date().toISOString(),
+    });
+
+    if (auditError) throw auditError;
 
     // Step 6: Notify assigned user and inventory managers
-    await this.createNotifications(asset, reason, session);
+    await this.createNotifications(asset, reason);
 
     console.log(`✅ Asset ${asset.unique_asset_id} marked for disposal`);
   }
@@ -256,61 +259,74 @@ class AssetDisposalAutomation {
    */
   determineDisposalReason(asset, depreciationPercent) {
     const reasons = [];
-    
-    if (this.disposalRules.autoMarkConditions.includes(asset.condition)) {
+
+    const hasAutoCondition = this.disposalRules.autoMarkConditions.some(
+      (cond) => cond.toLowerCase() === (asset.condition || "").toLowerCase(),
+    );
+    if (hasAutoCondition) {
       reasons.push(`Condition: ${asset.condition}`);
     }
-    
+
     if (depreciationPercent >= this.disposalRules.maxDepreciationPercent) {
       reasons.push(`Depreciation: ${Math.round(depreciationPercent)}%`);
     }
-    
+
     if (asset.purchase_date) {
-      const ageInYears = ((new Date() - new Date(asset.purchase_date)) / (1000 * 60 * 60 * 24 * 365)).toFixed(1);
+      const ageInYears = (
+        (new Date() - new Date(asset.purchase_date)) /
+        (1000 * 60 * 60 * 24 * 365)
+      ).toFixed(1);
       if (ageInYears >= this.disposalRules.maxAgeInYears) {
         reasons.push(`Age: ${ageInYears} years`);
       }
     }
-    
+
     if (asset.last_audit_date) {
-      const daysSinceAudit = Math.floor((new Date() - new Date(asset.last_audit_date)) / (1000 * 60 * 60 * 24));
+      const daysSinceAudit = Math.floor(
+        (new Date() - new Date(asset.last_audit_date)) / (1000 * 60 * 60 * 24),
+      );
       if (daysSinceAudit >= this.disposalRules.minDaysSinceLastUse) {
-        reasons.push(`Not audited for ${Math.floor(daysSinceAudit / 30)} months`);
+        reasons.push(
+          `Not audited for ${Math.floor(daysSinceAudit / 30)} months`,
+        );
       }
     }
-    
-    return reasons.join(', ') || 'Automated disposal criteria met';
+
+    return reasons.join(", ") || "Automated disposal criteria met";
   }
 
   /**
    * 🔔 CREATE NOTIFICATIONS
    */
-  async createNotifications(asset, reason, session) {
+  async createNotifications(asset, reason) {
+    const supabase = getSupabase();
+
     // Find all inventory managers and admins
-    const recipients = await User.find({
-      role: { $in: ['ADMIN', 'INVENTORY_MANAGER'] },
-      is_active: true,
-    }).select('_id').lean();
+    const { data: recipients, error } = await supabase
+      .from("users")
+      .select("id")
+      .in("role", ["ADMIN", "INVENTORY_MANAGER"])
+      .eq("is_active", true);
 
-    if (recipients.length === 0) return;
+    if (error || !recipients || recipients.length === 0) return;
 
-    const notifications = recipients.map(user => ({
-      recipient: user._id,
+    const notifications = recipients.map((user) => ({
+      recipient: user.id,
       sender: null, // System-generated notification
-      title: '🤖 Asset Auto-Marked for Disposal',
+      title: "🤖 Asset Auto-Marked for Disposal",
       message: `Asset "${asset.manufacturer} ${asset.model}" (${asset.unique_asset_id}) has been automatically marked for disposal. Reason: ${reason}`,
-      type: 'warning', // Use valid enum value
-      priority: 'medium',
+      type: "warning", // Use valid enum value
+      priority: "medium",
       is_read: false,
       action_url: `/inventory/dead-stock`,
       data: {
         asset_id: asset.unique_asset_id,
-        automation_type: 'disposal_marking',
+        automation_type: "disposal_marking",
         reason: reason,
       },
     }));
 
-    await Notification.insertMany(notifications, { session });
+    await supabase.from("notifications").insert(notifications);
   }
 
   /**
@@ -319,31 +335,33 @@ class AssetDisposalAutomation {
   async notifyAdminsAboutAutomation(results) {
     if (results.success === 0) return; // No need to notify if nothing processed
 
-    const admins = await User.find({
-      role: 'ADMIN',
-      is_active: true,
-    }).select('_id').lean();
+    const supabase = getSupabase();
+    const { data: admins, error } = await supabase
+      .from("users")
+      .select("id")
+      .eq("role", "ADMIN")
+      .eq("is_active", true);
 
-    if (admins.length === 0) return;
+    if (error || !admins || admins.length === 0) return;
 
-    const notifications = admins.map(admin => ({
-      recipient: admin._id,
+    const notifications = admins.map((admin) => ({
+      recipient: admin.id,
       sender: null, // System-generated
-      title: '📊 Disposal Automation Summary',
+      title: "📊 Disposal Automation Summary",
       message: `Automated disposal check completed. ${results.success} assets marked for disposal, ${results.failed} failed.`,
-      type: 'info',
-      priority: 'low',
+      type: "info",
+      priority: "low",
       is_read: false,
-      action_url: '/inventory/disposal-records',
+      action_url: "/inventory/disposal-records",
       data: {
-        automation_type: 'summary',
+        automation_type: "summary",
         processed: results.processed,
         success: results.success,
         failed: results.failed,
       },
     }));
 
-    await Notification.insertMany(notifications);
+    await supabase.from("notifications").insert(notifications);
   }
 
   /**
@@ -351,23 +369,32 @@ class AssetDisposalAutomation {
    */
   updateRules(newRules) {
     this.disposalRules = { ...this.disposalRules, ...newRules };
-    console.log('✅ Disposal rules updated:', this.disposalRules);
+    console.log("✅ Disposal rules updated:", this.disposalRules);
   }
 
   /**
    * 📊 GET AUTOMATION STATISTICS
    */
   async getAutomationStats() {
-    const [totalAssets, eligibleAssets, disposedAssets] = await Promise.all([
-      Asset.countDocuments({ status: { $nin: ['Disposed'] } }),
-      this.findEligibleAssets().then(assets => assets.length),
-      Asset.countDocuments({ status: 'Ready for Scrap' }),
-    ]);
+    const supabase = getSupabase();
+
+    const [totalAssetsRes, eligibleAssets, disposedAssetsRes] =
+      await Promise.all([
+        supabase
+          .from("assets")
+          .select("*", { count: "exact", head: true })
+          .not("status", "eq", "Disposed"),
+        this.findEligibleAssets().then((assets) => assets.length),
+        supabase
+          .from("assets")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "Ready for Scrap"),
+      ]);
 
     return {
-      total_assets: totalAssets,
+      total_assets: totalAssetsRes.count || 0,
       eligible_for_disposal: eligibleAssets,
-      already_marked: disposedAssets,
+      already_marked: disposedAssetsRes.count || 0,
       rules: this.disposalRules,
     };
   }
