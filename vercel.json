@@ -4,6 +4,10 @@
   "outputDirectory": "frontend/dist",
   "rewrites": [
     {
+      "source": "/api/:match*",
+      "destination": "https://deadstockapp.onrender.com/api/:match*"
+    },
+    {
       "source": "/((?!assets|favicon\\.ico|logo.*\\.png|manifest\\.json|robots\\.txt).*)",
       "destination": "/index.html"
     }
